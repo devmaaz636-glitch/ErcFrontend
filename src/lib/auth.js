@@ -1,12 +1,40 @@
 import {
+  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
+import { api } from './api';
 import { auth } from './firebase';
 
-export function signInWithEmail(email, password) {
-  return signInWithEmailAndPassword(auth, email.trim(), password);
+const NEW_ACCOUNT_CODES = new Set([
+  'auth/invalid-credential',
+  'auth/user-not-found',
+  'auth/wrong-password',
+]);
+
+export async function signInWithEmail(email, password) {
+  const nextEmail = email.trim();
+  let credential;
+
+  try {
+    credential = await signInWithEmailAndPassword(auth, nextEmail, password);
+  } catch (error) {
+    if (!NEW_ACCOUNT_CODES.has(error?.code)) {
+      throw error;
+    }
+    credential = await createUserWithEmailAndPassword(auth, nextEmail, password);
+  }
+
+  const idToken = await credential.user.getIdToken();
+
+  await api
+    .post('/api/auth/session', null, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    })
+    .catch(() => {});
+
+  return credential;
 }
 
 export function sendPasswordReset(email) {
@@ -33,6 +61,10 @@ export function authErrorMessage(error) {
       return 'Check your connection and try again.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
+    case 'auth/weak-password':
+      return 'Use a password of at least 6 characters.';
+    case 'auth/email-already-in-use':
+      return 'Email or password is incorrect.';
     default:
       return 'Something went wrong. Please try again.';
   }

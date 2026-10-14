@@ -2,9 +2,8 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import { Text, useWindowDimensions, View } from 'react-native';
+import { signOutUser } from '../lib/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 
@@ -130,16 +129,14 @@ export default function SplashScreen() {
   );
 
   useEffect(() => {
-    let unsubscribe = () => {};
     const timeout = setTimeout(() => {
-      unsubscribe = onAuthStateChanged(auth, (user) => {
-        navigation.replace(user ? 'Home' : 'SignIn');
-      });
+      signOutUser()
+        .catch(() => {})
+        .finally(() => navigation.replace('SignIn'));
     }, 2000);
 
     return () => {
       clearTimeout(timeout);
-      unsubscribe();
     };
   }, [navigation]);
 

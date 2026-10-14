@@ -1,8 +1,7 @@
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -90,8 +89,8 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const signingIn = useRef(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -135,24 +134,23 @@ export default function SignInScreen() {
       return;
     }
 
-    setSubmitting(true);
+    if (signingIn.current) {
+      return;
+    }
+    signingIn.current = true;
     setError('');
     setNotice('');
     try {
       await signInWithEmail(nextEmail, password);
       await persistRememberedEmail();
       if (auth.currentUser) {
-        try {
-          await saveSignedInUser(auth.currentUser);
-        } catch {
-          // Auth succeeded. Home reports the Firestore error.
-        }
+        await saveSignedInUser(auth.currentUser).catch(() => {});
       }
-      navigation.replace('Home');
+      navigation.replace('RegionVerify');
     } catch (signInError) {
       setError(authErrorMessage(signInError));
     } finally {
-      setSubmitting(false);
+      signingIn.current = false;
     }
   }
 
@@ -334,17 +332,11 @@ export default function SignInScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={handleSignIn}
-                disabled={submitting}
                 className="h-[54px] items-center justify-center rounded-full bg-splash"
-                style={{ opacity: submitting ? 0.7 : 1 }}
               >
-                {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
-                    Sign in
-                  </Text>
-                )}
+                <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
+                  Sign in
+                </Text>
               </Pressable>
             </View>
           </View>

@@ -6,7 +6,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import SplashScreen from './src/screens/SplashScreen';
 import SignInScreen from './src/screens/SignInScreen';
+import VerifyRegionScreen from './src/screens/VerifyRegionScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import RevenueTabScreen from './src/screens/RevenueTabScreen';
 
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -32,7 +34,9 @@ export default function App() {
           >
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="SignIn" component={SignInScreen} />
-            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="RegionVerify" component={VerifyRegionScreen} />
+            <Stack.Screen name="Home" component={HomeScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="RevenueTab" component={RevenueTabScreen} options={{ animation: 'none' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </View>
