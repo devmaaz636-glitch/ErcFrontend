@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Path, Line, G, Text as SvgText } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Path, Line, G, Circle, Text as SvgText } from 'react-native-svg';
 import BottomTabBar from '../components/BottomTabBar';
 
 const BROWN = '#BF824F';
@@ -36,6 +37,12 @@ const BRANCHES = [
   { id: 1, name: 'Dubai Enfield Royal Clinic', sub: 'Revenue Rank', amount: '$65,028', change: '+8% Today', progress: 0.95 },
   { id: 2, name: 'Dubai Enfield Royal Clinic', sub: 'Revenue Rank', amount: '$60,028', change: '+8% Today', progress: 0.8 },
   { id: 3, name: 'Dubai Enfield Royal Clinic', sub: 'Revenue Rank', amount: '$55,028', change: '+8% Today', progress: 0.65 },
+];
+
+const DOCTORS = [
+  { id: 1, name: 'Dr Muhammad', specialty: 'Hair Transplant', consults: 42, score: 92 },
+  { id: 2, name: 'Dr Muhammad', specialty: 'Hair Transplant', consults: 42, score: 92 },
+  { id: 3, name: 'Dr Muhammad', specialty: 'Hair Transplant', consults: 42, score: 92 },
 ];
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -191,6 +198,66 @@ function BranchRow({ item, rank }) {
   );
 }
 
+function ScoreRing({ value, size = 34 }) {
+  const stroke = 3;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - value / 100);
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#DDF3E2" strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={GREEN}
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={`${c} ${c}`}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${size / 2}, ${size / 2}`}
+        />
+      </Svg>
+      <Text style={{ fontSize: 8, fontWeight: '700', color: INK }}>{value}%</Text>
+    </View>
+  );
+}
+
+function DoctorRow({ item }) {
+  return (
+    <View
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+    >
+      <Image
+        source={require('../../assets/doctor.png')}
+        contentFit="cover"
+        contentPosition="top"
+        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#F4EEE8' }}
+      />
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: INK }}>{item.name}</Text>
+        <Text style={{ fontSize: 9, color: MUTED, marginTop: 3 }}>
+          {item.specialty} • {item.consults} Consults
+        </Text>
+      </View>
+      <ScoreRing value={item.score} />
+      <Ionicons name="chevron-forward" size={16} color={MUTED} style={{ marginLeft: 10 }} />
+    </View>
+  );
+}
+
 /* ---------- Screen ---------- */
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -203,6 +270,7 @@ export default function HomeScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: insets.top + 12,
           paddingHorizontal: 20,
@@ -298,6 +366,9 @@ export default function HomeScreen() {
 
           {/* Doctors Performance */}
           <SectionHeader title="Doctors Performance" />
+          {DOCTORS.map((item) => (
+            <DoctorRow key={item.id} item={item} />
+          ))}
         </View>
       </ScrollView>
 

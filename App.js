@@ -9,6 +9,9 @@ import SignInScreen from './src/screens/SignInScreen';
 import VerifyRegionScreen from './src/screens/VerifyRegionScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import RevenueTabScreen from './src/screens/RevenueTabScreen';
+import AlertsTabScreen from './src/screens/AlertsTabScreen';
+import BranchesTabScreen from './src/screens/BranchesTabScreen';
+import ProfileTabScreen from './src/screens/ProfileTabScreen';
 
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -37,6 +40,9 @@ export default function App() {
             <Stack.Screen name="RegionVerify" component={VerifyRegionScreen} />
             <Stack.Screen name="Home" component={HomeScreen} options={{ animation: 'none' }} />
             <Stack.Screen name="RevenueTab" component={RevenueTabScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="AlertsTab" component={AlertsTabScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="BranchesTab" component={BranchesTabScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="ProfileTab" component={ProfileTabScreen} options={{ animation: 'none' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </View>
