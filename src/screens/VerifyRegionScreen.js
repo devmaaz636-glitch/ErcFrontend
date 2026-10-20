@@ -196,7 +196,7 @@ export default function VerifyRegionScreen() {
               className="mt-6 h-[54px] items-center justify-center rounded-full bg-splash"
             >
               <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
-                Confirm Region
+                Get Started
               </Text>
             </Pressable>
 

@@ -1,35 +1,50 @@
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Path, Line, G, Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import BottomTabBar from '../components/BottomTabBar';
+import Text from '../components/AppText';
+import UserAvatar from '../components/UserAvatar';
+import { scale as s, fs } from '../utils/responsive';
 
 const BROWN = '#BF824F';
+const BROWN_LIGHT = '#E3AB7C';
 const GREEN = '#00AD28';
 const INK = '#1F1B16';
-const MUTED = '#8D8680';
+const MUTED = '#BF824F';
 const BG = '#FFF8F1';
+const DESC = '#666666';
+
+
+const DEFAULT_USER = { name: 'Ahsan', location: 'USA', photoUrl: null };
+
+const STATS = [
+  { id: 'appointments', icon: 'calendar-outline', value: '42', label: "Today's Appointments" },
+  { id: 'upcoming', icon: 'time-outline', value: '08', label: 'Upcoming Appointments' },
+  { id: 'canceled', icon: 'document-text-outline', value: '09', label: 'Canceled Approvals' },
+  { id: 'alerts', icon: 'notifications-outline', value: '03', label: 'Clinic Alerts' },
+];
 
 const ATTENTION = [
   {
     id: 1,
     title: 'Refund Spike Detected',
     time: '5 hr ago',
-    body: 'Refunds in 18 hours have risen sharply, which is significantly 24% higher than the normal pace, indicating an unusual increase in refund transactions that may require review.',
+    body: 'Dubai Branch 18 refunds have been requested, which is approximately 3.8× ..',
   },
   {
     id: 2,
     title: 'Booking Drop Detected',
     time: '5 hr ago',
-    body: 'Bookings in 18 hours have fallen sharply, which is significantly 24% lower than the normal pace, indicating an unusual decrease in bookings that may require review.',
+    body: 'Dubai Branch 18 refunds have been requested, which is approximately 3.8× ...',
   },
   {
     id: 3,
     title: '3 Approvals Pending',
     time: '5 hr ago',
-    body: 'Refund requests above the branch limit are waiting for your approval, which is significantly 24% higher than the normal pace and may require review.',
+    body: 'Dubai Branch 18 refunds have been requested, which is approximately 3.8× ..',
   },
 ];
 
@@ -45,121 +60,86 @@ const DOCTORS = [
   { id: 3, name: 'Dr Muhammad', specialty: 'Hair Transplant', consults: 42, score: 92 },
 ];
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const CHART_POINTS = [0.55, 0.42, 0.7, 0.5, 0.78, 0.6, 0.85]; // static demo data (0-1)
-
-/* ---------- Chart ---------- */
-function RevenueChart({ width }) {
-  const height = 150;
-  const padL = 34;
-  const padB = 22;
-  const padT = 8;
-  const innerW = width - padL - 8;
-  const innerH = height - padB - padT;
-
-  const pts = CHART_POINTS.map((v, i) => ({
-    x: padL + (innerW / (CHART_POINTS.length - 1)) * i,
-    y: padT + innerH * (1 - v),
-  }));
-
-  let line = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) {
-    const midX = (pts[i - 1].x + pts[i].x) / 2;
-    line += ` C ${midX} ${pts[i - 1].y}, ${midX} ${pts[i].y}, ${pts[i].x} ${pts[i].y}`;
-  }
-  const area = `${line} L ${pts[pts.length - 1].x} ${padT + innerH} L ${pts[0].x} ${padT + innerH} Z`;
-  const yLabels = ['100K', '75K', '50K', '25K', '0'];
-
+/* ---------- Stat cards ---------- */
+function StatCard({ item }) {
+  const gradId = `grad-${item.id}`;
   return (
-    <Svg width={width} height={height}>
-      <Defs>
-        <LinearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={BROWN} stopOpacity="0.85" />
-          <Stop offset="1" stopColor={BROWN} stopOpacity="0.1" />
-        </LinearGradient>
-      </Defs>
+    <View
+      style={{
+        width: '48%',
+        minHeight: s(104),
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: s(12),
+      }}
+    >
+      <Svg width="100%" height="100%" style={{ position: 'absolute' }}>
+        <Defs>
+          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={BROWN} />
+            <Stop offset="1" stopColor={BROWN_LIGHT} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradId})`} />
+      </Svg>
 
-      {yLabels.map((label, i) => {
-        const y = padT + (innerH / (yLabels.length - 1)) * i;
-        return (
-          <G key={label}>
-            <Line x1={padL} x2={width - 8} y1={y} y2={y} stroke="#EFE6DC" strokeWidth={1} />
-            <SvgText x={padL - 6} y={y + 3} fontSize={8} fill={MUTED} textAnchor="end">
-              {label}
-            </SvgText>
-          </G>
-        );
-      })}
-
-      <Path d={area} fill="url(#area)" />
-      <Path d={line} stroke={BROWN} strokeWidth={1.5} fill="none" />
-
-      {DAYS.map((d, i) => (
-        <SvgText key={d} x={pts[i].x} y={height - 6} fontSize={8} fill={MUTED} textAnchor="middle">
-          {d}
-        </SvgText>
-      ))}
-    </Svg>
+      <View style={{ flex: 1, padding: s(14), justifyContent: 'space-between' }}>
+        <Ionicons name={item.icon} size={s(18)} color="#fff" />
+        <View style={{ marginTop: s(10) }}>
+          <Text style={{ fontSize: fs(22), fontWeight: '700', color: '#fff' }}>{item.value}</Text>
+          <Text style={{ fontSize: fs(11), color: '#fff', marginTop: 2 }} numberOfLines={2}>
+            {item.label}
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
 /* ---------- Small pieces ---------- */
 function SectionHeader({ title }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 22, marginBottom: 10 }}>
-      <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: INK }}>{title}</Text>
-      <Text style={{ fontSize: 11, color: MUTED }}>See All</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(22), marginBottom: s(10) }}>
+      <Text style={{ flex: 1, fontSize: fs(16), fontWeight: '700', color: INK }}>{title}</Text>
+      <Pressable hitSlop={10}>
+        <Text style={{ fontSize: fs(11), color: MUTED }}>See All</Text>
+      </Pressable>
     </View>
   );
 }
 
 function AttentionCard({ item }) {
   return (
-    <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 10, flexDirection: 'row' }}>
+    <View
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 14,
+        padding: s(12),
+        marginBottom: s(10),
+        flexDirection: 'row',
+      }}
+    >
       <View
         style={{
-          width: 32,
-          height: 32,
+          width: s(32),
+          height: s(32),
           borderRadius: 8,
           backgroundColor: BROWN,
           alignItems: 'center',
           justifyContent: 'center',
-          marginRight: 10,
+          marginRight: s(10),
         }}
       >
-        <Ionicons name="alert-circle-outline" size={18} color="#fff" />
+        <Ionicons name="alert-circle-outline" size={s(18)} color="#fff" />
       </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: INK }}>{item.title}</Text>
-          <Text style={{ fontSize: 9, color: MUTED }}>{item.time}</Text>
+          <Text style={{ flex: 1, fontSize: fs(12), fontWeight: '700', color: INK }}>{item.title}</Text>
+          <Text style={{ fontSize: fs(9), color: MUTED, marginLeft: 6 }}>{item.time}</Text>
         </View>
-        <Text style={{ fontSize: 9, lineHeight: 13, color: MUTED, marginTop: 4 }}>{item.body}</Text>
-        <View style={{ flexDirection: 'row', marginTop: 8 }}>
-          <Pressable
-            style={{
-              backgroundColor: BROWN,
-              paddingHorizontal: 14,
-              height: 22,
-              borderRadius: 11,
-              justifyContent: 'center',
-              marginRight: 8,
-            }}
-          >
-            <Text style={{ fontSize: 9, fontWeight: '600', color: '#fff' }}>Investigate</Text>
-          </Pressable>
-          <Pressable
-            style={{
-              backgroundColor: '#F4EEE8',
-              paddingHorizontal: 14,
-              height: 22,
-              borderRadius: 11,
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 9, fontWeight: '600', color: INK }}>Decline</Text>
-          </Pressable>
-        </View>
+        <Text style={{ fontSize: fs(9), lineHeight: fs(9) * 1.45, color: DESC, marginTop: 4 }}>
+          {item.body}
+        </Text>
       </View>
     </View>
   );
@@ -167,38 +147,40 @@ function AttentionCard({ item }) {
 
 function BranchRow({ item, rank }) {
   return (
-    <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 10 }}>
+    <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: s(12), marginBottom: s(10) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View
           style={{
-            width: 22,
-            height: 22,
-            borderRadius: 11,
+            width: s(22),
+            height: s(22),
+            borderRadius: s(11),
             backgroundColor: BROWN,
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: 10,
+            marginRight: s(10),
           }}
         >
-          <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>{rank}</Text>
+          <Text style={{ fontSize: fs(10), fontWeight: '700', color: '#fff' }}>{rank}</Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: INK }}>{item.name}</Text>
-          <Text style={{ fontSize: 9, color: MUTED, marginTop: 2 }}>{item.sub}</Text>
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <Text style={{ fontSize: fs(12), fontWeight: '700', color: INK }} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={{ fontSize: fs(9), color: MUTED, marginTop: 2 }}>{item.sub}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>{item.amount}</Text>
-          <Text style={{ fontSize: 9, color: GREEN, marginTop: 2 }}>{item.change}</Text>
+          <Text style={{ fontSize: fs(12), fontWeight: '700', color: GREEN }}>{item.amount}</Text>
+          <Text style={{ fontSize: fs(9), color: GREEN, marginTop: 2 }}>{item.change}</Text>
         </View>
       </View>
-      <View style={{ height: 5, borderRadius: 3, backgroundColor: '#F1E7DD', marginTop: 10 }}>
+      <View style={{ height: 5, borderRadius: 3, backgroundColor: '#F1E7DD', marginTop: s(10) }}>
         <View style={{ width: `${item.progress * 100}%`, height: 5, borderRadius: 3, backgroundColor: BROWN }} />
       </View>
     </View>
   );
 }
 
-function ScoreRing({ value, size = 34 }) {
+function ScoreRing({ value, size = s(34) }) {
   const stroke = 3;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -222,7 +204,7 @@ function ScoreRing({ value, size = 34 }) {
           origin={`${size / 2}, ${size / 2}`}
         />
       </Svg>
-      <Text style={{ fontSize: 8, fontWeight: '700', color: INK }}>{value}%</Text>
+      <Text style={{ fontSize: fs(8, 8), fontWeight: '700', color: INK }}>{value}%</Text>
     </View>
   );
 }
@@ -233,9 +215,9 @@ function DoctorRow({ item }) {
       style={{
         backgroundColor: '#fff',
         borderRadius: 16,
-        paddingVertical: 12,
-        paddingHorizontal: 14,
-        marginBottom: 10,
+        paddingVertical: s(12),
+        paddingHorizontal: s(14),
+        marginBottom: s(10),
         flexDirection: 'row',
         alignItems: 'center',
       }}
@@ -244,25 +226,26 @@ function DoctorRow({ item }) {
         source={require('../../assets/doctor.png')}
         contentFit="cover"
         contentPosition="top"
-        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#F4EEE8' }}
+        style={{ width: s(48), height: s(48), borderRadius: s(24), backgroundColor: '#F4EEE8' }}
       />
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: INK }}>{item.name}</Text>
-        <Text style={{ fontSize: 9, color: MUTED, marginTop: 3 }}>
+      <View style={{ flex: 1, marginLeft: s(12), marginRight: 8 }}>
+        <Text style={{ fontSize: fs(14), fontWeight: '600', color: INK }} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={{ fontSize: fs(9), color: MUTED, marginTop: 3 }} numberOfLines={1}>
           {item.specialty} • {item.consults} Consults
         </Text>
       </View>
       <ScoreRing value={item.score} />
-      <Ionicons name="chevron-forward" size={16} color={MUTED} style={{ marginLeft: 10 }} />
+      <Ionicons name="chevron-forward" size={s(16)} color={MUTED} style={{ marginLeft: s(10) }} />
     </View>
   );
 }
 
 /* ---------- Screen ---------- */
 export default function HomeScreen() {
-  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const contentWidth = Math.min(width, 480) - 40;
+  const user = DEFAULT_USER; // TODO: replace with your logged-in user
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -273,7 +256,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: insets.top + 12,
-          paddingHorizontal: 20,
+          paddingHorizontal: s(20),
           paddingBottom: insets.bottom + 110,
           alignItems: 'center',
         }}
@@ -281,27 +264,20 @@ export default function HomeScreen() {
         <View style={{ width: '100%', maxWidth: 480 }}>
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: BROWN,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>A</Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: INK }}>Hi, Ahsan 👋</Text>
+            <UserAvatar uri={user.photoUrl} size={s(40)} />
+            <View style={{ flex: 1, marginLeft: s(10) }}>
+              <Text style={{ fontSize: fs(14), fontWeight: '700', color: INK }} numberOfLines={1}>
+                Hi, {user.name} 👋
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                <Ionicons name="location-sharp" size={11} color={BROWN} />
-                <Text style={{ fontSize: 11, color: MUTED, marginLeft: 2 }}>USA</Text>
+                <Ionicons name="location-sharp" size={s(11)} color={BROWN} />
+                <Text style={{ fontSize: fs(11), color: MUTED, marginLeft: 2 }} numberOfLines={1}>
+                  {user.location}
+                </Text>
               </View>
             </View>
-            <Pressable style={{ padding: 6 }}>
-              <Ionicons name="notifications-outline" size={22} color={MUTED} />
+            <Pressable hitSlop={10} style={{ padding: 6 }}>
+              <Ionicons name="notifications-outline" size={s(22)} color={MUTED} />
             </Pressable>
           </View>
 
@@ -310,46 +286,46 @@ export default function HomeScreen() {
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              height: 46,
-              borderRadius: 23,
+              height: Math.max(44, s(46)),
+              borderRadius: 30,
               backgroundColor: '#fff',
-              paddingLeft: 18,
+              paddingLeft: s(18),
               paddingRight: 6,
-              marginTop: 18,
+              marginTop: s(18),
             }}
           >
             <TextInput
               placeholder="Search Here"
               placeholderTextColor={MUTED}
-              style={{ flex: 1, fontSize: 12, color: INK }}
+              maxFontSizeMultiplier={1.2}
+              style={{ flex: 1, fontSize: fs(12), color: INK, paddingVertical: 0 }}
             />
             <View
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
+                width: s(34),
+                height: s(34),
+                borderRadius: s(17),
                 backgroundColor: '#F4EEE8',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="search" size={16} color={BROWN} />
+              <Ionicons name="search" size={s(16)} color={BROWN} />
             </View>
           </View>
 
-          {/* Regional Overview */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 22, marginBottom: 10 }}>
-            <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: INK }}>Regional Overview</Text>
-            <Text style={{ fontSize: 10, color: MUTED, marginRight: 4 }}>USA: Houston</Text>
-            <Ionicons name="chevron-down" size={12} color={MUTED} />
-          </View>
-
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 14 }}>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: INK }}>$95,000</Text>
-            <Text style={{ fontSize: 9, color: MUTED, marginTop: 2, marginBottom: 8 }}>
-              Today's Revenue of 2 Jul Booth Bookings
-            </Text>
-            <RevenueChart width={contentWidth - 28} />
+          {/* 4 Stat Cards */}
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              marginTop: s(22),
+            }}
+          >
+            {STATS.map((item) => (
+              <StatCard key={item.id} item={item} />
+            ))}
           </View>
 
           {/* Need Attention */}
