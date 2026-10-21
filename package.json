@@ -42,9 +42,14 @@
     "zod": "^4.6.6"
   },
   "scripts": {
-    "start": "expo start --tunnel",
-    "android": "expo start --android --host lan",
-    "ios": "expo start --ios --host lan",
+    "start": "node scripts/start-expo.js lan",
+    "start:lan": "node scripts/start-expo.js lan",
+    "start:tunnel": "node scripts/start-expo.js tunnel",
+    "android": "node scripts/start-expo.js lan --android",
+    "ios": "node scripts/start-expo.js lan --ios",
+    "whoami": "expo whoami",
+    "login": "expo login",
+    "logout": "expo logout",
     "web": "expo start --web"
   },
   "private": true,

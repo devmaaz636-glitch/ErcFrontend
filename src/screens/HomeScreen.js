@@ -17,7 +17,8 @@ const MUTED = '#BF824F';
 const BG = '#FFF8F1';
 const DESC = '#666666';
 
-
+// Replace with your logged-in user (context / store / API response).
+// photoUrl is the user's own image; when empty, assets/userprofile.png is shown.
 const DEFAULT_USER = { name: 'Ahsan', location: 'USA', photoUrl: null };
 
 const STATS = [
@@ -49,9 +50,9 @@ const ATTENTION = [
 ];
 
 const BRANCHES = [
-  { id: 1, name: 'Dubai Enfield Royal Clinic', sub: 'Revenue Rank', amount: '$65,028', change: '+8% Today', progress: 0.95 },
-  { id: 2, name: 'Dubai Enfield Royal Clinic', sub: 'Revenue Rank', amount: '$60,028', change: '+8% Today', progress: 0.8 },
-  { id: 3, name: 'Dubai Enfield Royal Clinic', sub: 'Revenue Rank', amount: '$55,028', change: '+8% Today', progress: 0.65 },
+  { id: 1, name: 'Dubai Enfiled Royal Clinic', address: 'Sheiak zahid Rd', value: 109, quota: 88, progress: 0.95 },
+  { id: 2, name: 'Dubai Enfiled Royal Clinic', address: 'Sheiak zahid Rd', value: 90, quota: 88, progress: 0.9 },
+  { id: 3, name: 'Dubai Enfiled Royal Clinic', address: 'Sheiak zahid Rd', value: 70, quota: 88, progress: 0.88 },
 ];
 
 const DOCTORS = [
@@ -97,10 +98,10 @@ function StatCard({ item }) {
 }
 
 /* ---------- Small pieces ---------- */
-function SectionHeader({ title }) {
+function SectionHeader({ title, large }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(22), marginBottom: s(10) }}>
-      <Text style={{ flex: 1, fontSize: fs(16), fontWeight: '700', color: INK }}>{title}</Text>
+      <Text style={{ flex: 1, fontSize: fs(large ? 18 : 16), fontWeight: '700', color: INK }}>{title}</Text>
       <Pressable hitSlop={10}>
         <Text style={{ fontSize: fs(11), color: MUTED }}>See All</Text>
       </Pressable>
@@ -146,35 +147,83 @@ function AttentionCard({ item }) {
 }
 
 function BranchRow({ item, rank }) {
+  const rankGrad = `rank-${item.id}`;
+  const barGrad = `bar-${item.id}`;
+  const rankSize = s(24);
+
   return (
-    <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: s(12), marginBottom: s(10) }}>
+    <View
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingVertical: s(12),
+        paddingHorizontal: s(14),
+        marginBottom: s(14),
+      }}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* Rank badge */}
         <View
           style={{
-            width: s(22),
-            height: s(22),
-            borderRadius: s(11),
-            backgroundColor: BROWN,
+            width: rankSize,
+            height: rankSize,
+            borderRadius: rankSize / 2,
+            overflow: 'hidden',
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: s(10),
+            marginRight: s(12),
           }}
         >
-          <Text style={{ fontSize: fs(10), fontWeight: '700', color: '#fff' }}>{rank}</Text>
+          <Svg width={rankSize} height={rankSize} style={{ position: 'absolute' }}>
+            <Defs>
+              <LinearGradient id={rankGrad} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={BROWN} />
+                <Stop offset="1" stopColor={BROWN_LIGHT} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width={rankSize} height={rankSize} fill={`url(#${rankGrad})`} />
+          </Svg>
+          <Text style={{ fontSize: fs(11), fontWeight: '700', color: '#fff' }}>{rank}</Text>
         </View>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text style={{ fontSize: fs(12), fontWeight: '700', color: INK }} numberOfLines={1}>
+
+        {/* Name + address */}
+        <View style={{ flex: 1, marginRight: s(8) }}>
+          <Text style={{ fontSize: fs(13), fontWeight: '700', color: INK }} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={{ fontSize: fs(9), color: MUTED, marginTop: 2 }}>{item.sub}</Text>
+          <Text style={{ fontSize: fs(10), color: DESC, marginTop: 2 }} numberOfLines={1}>
+            {item.address}
+          </Text>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: fs(12), fontWeight: '700', color: GREEN }}>{item.amount}</Text>
-          <Text style={{ fontSize: fs(9), color: GREEN, marginTop: 2 }}>{item.change}</Text>
+
+        {/* Value + quota */}
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ fontSize: fs(14), fontWeight: '700', color: BROWN }}>{item.value}</Text>
+          <Text style={{ fontSize: fs(7, 7), color: GREEN, marginTop: 2 }}>{item.quota}% of Quota</Text>
         </View>
       </View>
-      <View style={{ height: 5, borderRadius: 3, backgroundColor: '#F1E7DD', marginTop: s(10) }}>
-        <View style={{ width: `${item.progress * 100}%`, height: 5, borderRadius: 3, backgroundColor: BROWN }} />
+
+      {/* Progress bar */}
+      <View
+        style={{
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: '#F3EBE3',
+          marginTop: s(10),
+          overflow: 'hidden',
+        }}
+      >
+        <View style={{ width: `${item.progress * 100}%`, height: 6 }}>
+          <Svg width="100%" height="6">
+            <Defs>
+              <LinearGradient id={barGrad} x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={BROWN} />
+                <Stop offset="1" stopColor={BROWN_LIGHT} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="6" fill={`url(#${barGrad})`} />
+          </Svg>
+        </View>
       </View>
     </View>
   );
@@ -335,7 +384,7 @@ export default function HomeScreen() {
           ))}
 
           {/* Branch Leaderboard */}
-          <SectionHeader title="Branch Leaderboard" />
+          <SectionHeader title="Branch Leaderboard" large />
           {BRANCHES.map((item, i) => (
             <BranchRow key={item.id} item={item} rank={i + 1} />
           ))}
