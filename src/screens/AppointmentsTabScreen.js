@@ -18,12 +18,12 @@ const MUTED = '#BF824F';
 const BG = '#FFF8F1';
 const DESC = '#666666';
 
-// Replace with API data
+// Replace with API data. `change` > 0 shows green ↗, `change` < 0 shows red ↘
 const STATS = [
-  { id: 'today', icon: 'calendar-outline', value: '42', label: "Today's Appointments", badge: 'NEW', trend: 'up' },
-  { id: 'upcoming', icon: 'time-outline', value: '14', label: 'Upcoming', badge: 'NEW', trend: 'up' },
-  { id: 'completed', icon: 'checkmark-done-outline', value: '12', label: 'Completed Visits', badge: 'NEW', trend: 'down' },
-  { id: 'canceled', icon: 'close-circle-outline', value: '08', label: 'Canceled Bookings', badge: 'NEW', trend: 'up' },
+  { id: 'today',     icon: 'calendar-outline', value: '42', label: "Today's Appointments", change: 33.2 },
+  { id: 'upcoming',  icon: 'calendar-outline', value: '14', label: 'Upcoming',             change: -60.2 },
+  { id: 'completed', icon: 'calendar-outline', value: '12', label: 'Completed visits',     change: -60.2 },
+  { id: 'canceled',  icon: 'calendar-outline', value: '09', label: 'Canceled bookings',    change: 10.2 },
 ];
 
 const TABS = [
@@ -50,9 +50,10 @@ const APPOINTMENTS = [
 
 /* ---------- Stat card ---------- */
 function StatCard({ item }) {
-  const up = item.trend === 'up';
+  const up = item.change >= 0;
   const tone = up ? GREEN : RED;
   const toneBg = up ? '#E6F7EA' : '#FCE8E9';
+  const iconSize = s(30);
 
   return (
     <View
@@ -60,46 +61,52 @@ function StatCard({ item }) {
         width: '48%',
         backgroundColor: '#fff',
         borderRadius: 16,
-        padding: s(12),
+        paddingVertical: s(12),
+        paddingHorizontal: s(12),
         marginBottom: s(12),
-        minHeight: s(92),
-        justifyContent: 'space-between',
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Icon in ringed circle */}
         <View
           style={{
-            width: s(26),
-            height: s(26),
-            borderRadius: 8,
-            backgroundColor: BROWN,
+            width: iconSize,
+            height: iconSize,
+            borderRadius: iconSize / 2,
+            borderWidth: 1.5,
+            borderColor: BROWN,
+            backgroundColor: '#FBEFE3',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name={item.icon} size={s(14)} color="#fff" />
+          <Ionicons name={item.icon} size={s(15)} color={BROWN} />
         </View>
+
+        {/* Change pill */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: toneBg,
-            borderRadius: 9,
-            paddingHorizontal: 7,
-            height: s(18),
+            borderRadius: 10,
+            paddingHorizontal: s(8),
+            height: s(20),
           }}
         >
-          <Text style={{ fontSize: fs(7, 7), fontWeight: '700', color: tone, marginRight: 2 }}>{item.badge}</Text>
-          <Ionicons name={up ? 'arrow-up' : 'arrow-down'} size={s(8)} color={tone} />
+          <Text style={{ fontSize: fs(8, 8), fontWeight: '600', color: tone, marginRight: 3 }}>
+            {Math.abs(item.change).toFixed(1)}%
+          </Text>
+          <Ionicons name={up ? 'trending-up' : 'trending-down'} size={s(10)} color={tone} />
         </View>
       </View>
 
-      <View style={{ marginTop: s(10) }}>
-        <Text style={{ fontSize: fs(20), fontWeight: '700', color: INK }}>{item.value}</Text>
-        <Text style={{ fontSize: fs(9), color: DESC, marginTop: 2 }} numberOfLines={1}>
-          {item.label}
-        </Text>
-      </View>
+      <Text style={{ fontSize: fs(22), fontWeight: '700', color: INK, marginTop: s(12) }}>
+        {item.value}
+      </Text>
+      <Text style={{ fontSize: fs(10), color: DESC, marginTop: 2 }} numberOfLines={1}>
+        {item.label}
+      </Text>
     </View>
   );
 }
@@ -216,7 +223,8 @@ function AppointmentCard({ item, featured }) {
 }
 
 /* ---------- Screen ---------- */
-export default function AppointmentsTabScreen() {
+// Pass `stats` and `appointments` from your API; demo data is the fallback.
+export default function AppointmentsTabScreen({ stats = STATS, appointments = APPOINTMENTS }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('canceled');
@@ -224,7 +232,7 @@ export default function AppointmentsTabScreen() {
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return APPOINTMENTS.filter(
+    return appointments.filter(
       (a) =>
         a.status === tab &&
         (!q ||
@@ -232,7 +240,7 @@ export default function AppointmentsTabScreen() {
           a.doctor.toLowerCase().includes(q) ||
           a.treatment.toLowerCase().includes(q))
     );
-  }, [tab, query]);
+  }, [appointments, tab, query]);
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -249,7 +257,7 @@ export default function AppointmentsTabScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
-          {/* Header */}
+          {/* Header: back icon, left-aligned title, bell */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable
               accessibilityRole="button"
@@ -268,8 +276,10 @@ export default function AppointmentsTabScreen() {
               <Ionicons name="chevron-back" size={s(18)} color={INK} />
             </Pressable>
 
-            <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: s(8) }}>
-              <Text style={{ fontSize: fs(15), fontWeight: '700', color: INK }}>Appointments</Text>
+            <View style={{ flex: 1, alignItems: 'flex-start', marginLeft: s(12), marginRight: s(8) }}>
+              <Text style={{ fontSize: fs(16), fontWeight: '700', color: INK }} numberOfLines={1}>
+                Appointments
+              </Text>
               <Text style={{ fontSize: fs(9), color: DESC, marginTop: 1 }} numberOfLines={1}>
                 UAE Region · Regional Admin
               </Text>
@@ -301,7 +311,7 @@ export default function AppointmentsTabScreen() {
               marginTop: s(20),
             }}
           >
-            {STATS.map((item) => (
+            {stats.map((item) => (
               <StatCard key={item.id} item={item} />
             ))}
           </View>
@@ -363,7 +373,7 @@ export default function AppointmentsTabScreen() {
         </View>
       </ScrollView>
 
-      <BottomTabBar active="Appointments" onChange={(key) => navigation.navigate(key)} />
+      <BottomTabBar active="Appointments" />
     </View>
   );
 }
