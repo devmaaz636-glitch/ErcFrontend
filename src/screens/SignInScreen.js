@@ -16,7 +16,7 @@ import { cssInterop } from 'nativewind';
 import Svg, { Circle, Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { authErrorMessage, sendPasswordReset, signInWithEmail } from '../lib/auth';
+import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { auth } from '../lib/firebase';
 import { saveSignedInUser } from '../lib/users';
 
@@ -89,10 +89,8 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const signingIn = useRef(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
 
   const logoWidth = Math.min(width * 0.68, 300);
   const logoHeight = logoWidth * (81 / 264);
@@ -124,12 +122,10 @@ export default function SignInScreen() {
   async function handleSignIn() {
     const nextEmail = email.trim();
     if (!nextEmail || !EMAIL_PATTERN.test(nextEmail)) {
-      setNotice('');
       setError('Enter a valid email address.');
       return;
     }
     if (!password) {
-      setNotice('');
       setError('Enter your password.');
       return;
     }
@@ -139,12 +135,11 @@ export default function SignInScreen() {
     }
     signingIn.current = true;
     setError('');
-    setNotice('');
     try {
       await signInWithEmail(nextEmail, password);
-      await persistRememberedEmail();
+      persistRememberedEmail().catch(() => {});
       if (auth.currentUser) {
-        await saveSignedInUser(auth.currentUser).catch(() => {});
+        saveSignedInUser(auth.currentUser).catch(() => {});
       }
       navigation.replace('RegionVerify');
     } catch (signInError) {
@@ -154,25 +149,8 @@ export default function SignInScreen() {
     }
   }
 
-  async function handleForgotPassword() {
-    const nextEmail = email.trim();
-    if (!nextEmail || !EMAIL_PATTERN.test(nextEmail)) {
-      setNotice('');
-      setError('Enter your email, then tap Forgot Password.');
-      return;
-    }
-
-    setResetting(true);
-    setError('');
-    setNotice('');
-    try {
-      await sendPasswordReset(nextEmail);
-      setNotice('Password reset email sent.');
-    } catch (resetError) {
-      setError(authErrorMessage(resetError));
-    } finally {
-      setResetting(false);
-    }
+  function handleForgotPassword() {
+    navigation.navigate('ForgotPassword', { email: email.trim() });
   }
 
   return (
@@ -308,25 +286,18 @@ export default function SignInScreen() {
                   </Text>
                 </Pressable>
 
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={handleForgotPassword}
-                  disabled={resetting}
-                >
+                <Pressable accessibilityRole="button" onPress={handleForgotPassword}>
                   <Text
                     allowFontScaling={false}
                     className="text-[14px] font-medium text-splash"
                   >
-                    {resetting ? 'Sending...' : 'Forgot Password?'}
+                    Forgot Password?
                   </Text>
                 </Pressable>
               </View>
 
               {error ? (
                 <Text className="mb-3 text-[13px] text-[#B42318]">{error}</Text>
-              ) : null}
-              {notice ? (
-                <Text className="mb-3 text-[13px] text-[#3F6B4A]">{notice}</Text>
               ) : null}
 
               <Pressable

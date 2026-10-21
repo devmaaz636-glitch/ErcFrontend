@@ -7,7 +7,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg'
 import BottomTabBar from '../components/BottomTabBar';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
-import { scale as s, fs } from '../utils/responsive';
+import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 const BROWN = '#BF824F';
 const BROWN_LIGHT = '#E3AB7C';
@@ -294,6 +294,7 @@ function DoctorRow({ item }) {
 /* ---------- Screen ---------- */
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const topPad = useTopPadding(24);
   const user = DEFAULT_USER; // TODO: replace with your logged-in user
 
   return (
@@ -304,7 +305,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingTop: insets.top + 12,
+          paddingTop: topPad,
           paddingHorizontal: s(20),
           paddingBottom: insets.bottom + 110,
           alignItems: 'center',

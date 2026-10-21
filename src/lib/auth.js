@@ -1,11 +1,15 @@
 import {
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { api } from './api';
 import { auth } from './firebase';
+import {
+  confirmNewPassword,
+  requestResetCode,
+  resetErrorMessage,
+  verifyResetCode,
+} from './passwordReset';
 
 const NEW_ACCOUNT_CODES = new Set([
   'auth/invalid-credential',
@@ -15,30 +19,27 @@ const NEW_ACCOUNT_CODES = new Set([
 
 export async function signInWithEmail(email, password) {
   const nextEmail = email.trim();
-  let credential;
 
   try {
-    credential = await signInWithEmailAndPassword(auth, nextEmail, password);
+    return await signInWithEmailAndPassword(auth, nextEmail, password);
   } catch (error) {
     if (!NEW_ACCOUNT_CODES.has(error?.code)) {
       throw error;
     }
-    credential = await createUserWithEmailAndPassword(auth, nextEmail, password);
+    return createUserWithEmailAndPassword(auth, nextEmail, password);
   }
-
-  const idToken = await credential.user.getIdToken();
-
-  await api
-    .post('/api/auth/session', null, {
-      headers: { Authorization: `Bearer ${idToken}` },
-    })
-    .catch(() => {});
-
-  return credential;
 }
 
-export function sendPasswordReset(email) {
-  return sendPasswordResetEmail(auth, email.trim());
+export function requestPasswordReset(email) {
+  return requestResetCode(email);
+}
+
+export function verifyPasswordResetCode(email, code) {
+  return verifyResetCode(email, code);
+}
+
+export function saveNewPassword(_email, password, resetToken) {
+  return confirmNewPassword(resetToken, password);
 }
 
 export function signOutUser() {
@@ -46,6 +47,11 @@ export function signOutUser() {
 }
 
 export function authErrorMessage(error) {
+  const resetMessage = resetErrorMessage(error);
+  if (error?.response?.data?.message || error?.response?.data?.error) {
+    return resetMessage;
+  }
+
   switch (error?.code) {
     case 'auth/invalid-email':
       return 'Enter a valid email address.';
@@ -62,10 +68,10 @@ export function authErrorMessage(error) {
     case 'auth/user-disabled':
       return 'This account has been disabled.';
     case 'auth/weak-password':
-      return 'Use a password of at least 6 characters.';
+      return 'Use at least 8 characters with a letter and a number.';
     case 'auth/email-already-in-use':
       return 'Email or password is incorrect.';
     default:
-      return 'Something went wrong. Please try again.';
+      return resetMessage;
   }
 }

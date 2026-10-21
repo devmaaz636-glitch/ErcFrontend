@@ -7,11 +7,10 @@ const BROWN = '#BF824F';
 const MUTED = '#8D8680';
 
 const TABS = [
-  { key: 'Home',     label: 'Home',     icon: 'home-outline',          activeIcon: 'home',          route: 'Home' },
-  { key: 'Appointments', label: 'Appointments', icon: 'calendar-outline',      activeIcon: 'calendar',      route: 'AppointmentsTab' },
-//   { key: 'Alerts',   label: 'Alerts',   icon: 'notifications-outline', activeIcon: 'notifications', route: 'AlertsTab' },
-  { key: 'Branches', label: 'Branches', icon: 'business-outline',      activeIcon: 'business',      route: 'BranchesTab' },
-  { key: 'Profile',  label: 'Profile',  icon: 'person-outline',        activeIcon: 'person',        route: 'ProfileTab' },
+  { key: 'Home',         label: 'Home',         icon: 'home-outline',            activeIcon: 'home',            route: 'Home' },
+  { key: 'Appointments', label: 'Appointments', icon: 'calendar-number-outline', activeIcon: 'calendar-number', route: 'AppointmentsTab' },
+  { key: 'Branches',     label: 'Branches',     icon: 'storefront-outline',      activeIcon: 'storefront',      route: 'BranchesTab' },
+  { key: 'Profile',      label: 'Profile',      icon: 'person-circle-outline',   activeIcon: 'person-circle',   route: 'ProfileTab' },
 ];
 
 export default function BottomTabBar({ active }) {

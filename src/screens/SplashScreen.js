@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Text, useWindowDimensions, View } from 'react-native';
 import { signOutUser } from '../lib/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
@@ -10,6 +10,11 @@ import { cssInterop } from 'nativewind';
 cssInterop(Image, { className: 'style' });
 
 const WORDMARK = 'ENFIELD ROYAL CLINICS';
+const START_ANGLE = -70; // degrees the arch starts rotated to the left
+const LOGO_DURATION = 700;
+const ARC_DELAY = 350;
+const ARC_DURATION = 1500;
+const SPLASH_TOTAL = 3200; // how long the splash stays before going to SignIn
 
 function getSplashLayout(width, height, insets) {
   const bottomInset = Math.max(insets.bottom, 10);
@@ -57,7 +62,16 @@ function getSplashLayout(width, height, insets) {
   return layout;
 }
 
-function ArchedWordmark({ layout }) {
+function ArchedWordmark({ layout, progress }) {
+  const box = layout.fontSize * 1.7;
+
+  // Square container centered on the arc's center, so rotating it
+  // swings every letter around the arc like a wheel.
+  const reach = layout.glyphRadius + box;
+  const size = reach * 2;
+  const originX = layout.centerX - reach;
+  const originY = layout.centerY - reach;
+
   const letters = useMemo(() => {
     const chars = WORDMARK.split('');
     const weights = chars.map((char) => (char === ' ' ? 1.45 : 1));
@@ -74,49 +88,70 @@ function ArchedWordmark({ layout }) {
       return {
         key: `${char}-${index}`,
         char,
-        x,
-        y,
+        x: x - originX,
+        y: y - originY,
         deg: (theta * 180) / Math.PI,
       };
     });
-  }, [layout]);
+  }, [layout, originX, originY]);
 
-  const box = layout.fontSize * 1.7;
-
-  return letters.map((letter) => {
-    if (letter.char === ' ') {
-      return null;
-    }
-
-    return (
-      <View
-        key={letter.key}
-        pointerEvents="none"
-        accessible={false}
-        importantForAccessibility="no"
-        className="absolute items-center justify-center"
-        style={{
-          left: letter.x - box / 2,
-          top: letter.y - box / 2,
-          width: box,
-          height: box,
-          transform: [{ rotate: `${letter.deg}deg` }],
-        }}
-      >
-        <Text
-          allowFontScaling={false}
-          className="text-center font-medium text-white"
-          style={{
-            fontSize: layout.fontSize,
-            includeFontPadding: false,
-            textAlignVertical: 'center',
-          }}
-        >
-          {letter.char}
-        </Text>
-      </View>
-    );
+  const rotate = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [`${START_ANGLE}deg`, '0deg'],
   });
+  const opacity = progress.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 1, 1],
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        position: 'absolute',
+        left: originX,
+        top: originY,
+        width: size,
+        height: size,
+        opacity,
+        transform: [{ rotate }],
+      }}
+    >
+      {letters.map((letter) => {
+        if (letter.char === ' ') {
+          return null;
+        }
+
+        return (
+          <View
+            key={letter.key}
+            className="absolute items-center justify-center"
+            style={{
+              left: letter.x - box / 2,
+              top: letter.y - box / 2,
+              width: box,
+              height: box,
+              transform: [{ rotate: `${letter.deg}deg` }],
+            }}
+          >
+            <Text
+              allowFontScaling={false}
+              className="text-center font-medium text-white"
+              style={{
+                fontSize: layout.fontSize,
+                includeFontPadding: false,
+                textAlignVertical: 'center',
+              }}
+            >
+              {letter.char}
+            </Text>
+          </View>
+        );
+      })}
+    </Animated.View>
+  );
 }
 
 export default function SplashScreen() {
@@ -128,17 +163,43 @@ export default function SplashScreen() {
     [width, height, insets]
   );
 
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const arcAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
+    const animation = Animated.parallel([
+      Animated.timing(logoAnim, {
+        toValue: 1,
+        duration: LOGO_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(arcAnim, {
+        toValue: 1,
+        delay: ARC_DELAY,
+        duration: ARC_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+    animation.start();
+
     const timeout = setTimeout(() => {
       signOutUser()
         .catch(() => {})
         .finally(() => navigation.replace('SignIn'));
-    }, 2000);
+    }, SPLASH_TOTAL);
 
     return () => {
+      animation.stop();
       clearTimeout(timeout);
     };
-  }, [navigation]);
+  }, [navigation, logoAnim, arcAnim]);
+
+  const logoScale = logoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.85, 1],
+  });
 
   return (
     <View
@@ -151,15 +212,19 @@ export default function SplashScreen() {
         pointerEvents="none"
         className="absolute inset-0 items-center justify-center"
       >
-        <Image
-          source={require('../../assets/splashlogo.png')}
-          contentFit="contain"
-          accessibilityLabel="Enfield Royal Clinics"
-          className="self-center"
-          style={{ width: layout.logoSize, height: layout.logoSize }}
-        />
+        <Animated.View
+          style={{ opacity: logoAnim, transform: [{ scale: logoScale }] }}
+        >
+          <Image
+            source={require('../../assets/splashlogo.png')}
+            contentFit="contain"
+            accessibilityLabel="Enfield Royal Clinics"
+            className="self-center"
+            style={{ width: layout.logoSize, height: layout.logoSize }}
+          />
+        </Animated.View>
       </View>
-      <ArchedWordmark layout={layout} />
+      <ArchedWordmark layout={layout} progress={arcAnim} />
     </View>
   );
 }

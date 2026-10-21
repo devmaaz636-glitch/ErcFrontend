@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import BottomTabBar from '../components/BottomTabBar';
 import Text from '../components/AppText';
-import { scale as s, fs } from '../utils/responsive';
+import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 const BROWN = '#BF824F';
 const BROWN_LIGHT = '#E3AB7C';
@@ -227,6 +227,7 @@ function AppointmentCard({ item, featured }) {
 export default function AppointmentsTabScreen({ stats = STATS, appointments = APPOINTMENTS }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const topPad = useTopPadding(24);
   const [tab, setTab] = useState('canceled');
   const [query, setQuery] = useState('');
 
@@ -250,7 +251,7 @@ export default function AppointmentsTabScreen({ stats = STATS, appointments = AP
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingTop: insets.top + 12,
+          paddingTop: topPad,
           paddingHorizontal: s(20),
           paddingBottom: insets.bottom + 110,
           alignItems: 'center',

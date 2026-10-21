@@ -11,7 +11,6 @@ export const scale = (size) =>
 export const fs = (size, min = 10) =>
   Math.round(Math.max(size + (scale(size) - size) * 0.5, min));
 
-// Top padding for every screen: status bar / notch height plus extra breathing room
 export const useTopPadding = (extra = 24) => {
   const insets = useSafeAreaInsets();
   const androidBar = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;

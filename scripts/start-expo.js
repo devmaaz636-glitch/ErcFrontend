@@ -40,6 +40,7 @@ const host = pickLanIp();
 
 if (mode === 'lan') {
   env.REACT_NATIVE_PACKAGER_HOSTNAME = host;
+  env.EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${host}:4000`;
 }
 
 console.log('');

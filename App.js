@@ -1,16 +1,26 @@
 import './global.css';
-import { View } from 'react-native';
+import { LogBox, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import SplashScreen from './src/screens/SplashScreen';
 import SignInScreen from './src/screens/SignInScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ForgotPasswordCodeScreen from './src/screens/ForgotPasswordCodeScreen';
+import ForgotPasswordNewScreen from './src/screens/ForgotPasswordNewScreen';
 import VerifyRegionScreen from './src/screens/VerifyRegionScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import AppointmentsTabScreen from './src/screens/AppointmentsTabScreen';
 import BranchesTabScreen from './src/screens/BranchesTabScreen';
 import ProfileTabScreen from './src/screens/ProfileTabScreen';
+
+LogBox.ignoreLogs([
+  'Splashscreen.setOptions',
+  'SafeAreaView has been deprecated',
+  'Non-serializable values were found in the navigation state',
+  'AsyncStorage has been extracted',
+]);
 
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -36,6 +46,21 @@ export default function App() {
           >
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="SignIn" component={SignInScreen} />
+            <Stack.Screen
+              name="ForgotPassword"
+              component={ForgotPasswordScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="ForgotPasswordCode"
+              component={ForgotPasswordCodeScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="ForgotPasswordNew"
+              component={ForgotPasswordNewScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
             <Stack.Screen name="RegionVerify" component={VerifyRegionScreen} />
             <Stack.Screen name="Home" component={HomeScreen} options={{ animation: 'none' }} />
            <Stack.Screen name="AppointmentsTab" component={AppointmentsTabScreen} />

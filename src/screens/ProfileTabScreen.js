@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomTabBar from '../components/BottomTabBar';
+import { useTopPadding } from '../utils/responsive';
 
 const BROWN = '#BF824F';
 const INK = '#1F1B16';
@@ -102,6 +103,7 @@ function ActionRow({ label, icon, onPress }) {
 export default function ProfileTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const topPad = useTopPadding(24);
 
   function logout() {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -121,7 +123,7 @@ export default function ProfileTabScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingTop: insets.top + 12,
+          paddingTop: topPad,
           paddingHorizontal: 20,
           paddingBottom: insets.bottom + 110,
           alignItems: 'center',
