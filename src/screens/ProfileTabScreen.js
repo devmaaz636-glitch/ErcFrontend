@@ -1,10 +1,11 @@
+import { useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Image } from 'expo-image';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomTabBar from '../components/BottomTabBar';
+import UserAvatar from '../components/UserAvatar';
 import { useTopPadding } from '../utils/responsive';
 
 const BROWN = '#BF824F';
@@ -12,24 +13,13 @@ const INK = '#1F1B16';
 const MUTED = '#8D8680';
 const BG = '#FFF8F1';
 
-// static demo data
-const USER = {
+const DEFAULT_USER = {
   name: 'Ahsan Jamal',
   email: 'ahsanadmin@gmail.com',
   role: 'Admin',
   region: 'USA',
+  photoUrl: null,
 };
-
-// Put your profile photo in assets and use: require('../../assets/profile.png')
-// While this is null, a brown circle with the user's initial is shown.
-const PROFILE_IMAGE = null;
-
-const INFO = [
-  { label: 'Full Name', value: USER.name },
-  { label: 'Primary Email', value: USER.email },
-  { label: 'Role', value: USER.role },
-  { label: 'Assigned Region', value: USER.region },
-];
 
 const SETTINGS = [
   { key: 'edit', label: 'Edit Profile', icon: 'person-outline' },
@@ -102,8 +92,19 @@ function ActionRow({ label, icon, onPress }) {
 /* ---------- Screen ---------- */
 export default function ProfileTabScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
+  const user = useMemo(
+    () => ({ ...DEFAULT_USER, ...(route.params?.user || {}) }),
+    [route.params?.user]
+  );
+  const info = [
+    { label: 'Full Name', value: user.name },
+    { label: 'Primary Email', value: user.email },
+    { label: 'Role', value: user.role },
+    { label: 'Assigned Region', value: user.region },
+  ];
 
   function logout() {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -114,6 +115,12 @@ export default function ProfileTabScreen() {
         onPress: () => navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] }),
       },
     ]);
+  }
+
+  function onSettingPress(key) {
+    if (key === 'edit') {
+      navigation.navigate('EditProfile', { user });
+    }
   }
 
   return (
@@ -164,41 +171,26 @@ export default function ProfileTabScreen() {
 
           {/* Avatar */}
           <View style={{ alignItems: 'center', marginTop: 18 }}>
-            {PROFILE_IMAGE ? (
-              <Image
-                source={PROFILE_IMAGE}
-                contentFit="cover"
-                contentPosition="top"
-                style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: '#F4EEE8' }}
-              />
-            ) : (
-              <View
-                style={{
-                  width: 104,
-                  height: 104,
-                  borderRadius: 52,
-                  backgroundColor: BROWN,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 40, fontWeight: '700', color: '#fff' }}>{USER.name.charAt(0)}</Text>
-              </View>
-            )}
-            <Text style={{ fontSize: 14, fontWeight: '700', color: INK, marginTop: 12 }}>{USER.name}</Text>
-            <Text style={{ fontSize: 8, color: MUTED, marginTop: 2 }}>{USER.role}</Text>
+            <UserAvatar uri={user.photoUrl} size={104} />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: INK, marginTop: 12 }}>{user.name}</Text>
+            <Text style={{ fontSize: 8, color: MUTED, marginTop: 2 }}>{user.role}</Text>
           </View>
 
           {/* Account Information */}
           <SectionTitle title="Account Information" />
-          {INFO.map((row) => (
+          {info.map((row) => (
             <InfoRow key={row.label} label={row.label} value={row.value} />
           ))}
 
           {/* Account Setting */}
           <SectionTitle title="Account Setting" />
           {SETTINGS.map((row) => (
-            <ActionRow key={row.key} label={row.label} icon={row.icon} />
+            <ActionRow
+              key={row.key}
+              label={row.label}
+              icon={row.icon}
+              onPress={() => onSettingPress(row.key)}
+            />
           ))}
 
           {/* Audit & Activity */}

@@ -15,6 +15,7 @@ import AppointmentsTabScreen from './src/screens/AppointmentsTabScreen';
 import BranchesTabScreen from './src/screens/BranchesTabScreen';
 import BranchDetailScreen from './src/screens/BranchDetailScreen';
 import ProfileTabScreen from './src/screens/ProfileTabScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 
 LogBox.ignoreLogs([
   'Splashscreen.setOptions',
@@ -72,6 +73,11 @@ export default function App() {
               options={{ animation: 'slide_from_right' }}
             />
             <Stack.Screen name="ProfileTab" component={ProfileTabScreen} options={{ animation: 'none' }} />
+            <Stack.Screen
+              name="EditProfile"
+              component={EditProfileScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
       </View>
