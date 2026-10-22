@@ -16,6 +16,8 @@ import BranchesTabScreen from './src/screens/BranchesTabScreen';
 import BranchDetailScreen from './src/screens/BranchDetailScreen';
 import ProfileTabScreen from './src/screens/ProfileTabScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 LogBox.ignoreLogs([
   'Splashscreen.setOptions',
@@ -76,6 +78,16 @@ export default function App() {
             <Stack.Screen
               name="EditProfile"
               component={EditProfileScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="SecurityPrivacy"
+              component={SecurityPrivacyScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
               options={{ animation: 'slide_from_right' }}
             />
           </Stack.Navigator>

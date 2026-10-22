@@ -27,8 +27,6 @@ const SETTINGS = [
   { key: 'notification', label: 'Notification', icon: 'notifications-outline' },
 ];
 
-const AUDIT = [{ key: 'audit', label: 'Audit Feed', icon: 'document-text-outline' }];
-
 /* ---------- Pieces ---------- */
 function SectionTitle({ title }) {
   return <Text style={{ fontSize: 13, fontWeight: '700', color: INK, marginTop: 22, marginBottom: 10 }}>{title}</Text>;
@@ -120,6 +118,14 @@ export default function ProfileTabScreen() {
   function onSettingPress(key) {
     if (key === 'edit') {
       navigation.navigate('EditProfile', { user });
+      return;
+    }
+    if (key === 'security') {
+      navigation.navigate('SecurityPrivacy', { user, email: user.email });
+      return;
+    }
+    if (key === 'notification') {
+      navigation.navigate('Notifications', { user });
     }
   }
 
@@ -191,12 +197,6 @@ export default function ProfileTabScreen() {
               icon={row.icon}
               onPress={() => onSettingPress(row.key)}
             />
-          ))}
-
-          {/* Audit & Activity */}
-          <SectionTitle title="Audit & Activity" />
-          {AUDIT.map((row) => (
-            <ActionRow key={row.key} label={row.label} icon={row.icon} />
           ))}
 
           {/* Logout */}

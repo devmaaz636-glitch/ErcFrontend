@@ -14,8 +14,9 @@ import { scale as s, fs, useTopPadding } from '../utils/responsive';
 export const BROWN = '#BF824F';
 export const INK = '#1A1614';
 export const MUTED = '#8D8680';
-export const FIELD = '#F3EFEA';
-export const BG = '#FFFFFF';
+export const FIELD = '#FFFFFF';
+export const BG = '#FFF8F1';
+export const FIELD_MUTED = '#F3EFEA';
 
 export function ClearIcon({ onPress }) {
   return (
@@ -72,11 +73,19 @@ export function Field({
   );
 }
 
-export function ForgotPasswordShell({ onBack, children, footer }) {
+export function ForgotPasswordShell({
+  onBack,
+  children,
+  footer,
+  headerTitle = 'Change Password',
+  showHero = true,
+  showBell = false,
+  backgroundColor = BG,
+}) {
   const topPad = useTopPadding(16);
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor }}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -102,35 +111,54 @@ export function ForgotPasswordShell({ onBack, children, footer }) {
                   width: s(36),
                   height: s(36),
                   borderRadius: s(18),
-                  zIndex: 2,
+                  backgroundColor: '#fff',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name="chevron-back" size={s(22)} color={INK} />
+                <Ionicons name="chevron-back" size={s(18)} color={INK} />
               </Pressable>
               <Text
-                pointerEvents="none"
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  textAlign: 'center',
+                  flex: 1,
+                  marginLeft: s(12),
                   fontSize: fs(16),
                   fontWeight: '700',
                   color: INK,
                 }}
+                numberOfLines={1}
               >
-                Change Password
+                {headerTitle}
               </Text>
+              {showBell ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Notifications"
+                  hitSlop={8}
+                  style={{
+                    width: s(36),
+                    height: s(36),
+                    borderRadius: s(18),
+                    backgroundColor: '#fff',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
+                </Pressable>
+              ) : null}
             </View>
 
-            <Text style={{ fontSize: fs(22), fontWeight: '700', color: INK }}>Forgot Password</Text>
-            <Text style={{ marginTop: s(8), fontSize: fs(13), lineHeight: 20, color: MUTED }}>
-              Please enter the email address below to verify your account
-            </Text>
+            {showHero ? (
+              <>
+                <Text style={{ fontSize: fs(22), fontWeight: '700', color: INK }}>Forgot Password</Text>
+                <Text style={{ marginTop: s(8), fontSize: fs(13), lineHeight: 20, color: MUTED }}>
+                  Please enter the email address below to verify your account
+                </Text>
+              </>
+            ) : null}
 
-            <View style={{ marginTop: s(28) }}>{children}</View>
+            <View style={{ marginTop: showHero ? s(28) : 0 }}>{children}</View>
             {footer}
           </View>
         </ScrollView>

@@ -15,9 +15,9 @@ import {
 } from '../components/ForgotPasswordShell';
 import { scale as s, fs } from '../utils/responsive';
 
-function SuccessModal({ visible, onSignIn }) {
+function SuccessModal({ visible, onDone, buttonLabel }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onSignIn}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
       <View
         style={{
           flex: 1,
@@ -41,7 +41,7 @@ function SuccessModal({ visible, onSignIn }) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close"
-            onPress={onSignIn}
+            onPress={onDone}
             hitSlop={10}
             style={{ alignSelf: 'flex-end' }}
           >
@@ -82,7 +82,7 @@ function SuccessModal({ visible, onSignIn }) {
 
           <Pressable
             accessibilityRole="button"
-            onPress={onSignIn}
+            onPress={onDone}
             style={{
               height: s(50),
               borderRadius: 999,
@@ -91,7 +91,7 @@ function SuccessModal({ visible, onSignIn }) {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>Back To Sign In</Text>
+            <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>{buttonLabel}</Text>
           </Pressable>
         </View>
       </View>
@@ -104,6 +104,10 @@ export default function ForgotPasswordNewScreen() {
   const route = useRoute();
   const email = route.params?.email || '';
   const resetToken = route.params?.resetToken || '';
+  const from = route.params?.from || 'signin';
+  const headerTitle = route.params?.headerTitle || 'Change Password';
+  const showBell = from === 'security';
+  const fromSecurity = from === 'security';
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -113,13 +117,20 @@ export default function ForgotPasswordNewScreen() {
   const [successOpen, setSuccessOpen] = useState(false);
   const busy = useRef(false);
 
-  function goToSignIn() {
+  function finish() {
+    if (fromSecurity) {
+      navigation.reset({
+        index: 1,
+        routes: [{ name: 'Home' }, { name: 'ProfileTab' }],
+      });
+      return;
+    }
     navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
   }
 
   async function onSave() {
     if (!email || !resetToken) {
-      navigation.replace('ForgotPassword');
+      navigation.replace('ForgotPassword', { from, headerTitle });
       return;
     }
     const problem = passwordProblem(password);
@@ -146,7 +157,11 @@ export default function ForgotPasswordNewScreen() {
 
   return (
     <>
-      <ForgotPasswordShell onBack={() => navigation.goBack()}>
+      <ForgotPasswordShell
+        onBack={() => navigation.goBack()}
+        headerTitle={headerTitle}
+        showBell={showBell}
+      >
         <Field
           label="New Password"
           value={password}
@@ -193,7 +208,11 @@ export default function ForgotPasswordNewScreen() {
         <PrimaryButton label="Save" onPress={onSave} />
       </ForgotPasswordShell>
 
-      <SuccessModal visible={successOpen} onSignIn={goToSignIn} />
+      <SuccessModal
+        visible={successOpen}
+        onDone={finish}
+        buttonLabel={fromSecurity ? 'Back To Profile' : 'Back To Sign In'}
+      />
     </>
   );
 }

@@ -303,28 +303,23 @@ export default function EditProfileScreen() {
                   backgroundColor: '#fff',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  zIndex: 2,
                 }}
               >
                 <Ionicons name="chevron-back" size={s(18)} color={INK} />
               </Pressable>
 
               <Text
-                pointerEvents="none"
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  textAlign: 'center',
+                  flex: 1,
+                  marginLeft: s(12),
                   fontSize: fs(16),
                   fontWeight: '700',
                   color: INK,
                 }}
+                numberOfLines={1}
               >
                 Edit Profile
               </Text>
-
-              <View style={{ flex: 1 }} />
 
               <Pressable
                 accessibilityRole="button"
