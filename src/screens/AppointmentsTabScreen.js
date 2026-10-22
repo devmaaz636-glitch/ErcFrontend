@@ -39,13 +39,118 @@ const STATUS = {
 };
 
 const APPOINTMENTS = [
-  { id: 1, patient: 'Ahsan Jamal', code: 'APT-0001', treatment: 'Hair Treatment', time: '09:00 AM', doctor: 'Dr. Sarah', status: 'canceled' },
-  { id: 2, patient: 'Ahsan Jamal', code: 'APT-0002', treatment: 'Hair Treatment', time: '09:00 AM', doctor: 'Dr. Sarah', status: 'canceled' },
-  { id: 3, patient: 'Ahsan Jamal', code: 'APT-0003', treatment: 'Hair Treatment', time: '09:00 AM', doctor: 'Dr. Sarah', status: 'canceled' },
-  { id: 4, patient: 'Ahsan Jamal', code: 'APT-0004', treatment: 'Hair Treatment', time: '10:30 AM', doctor: 'Dr. Sarah', status: 'upcoming' },
-  { id: 5, patient: 'Ahsan Jamal', code: 'APT-0005', treatment: 'Hair Treatment', time: '11:00 AM', doctor: 'Dr. Sarah', status: 'upcoming' },
-  { id: 6, patient: 'Ahsan Jamal', code: 'APT-0006', treatment: 'Hair Treatment', time: '01:00 PM', doctor: 'Dr. Sarah', status: 'completed' },
-  { id: 7, patient: 'Ahsan Jamal', code: 'APT-0007', treatment: 'Hair Treatment', time: '02:30 PM', doctor: 'Dr. Sarah', status: 'completed' },
+  {
+    id: 1,
+    patient: 'Ahsan Jamal',
+    patientId: 'PT-2061',
+    code: 'APT-0001',
+    treatment: 'Hair Treatment',
+    department: 'Hair Restoration',
+    time: '09:00 AM',
+    doctor: 'Dr. Sarah',
+    doctorSpecialty: 'Hair Specialist',
+    clinic: 'Dubai Clinic',
+    status: 'canceled',
+    paymentStatus: 'refunded',
+    date: '2026-10-18',
+    bookingDate: '2026-10-14',
+  },
+  {
+    id: 2,
+    patient: 'Patient B',
+    patientId: 'PT-2064',
+    code: 'APT-1043',
+    treatment: 'Dermatology Consultation',
+    department: 'Dermatology',
+    time: '11:00 AM',
+    doctor: 'Dr. Ali Khan',
+    doctorSpecialty: 'Dermatologist',
+    clinic: 'Dubai Clinic',
+    status: 'upcoming',
+    paymentStatus: 'paid',
+    date: '2026-10-19',
+    bookingDate: '2026-10-16',
+  },
+  {
+    id: 3,
+    patient: 'Sara Ahmed',
+    patientId: 'PT-2070',
+    code: 'APT-0003',
+    treatment: 'Laser Session',
+    department: 'Laser',
+    time: '09:00 AM',
+    doctor: 'Dr. Nora',
+    doctorSpecialty: 'Laser Specialist',
+    clinic: 'Riyadh Clinic',
+    status: 'canceled',
+    paymentStatus: 'refunded',
+    date: '2026-10-17',
+    bookingDate: '2026-10-12',
+  },
+  {
+    id: 4,
+    patient: 'Ahsan Jamal',
+    patientId: 'PT-2061',
+    code: 'APT-0004',
+    treatment: 'Hair Treatment',
+    department: 'Hair Restoration',
+    time: '10:30 AM',
+    doctor: 'Dr. Sarah',
+    doctorSpecialty: 'Hair Specialist',
+    clinic: 'Dubai Clinic',
+    status: 'upcoming',
+    paymentStatus: 'pending',
+    date: '2026-10-20',
+    bookingDate: '2026-10-15',
+  },
+  {
+    id: 5,
+    patient: 'Omar Khan',
+    patientId: 'PT-2088',
+    code: 'APT-0005',
+    treatment: 'Dermatology Consultation',
+    department: 'Dermatology',
+    time: '11:00 AM',
+    doctor: 'Dr. Ali Khan',
+    doctorSpecialty: 'Dermatologist',
+    clinic: 'Abu Dhabi Clinic',
+    status: 'upcoming',
+    paymentStatus: 'paid',
+    date: '2026-10-21',
+    bookingDate: '2026-10-18',
+  },
+  {
+    id: 6,
+    patient: 'Ahsan Jamal',
+    patientId: 'PT-2061',
+    code: 'APT-0006',
+    treatment: 'Hair Treatment',
+    department: 'Hair Restoration',
+    time: '01:00 PM',
+    doctor: 'Dr. Sarah',
+    doctorSpecialty: 'Hair Specialist',
+    clinic: 'Dubai Clinic',
+    status: 'completed',
+    paymentStatus: 'paid',
+    date: '2026-10-10',
+    bookingDate: '2026-10-05',
+  },
+  {
+    id: 7,
+    patient: 'Lina Farooq',
+    patientId: 'PT-2091',
+    code: 'APT-0007',
+    treatment: 'Dental Checkup',
+    department: 'Dental',
+    time: '02:30 PM',
+    doctor: 'Dr. Hassan',
+    doctorSpecialty: 'Dentist',
+    clinic: 'Sharjah Clinic',
+    status: 'completed',
+    paymentStatus: 'paid',
+    date: '2026-10-11',
+    bookingDate: '2026-10-07',
+  },
 ];
 
 /* ---------- Stat card ---------- */
@@ -149,7 +254,7 @@ function FilterTabs({ active, onChange }) {
 }
 
 /* ---------- Appointment card ---------- */
-function AppointmentCard({ item, featured }) {
+function AppointmentCard({ item, featured, onPress }) {
   const gradId = `appt-${item.id}`;
   const st = STATUS[item.status];
 
@@ -157,7 +262,9 @@ function AppointmentCard({ item, featured }) {
   const subColor = featured ? 'rgba(255,255,255,0.85)' : DESC;
 
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
       style={{
         borderRadius: 16,
         overflow: 'hidden',
@@ -218,7 +325,7 @@ function AppointmentCard({ item, featured }) {
           </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -368,7 +475,14 @@ export default function AppointmentsTabScreen({ stats = STATS, appointments = AP
                 <Text style={{ fontSize: fs(11), color: DESC, marginTop: 8 }}>No appointments found</Text>
               </View>
             ) : (
-              list.map((item, i) => <AppointmentCard key={item.id} item={item} featured={i === 0} />)
+              list.map((item, i) => (
+                <AppointmentCard
+                  key={item.id}
+                  item={item}
+                  featured={i === 0}
+                  onPress={() => navigation.navigate('AppointmentDetail', { appointment: item })}
+                />
+              ))
             )}
           </View>
         </View>
