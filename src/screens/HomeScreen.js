@@ -326,8 +326,20 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
-            <Pressable hitSlop={10} style={{ padding: 6 }}>
-              <Ionicons name="notifications-outline" size={s(22)} color={MUTED} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              hitSlop={8}
+              style={{
+                width: s(36),
+                height: s(36),
+                borderRadius: s(18),
+                backgroundColor: '#fff',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
             </Pressable>
           </View>
 

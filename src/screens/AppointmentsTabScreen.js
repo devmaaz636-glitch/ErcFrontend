@@ -299,7 +299,7 @@ export default function AppointmentsTabScreen({ stats = STATS, appointments = AP
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="notifications-outline" size={s(18)} color={MUTED} />
+              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
             </Pressable>
           </View>
 
