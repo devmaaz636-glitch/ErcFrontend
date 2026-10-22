@@ -1,42 +1,36 @@
-import { useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomTabBar from '../components/BottomTabBar';
 import UserAvatar from '../components/UserAvatar';
+import { IconCircleButton, PrimaryButton } from '../components/ui';
+import { useSession } from '../context/SessionContext';
+import { signOutUser } from '../lib/auth';
+import { colors, spacing } from '../theme';
 import { useTopPadding } from '../utils/responsive';
-
-const BROWN = '#BF824F';
-const INK = '#1F1B16';
-const MUTED = '#8D8680';
-const BG = '#FFF8F1';
-
-const DEFAULT_USER = {
-  name: 'Ahsan Jamal',
-  email: 'ahsanadmin@gmail.com',
-  role: 'Admin',
-  region: 'USA',
-  photoUrl: null,
-};
 
 const SETTINGS = [
   { key: 'edit', label: 'Edit Profile', icon: 'person-outline' },
   { key: 'security', label: 'Security & Privacy', icon: 'shield-checkmark-outline' },
   { key: 'notification', label: 'Notification', icon: 'notifications-outline' },
+  { key: 'managers', label: 'Clinic Managers', icon: 'people-outline' },
 ];
 
-/* ---------- Pieces ---------- */
 function SectionTitle({ title }) {
-  return <Text style={{ fontSize: 13, fontWeight: '700', color: INK, marginTop: 22, marginBottom: 10 }}>{title}</Text>;
+  return (
+    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink, marginTop: 22, marginBottom: 10 }}>
+      {title}
+    </Text>
+  );
 }
 
 function InfoRow({ label, value }) {
   return (
-    <Pressable
+    <View
       style={{
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 12,
         paddingVertical: 12,
         paddingHorizontal: 14,
@@ -46,11 +40,11 @@ function InfoRow({ label, value }) {
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 10, fontWeight: '600', color: INK }}>{label}</Text>
-        <Text style={{ fontSize: 9, color: MUTED, marginTop: 3 }}>{value}</Text>
+        <Text style={{ fontSize: 10, fontWeight: '600', color: colors.ink }}>{label}</Text>
+        <Text style={{ fontSize: 9, color: colors.muted, marginTop: 3 }}>{value || '—'}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={14} color={MUTED} />
-    </Pressable>
+      <Ionicons name="chevron-forward" size={14} color={colors.muted} />
+    </View>
   );
 }
 
@@ -59,7 +53,7 @@ function ActionRow({ label, icon, onPress }) {
     <Pressable
       onPress={onPress}
       style={{
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 12,
@@ -73,35 +67,31 @@ function ActionRow({ label, icon, onPress }) {
           width: 28,
           height: 28,
           borderRadius: 14,
-          backgroundColor: BROWN,
+          backgroundColor: colors.brand,
           alignItems: 'center',
           justifyContent: 'center',
           marginRight: 12,
         }}
       >
-        <Ionicons name={icon} size={14} color="#fff" />
+        <Ionicons name={icon} size={14} color={colors.white} />
       </View>
-      <Text style={{ flex: 1, fontSize: 11, fontWeight: '600', color: INK }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={14} color={MUTED} />
+      <Text style={{ flex: 1, fontSize: 11, fontWeight: '600', color: colors.ink }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={14} color={colors.muted} />
     </Pressable>
   );
 }
 
-/* ---------- Screen ---------- */
 export default function ProfileTabScreen() {
   const navigation = useNavigation();
-  const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const user = useMemo(
-    () => ({ ...DEFAULT_USER, ...(route.params?.user || {}) }),
-    [route.params?.user]
-  );
+  const { user, region, clearSession } = useSession();
+
   const info = [
     { label: 'Full Name', value: user.name },
     { label: 'Primary Email', value: user.email },
     { label: 'Role', value: user.role },
-    { label: 'Assigned Region', value: user.region },
+    { label: 'Assigned Region', value: region?.name || user.region },
   ];
 
   function logout() {
@@ -110,7 +100,15 @@ export default function ProfileTabScreen() {
       {
         text: 'Log out',
         style: 'destructive',
-        onPress: () => navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] }),
+        onPress: async () => {
+          try {
+            await signOutUser();
+          } catch {
+            /* still clear local session */
+          }
+          await clearSession();
+          navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
+        },
       },
     ]);
   }
@@ -126,69 +124,58 @@ export default function ProfileTabScreen() {
     }
     if (key === 'notification') {
       navigation.navigate('Notifications', { user });
+      return;
+    }
+    if (key === 'managers') {
+      navigation.navigate('ClinicManagers');
     }
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingTop: topPad,
-          paddingHorizontal: 20,
-          paddingBottom: insets.bottom + 110,
+          paddingHorizontal: spacing.screen,
+          paddingBottom: insets.bottom + spacing.tabBarClearance,
           alignItems: 'center',
         }}
       >
-        <View style={{ width: '100%', maxWidth: 480 }}>
-          {/* Header */}
+        <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="chevron-back"
+              color={colors.brand}
               accessibilityLabel="Go back"
               onPress={() => navigation.navigate('Home')}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-back" size={18} color={BROWN} />
-            </Pressable>
-            <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: INK }}>Profile</Text>
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="notifications-outline" size={18} color={BROWN} />
-            </View>
+            />
+            <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.ink }}>
+              Profile
+            </Text>
+            <IconCircleButton
+              name="notifications-outline"
+              color={colors.brand}
+              accessibilityLabel="Notifications"
+              onPress={() => navigation.navigate('Notifications')}
+            />
           </View>
 
-          {/* Avatar */}
           <View style={{ alignItems: 'center', marginTop: 18 }}>
             <UserAvatar uri={user.photoUrl} size={104} />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: INK, marginTop: 12 }}>{user.name}</Text>
-            <Text style={{ fontSize: 8, color: MUTED, marginTop: 2 }}>{user.role}</Text>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: 12 }}>
+              {user.name || '—'}
+            </Text>
+            <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>{user.role}</Text>
           </View>
 
-          {/* Account Information */}
           <SectionTitle title="Account Information" />
           {info.map((row) => (
             <InfoRow key={row.label} label={row.label} value={row.value} />
           ))}
 
-          {/* Account Setting */}
           <SectionTitle title="Account Setting" />
           {SETTINGS.map((row) => (
             <ActionRow
@@ -199,21 +186,7 @@ export default function ProfileTabScreen() {
             />
           ))}
 
-          {/* Logout */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={logout}
-            style={{
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: BROWN,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: 18,
-            }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>Logout</Text>
-          </Pressable>
+          <PrimaryButton label="Logout" onPress={logout} style={{ marginTop: 18, height: 44 }} />
         </View>
       </ScrollView>
 

@@ -1,31 +1,34 @@
+import { useCallback, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
+import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const BROWN = '#BF824F';
-const GREEN = '#00AD28';
-const RED = '#E5484D';
-const INK = '#1F1B16';
-const MUTED = '#BF824F';
-const BG = '#FFF8F1';
-const DESC = '#666666';
-const CARD = '#FFFFFF';
+const BROWN = colors.brand;
+const GREEN = colors.success;
+const RED = colors.danger;
+const INK = colors.ink;
+const MUTED = colors.mutedBrand;
+const BG = colors.background;
+const DESC = colors.desc;
+const CARD = colors.card;
 
 const STATUS_META = {
   upcoming: { label: 'Upcoming', color: '#fff', bg: BROWN },
-  completed: { label: 'Completed', color: BROWN, bg: '#F8EDE2' },
-  canceled: { label: 'Canceled', color: RED, bg: '#FCE8E9' },
+  completed: { label: 'Completed', color: BROWN, bg: colors.warningBg },
+  canceled: { label: 'Canceled', color: RED, bg: colors.dangerBg },
 };
 
 const PAYMENT_META = {
-  paid: { label: 'Paid', color: GREEN, bg: '#E6F7EA' },
-  pending: { label: 'Pending', color: BROWN, bg: '#F8EDE2' },
-  refunded: { label: 'Refunded', color: RED, bg: '#FCE8E9' },
-  unpaid: { label: 'Unpaid', color: RED, bg: '#FCE8E9' },
+  paid: { label: 'Paid', color: GREEN, bg: colors.successBg },
+  pending: { label: 'Pending', color: BROWN, bg: colors.warningBg },
+  refunded: { label: 'Refunded', color: RED, bg: colors.dangerBg },
+  unpaid: { label: 'Unpaid', color: RED, bg: colors.dangerBg },
 };
 
 function departmentFromTreatment(treatment = '') {
@@ -98,17 +101,14 @@ function buildDetail(appointment = {}) {
     clinic,
     status,
     statusMeta: STATUS_META[status] || STATUS_META.upcoming,
-    dateLabel: formatDateLabel(appointment.date, appointment.dateLabel || 'Monday, October 19, 2026'),
+    dateLabel: formatDateLabel(appointment.date, appointment.dateLabel || '—'),
     timeRange: appointment.timeRange || `${start} - ${end}`,
     patientName: appointment.patient || 'Patient',
-    patientId: appointment.patientId || `PT-${2000 + Number(appointment.id || 0)}`,
+    patientId: appointment.patientId || '—',
     contactLabel: appointment.contactLabel || 'View if permission allows',
     doctorName: appointment.doctor || 'Doctor',
     doctorSpecialty: appointment.doctorSpecialty || department.replace(/ Consultation$/i, '') || 'Specialist',
-    bookingDate: formatShortDate(
-      appointment.bookingDate,
-      appointment.bookingDateLabel || 'October 16, 2026'
-    ),
+    bookingDate: formatShortDate(appointment.bookingDate, appointment.bookingDateLabel || '—'),
     payment: PAYMENT_META[paymentKey] || PAYMENT_META.paid,
   };
 }
@@ -190,7 +190,38 @@ export default function AppointmentDetailScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const detail = buildDetail(route.params?.appointment);
+  const appointmentId = route.params?.appointmentId || route.params?.appointment?.id;
+  const [appointment, setAppointment] = useState(route.params?.appointment || null);
+  const [loading, setLoading] = useState(!route.params?.appointment);
+  const [error, setError] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!appointmentId) return undefined;
+      let active = true;
+      setLoading(true);
+      fetchAppointment(appointmentId)
+        .then((item) => {
+          if (active) {
+            setAppointment(item);
+            setError('');
+          }
+        })
+        .catch((err) => {
+          if (active && !route.params?.appointment) {
+            setError(clinicErrorMessage(err));
+          }
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, [appointmentId, route.params?.appointment])
+  );
+
+  const detail = buildDetail(appointment || {});
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -205,6 +236,14 @@ export default function AppointmentDetailScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
+          {loading && !appointment ? (
+            <ActivityIndicator color={BROWN} style={{ marginTop: s(40) }} />
+          ) : null}
+          {error ? (
+            <Text style={{ fontSize: fs(11), color: RED, textAlign: 'center', marginBottom: s(12) }}>
+              {error}
+            </Text>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <Pressable
               accessibilityRole="button"

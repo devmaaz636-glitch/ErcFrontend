@@ -2,9 +2,10 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, shadows } from '../theme';
 
-const BROWN = '#BF824F';
-const MUTED = '#8D8680';
+const BROWN = colors.brand;
+const MUTED = colors.muted;
 
 const TABS = [
   { key: 'Home',         label: 'Home',         icon: 'home-outline',            activeIcon: 'home',            route: 'Home' },
@@ -33,11 +34,7 @@ export default function BottomTabBar({ active }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 8,
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 8,
+        ...shadows.tabBar,
       }}
     >
       {TABS.map((tab) => {

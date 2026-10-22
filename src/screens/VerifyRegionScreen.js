@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
+import { useSession } from '../context/SessionContext';
 
 cssInterop(Image, { className: 'style' });
 const REGIONS = [
@@ -48,6 +49,7 @@ function Pencil() {
 
 export default function VerifyRegionScreen() {
   const navigation = useNavigation();
+  const { setRegion: persistRegion } = useSession();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [region, setRegion] = useState(REGIONS[0]);
@@ -65,12 +67,13 @@ export default function VerifyRegionScreen() {
     setError('');
   }
 
-  function confirmRegion() {
+  async function confirmRegion() {
     const nextCode = code.trim();
     if (!region || !nextCode) {
       setError('Select your region and region code.');
       return;
     }
+    await persistRegion({ ...region, code: nextCode });
     navigation.replace('Home');
   }
 

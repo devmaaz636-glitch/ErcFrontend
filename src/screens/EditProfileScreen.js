@@ -18,25 +18,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
+import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
+import { useSession } from '../context/SessionContext';
+import { colors } from '../theme';
 
-const BROWN = '#BF824F';
-const BROWN_SOFT = '#F6EADD';
-const INK = '#1F1B16';
-const MUTED = '#8D8680';
-const BG = '#FFF8F1';
-const FIELD = '#FFFFFF';
+const BROWN = colors.brand;
+const BROWN_SOFT = colors.brandField;
+const INK = colors.ink;
+const MUTED = colors.muted;
+const BG = colors.background;
+const FIELD = colors.card;
 
-// Same key everywhere the profile is read (e.g. ProfileTab) so changes persist.
-export const PROFILE_STORAGE_KEY = 'profile:user';
+export { PROFILE_STORAGE_KEY };
 
 // Fallback region names. Pass `regions` through route params to override.
 const REGIONS = ['UAE', 'KSA', 'Oman', 'Pakistan', 'USA'];
 
 const DEFAULT_USER = {
-  name: 'Ahsan Jamal',
-  email: 'ahsanadmin@gmail.com',
-  role: 'Admin',
-  region: 'USA',
+  name: '',
+  email: '',
+  role: 'Regional Admin',
+  region: '',
   photoUrl: null,
 };
 
@@ -172,9 +174,10 @@ export default function EditProfileScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
+  const { user: sessionUser, updateUser } = useSession();
 
   const regions = route.params?.regions?.length ? route.params.regions : REGIONS;
-  const paramUser = route.params?.user;
+  const paramUser = route.params?.user || sessionUser;
 
   // `user` is the current saved profile (defaults < stored < route params).
   const [user, setUser] = useState({ ...DEFAULT_USER, ...(paramUser || {}) });
@@ -259,8 +262,9 @@ export default function EditProfileScreen() {
     try {
       setSaving(true);
       await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updated));
+      await updateUser(updated);
       setUser(updated);
-      navigation.navigate('ProfileTab', { user: updated });
+      navigation.navigate('ProfileTab');
     } catch (e) {
       Alert.alert('Could not save', 'Something went wrong while saving your profile. Please try again.');
     } finally {

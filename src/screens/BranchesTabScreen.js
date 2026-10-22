@@ -1,43 +1,28 @@
 import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import BottomTabBar from '../components/BottomTabBar';
 import Text from '../components/AppText';
+import { IconCircleButton, SearchField } from '../components/ui';
+import { useClinicData } from '../context/ClinicDataContext';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
-
-const BROWN = '#BF824F';
-const BROWN_LIGHT = '#E3AB7C';
-const GREEN = '#00AD28';
-const RED = '#E5484D';
-const INK = '#1F1B16';
-const MUTED = '#BF824F';
-const BG = '#FFF8F1';
-const DESC = '#666666';
-
-// Fallback demo data. Pass `branches` from your API to override.
-const BRANCHES = [
-  { id: 1, name: 'Dubai Enfield Royal Clinic', city: 'Dubai', region: 'UAE', bookings: 109, growth: 32.2, progress: 81.3, status: 'active' },
-  { id: 2, name: 'Riyadh Royal Clinic', city: 'Riyadh', region: 'KSA', bookings: 98, growth: 12.4, progress: 74.0, status: 'active' },
-  { id: 3, name: 'Muscat Royal Clinic', city: 'Muscat', region: 'Oman', bookings: 87, growth: 8.1, progress: 68.5, status: 'active' },
-  { id: 4, name: 'Lahore Royal Clinic', city: 'Lahore', region: 'Pakistan', bookings: 76, growth: 5.0, progress: 61.2, status: 'active' },
-  { id: 5, name: 'New York Royal Clinic', city: 'New York', region: 'USA', bookings: 54, growth: -4.3, progress: 42.0, status: 'attention' },
-];
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
-/* ---------- Gradient fill helper ---------- */
 function GradientFill({ id, x2 = '1', y2 = '1', height = '100%' }) {
   return (
     <Svg width="100%" height={height} style={{ position: 'absolute' }}>
       <Defs>
         <LinearGradient id={id} x1="0" y1="0" x2={x2} y2={y2}>
-          <Stop offset="0" stopColor={BROWN} />
-          <Stop offset="1" stopColor={BROWN_LIGHT} />
+          <Stop offset="0" stopColor={colors.brand} />
+          <Stop offset="1" stopColor={colors.brandLight} />
         </LinearGradient>
       </Defs>
       <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
@@ -45,25 +30,24 @@ function GradientFill({ id, x2 = '1', y2 = '1', height = '100%' }) {
   );
 }
 
-/* ---------- Stat card ---------- */
 function StatCard({ id, label, value, sub }) {
   return (
     <View style={{ flex: 1, borderRadius: 14, overflow: 'hidden', minHeight: s(78) }}>
       <GradientFill id={`stat-${id}`} />
       <View style={{ flex: 1, padding: s(10), justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontSize: fs(11), fontWeight: '600', color: '#fff' }} numberOfLines={1}>
+          <Text style={{ fontSize: fs(11), fontWeight: '600', color: colors.white }} numberOfLines={1}>
             {label}
           </Text>
-          <Ionicons name="business-outline" size={s(12)} color="#F8E7D6" />
+          <Ionicons name="business-outline" size={s(12)} color={colors.brandMuted} />
         </View>
-
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: s(6) }}>
-          <Text style={{ fontSize: fs(20), fontWeight: '700', color: '#fff' }}>{value}</Text>
-          <Text style={{ fontSize: fs(8, 8), color: '#F8E7D6', marginLeft: 4, marginBottom: 3 }}>Clinics</Text>
+          <Text style={{ fontSize: fs(20), fontWeight: '700', color: colors.white }}>{value}</Text>
+          <Text style={{ fontSize: fs(8, 8), color: colors.brandMuted, marginLeft: 4, marginBottom: 3 }}>
+            Clinics
+          </Text>
         </View>
-
-        <Text style={{ fontSize: fs(8, 8), color: '#F8E7D6', marginTop: s(4) }} numberOfLines={1}>
+        <Text style={{ fontSize: fs(8, 8), color: colors.brandMuted, marginTop: s(4) }} numberOfLines={1}>
           {sub}
         </Text>
       </View>
@@ -71,11 +55,10 @@ function StatCard({ id, label, value, sub }) {
   );
 }
 
-/* ---------- Branch card ---------- */
 function BranchCard({ item, onPress }) {
   const up = item.growth >= 0;
-  const tone = up ? GREEN : RED;
-  const toneBg = up ? '#E6F7EA' : '#FCE8E9';
+  const tone = up ? colors.success : colors.danger;
+  const toneBg = up ? colors.successBg : colors.dangerBg;
   const pct = Math.max(0, Math.min(100, item.progress));
   const imgW = s(78);
   const imgH = s(84);
@@ -85,7 +68,7 @@ function BranchCard({ item, onPress }) {
       accessibilityRole="button"
       onPress={onPress}
       style={{
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 14,
         padding: s(8),
         marginBottom: s(12),
@@ -95,13 +78,12 @@ function BranchCard({ item, onPress }) {
       <Image
         source={require('../../assets/brachtabimage.png')}
         contentFit="cover"
-        style={{ width: imgW, height: imgH, borderRadius: 10, backgroundColor: '#F4EEE8' }}
+        style={{ width: imgW, height: imgH, borderRadius: 10, backgroundColor: colors.fieldAlt }}
       />
 
       <View style={{ flex: 1, marginLeft: s(10), paddingVertical: 2 }}>
-        {/* Name + growth pill */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          <Text style={{ flex: 1, fontSize: fs(12), fontWeight: '700', color: INK }} numberOfLines={1}>
+          <Text style={{ flex: 1, fontSize: fs(12), fontWeight: '700', color: colors.ink }} numberOfLines={1}>
             {item.name}
           </Text>
           <View
@@ -122,24 +104,22 @@ function BranchCard({ item, onPress }) {
           </View>
         </View>
 
-        {/* City, Region */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
-          <Ionicons name="location-outline" size={s(10)} color={DESC} />
-          <Text style={{ fontSize: fs(9), color: DESC, marginLeft: 3 }} numberOfLines={1}>
+          <Ionicons name="location-outline" size={s(10)} color={colors.desc} />
+          <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 3 }} numberOfLines={1}>
             {item.city}
             {item.region ? `, ${item.region}` : ''}
           </Text>
         </View>
 
-        {/* Bookings + progress */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: s(8) }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: fs(13), fontWeight: '700', color: BROWN }}>{item.bookings}</Text>
-            <Text style={{ fontSize: fs(8, 8), color: DESC, marginLeft: 5 }}>( This Month Bookings )</Text>
+            <Text style={{ fontSize: fs(13), fontWeight: '700', color: colors.brand }}>{item.bookings}</Text>
+            <Text style={{ fontSize: fs(8, 8), color: colors.desc, marginLeft: 5 }}>( This Month Bookings )</Text>
           </View>
 
           <View style={{ width: s(70), alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: fs(8, 8), color: DESC, marginBottom: 3 }}>{pct}%</Text>
+            <Text style={{ fontSize: fs(8, 8), color: colors.desc, marginBottom: 3 }}>{pct}%</Text>
             <View
               style={{
                 width: '100%',
@@ -160,30 +140,30 @@ function BranchCard({ item, onPress }) {
   );
 }
 
-/* ---------- Screen ---------- */
-// Pass `branches` from your API; demo data is the fallback.
-export default function BranchesTabScreen({ branches = BRANCHES }) {
+export default function BranchesTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
+  const { branches, loading, error, refresh } = useClinicData();
   const [query, setQuery] = useState('');
 
-  const total = branches.length;
-  const active = branches.filter((b) => b.status === 'active').length;
-  const attention = branches.filter((b) => b.status === 'attention').length;
+  useRefreshOnFocus(refresh);
 
+  const items = branches.items || [];
+  const total = items.length;
+  const active = items.filter((b) => b.status === 'active').length;
+  const attention = items.filter((b) => b.status === 'attention').length;
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
 
-  // Search (drives the list)
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return [...branches]
+    return [...items]
       .filter((b) => !q || `${b.name} ${b.city} ${b.region}`.toLowerCase().includes(q))
       .sort((a, b) => b.bookings - a.bookings);
-  }, [branches, query]);
+  }, [items, query]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
 
       <ScrollView
@@ -191,89 +171,58 @@ export default function BranchesTabScreen({ branches = BRANCHES }) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: topPad,
-          paddingHorizontal: s(20),
-          paddingBottom: insets.bottom + 110,
+          paddingHorizontal: spacing.screen,
+          paddingBottom: insets.bottom + spacing.tabBarClearance,
           alignItems: 'center',
         }}
       >
-        <View style={{ width: '100%', maxWidth: 480 }}>
-          {/* Header */}
+        <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="chevron-back"
               accessibilityLabel="Go back"
-              hitSlop={8}
               onPress={() => navigation.navigate('Home')}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-back" size={s(18)} color={INK} />
-            </Pressable>
-
+            />
             <Text
-              style={{ flex: 1, marginLeft: s(12), fontSize: fs(16), fontWeight: '700', color: INK }}
+              style={{ flex: 1, marginLeft: s(12), fontSize: fs(16), fontWeight: '700', color: colors.ink }}
               numberOfLines={1}
             >
               Branches
             </Text>
-
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="notifications-outline"
+              color={colors.brand}
               accessibilityLabel="Notifications"
-              hitSlop={8}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-            </Pressable>
-          </View>
-
-          {/* Search */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              height: Math.max(44, s(46)),
-              borderRadius: 30,
-              backgroundColor: '#fff',
-              paddingLeft: s(18),
-              paddingRight: s(14),
-              marginTop: s(18),
-            }}
-          >
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search Here"
-              placeholderTextColor={DESC}
-              maxFontSizeMultiplier={1.2}
-              style={{ flex: 1, fontSize: fs(12), color: INK, paddingVertical: 0 }}
+              onPress={() => navigation.navigate('Notifications')}
             />
-            <Ionicons name="search" size={s(18)} color={DESC} />
           </View>
 
-          {/* Stat cards */}
+          <View style={{ marginTop: s(18) }}>
+            <SearchField value={query} onChangeText={setQuery} showButton={false} />
+          </View>
+
+          {loading && !items.length ? (
+            <ActivityIndicator color={colors.brand} style={{ marginTop: s(28) }} />
+          ) : null}
+          {error ? (
+            <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
+              {error}
+            </Text>
+          ) : null}
+
           <View style={{ flexDirection: 'row', marginTop: s(16) }}>
             <StatCard id="total" label="Total" value={pad2(total)} sub="All Regions" />
             <View style={{ width: s(10) }} />
             <StatCard id="active" label="Active" value={pad2(active)} sub={`${pct(active)}% Of Total`} />
             <View style={{ width: s(10) }} />
-            <StatCard id="attention" label="Attention" value={pad2(attention)} sub={`${pct(attention)}% Of Total`} />
+            <StatCard
+              id="attention"
+              label="Attention"
+              value={pad2(attention)}
+              sub={`${pct(attention)}% Of Total`}
+            />
           </View>
 
-          {/* Rank Ledger By */}
           <View
             style={{
               flexDirection: 'row',
@@ -282,24 +231,20 @@ export default function BranchesTabScreen({ branches = BRANCHES }) {
               marginBottom: s(10),
             }}
           >
-            <Text style={{ flex: 1, fontSize: fs(16), fontWeight: '700', color: INK }}>Rank Ledger By</Text>
-            <Pressable hitSlop={10}>
-              <Text style={{ fontSize: fs(10), color: MUTED }}>See All</Text>
-            </Pressable>
+            <Text style={{ flex: 1, fontSize: fs(16), fontWeight: '700', color: colors.ink }}>Rank Ledger By</Text>
           </View>
 
-          {/* Branch list */}
           {list.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
-              <Ionicons name="business-outline" size={s(28)} color={MUTED} />
-              <Text style={{ fontSize: fs(11), color: DESC, marginTop: 8 }}>No branches found</Text>
+              <Ionicons name="business-outline" size={s(28)} color={colors.muted} />
+              <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No branches found</Text>
             </View>
           ) : (
             list.map((item) => (
               <BranchCard
                 key={item.id}
                 item={item}
-                onPress={() => navigation.navigate('BranchDetail', { branch: item })}
+                onPress={() => navigation.navigate('BranchDetail', { branch: item, branchId: item.id })}
               />
             ))
           )}
