@@ -13,6 +13,7 @@ import VerifyRegionScreen from './src/screens/VerifyRegionScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import AppointmentsTabScreen from './src/screens/AppointmentsTabScreen';
 import BranchesTabScreen from './src/screens/BranchesTabScreen';
+import BranchDetailScreen from './src/screens/BranchDetailScreen';
 import ProfileTabScreen from './src/screens/ProfileTabScreen';
 
 LogBox.ignoreLogs([
@@ -65,6 +66,11 @@ export default function App() {
             <Stack.Screen name="Home" component={HomeScreen} options={{ animation: 'none' }} />
            <Stack.Screen name="AppointmentsTab" component={AppointmentsTabScreen} />
             <Stack.Screen name="BranchesTab" component={BranchesTabScreen} options={{ animation: 'none' }} />
+            <Stack.Screen
+              name="BranchDetail"
+              component={BranchDetailScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
             <Stack.Screen name="ProfileTab" component={ProfileTabScreen} options={{ animation: 'none' }} />
           </Stack.Navigator>
         </NavigationContainer>

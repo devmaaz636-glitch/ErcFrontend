@@ -19,15 +19,13 @@ const MUTED = '#BF824F';
 const BG = '#FFF8F1';
 const DESC = '#666666';
 
-// Replace with API data.
-// growth > 0 shows green ↗, growth < 0 shows red ↘. progress is a percentage (0-100).
-// status is 'active' or 'attention'.
+// Fallback demo data. Pass `branches` from your API to override.
 const BRANCHES = [
-  { id: 1, name: 'Dubai Enfiled Royal Clinic', city: 'Dubai', bookings: 109, growth: 32.2, progress: 81.3, status: 'active' },
-  { id: 2, name: 'Dubai Enfiled Royal Clinic', city: 'Dubai', bookings: 109, growth: 32.2, progress: 81.3, status: 'active' },
-  { id: 3, name: 'Dubai Enfiled Royal Clinic', city: 'Dubai', bookings: 109, growth: 32.2, progress: 81.3, status: 'active' },
-  { id: 4, name: 'Dubai Enfiled Royal Clinic', city: 'Dubai', bookings: 109, growth: 32.2, progress: 81.3, status: 'active' },
-  { id: 5, name: 'Dubai Enfiled Royal Clinic', city: 'Dubai', bookings: 109, growth: 32.2, progress: 81.3, status: 'attention' },
+  { id: 1, name: 'Dubai Enfield Royal Clinic', city: 'Dubai', region: 'UAE', bookings: 109, growth: 32.2, progress: 81.3, status: 'active' },
+  { id: 2, name: 'Riyadh Royal Clinic', city: 'Riyadh', region: 'KSA', bookings: 98, growth: 12.4, progress: 74.0, status: 'active' },
+  { id: 3, name: 'Muscat Royal Clinic', city: 'Muscat', region: 'Oman', bookings: 87, growth: 8.1, progress: 68.5, status: 'active' },
+  { id: 4, name: 'Lahore Royal Clinic', city: 'Lahore', region: 'Pakistan', bookings: 76, growth: 5.0, progress: 61.2, status: 'active' },
+  { id: 5, name: 'New York Royal Clinic', city: 'New York', region: 'USA', bookings: 54, growth: -4.3, progress: 42.0, status: 'attention' },
 ];
 
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -74,7 +72,7 @@ function StatCard({ id, label, value, sub }) {
 }
 
 /* ---------- Branch card ---------- */
-function BranchCard({ item }) {
+function BranchCard({ item, onPress }) {
   const up = item.growth >= 0;
   const tone = up ? GREEN : RED;
   const toneBg = up ? '#E6F7EA' : '#FCE8E9';
@@ -83,7 +81,9 @@ function BranchCard({ item }) {
   const imgH = s(84);
 
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
       style={{
         backgroundColor: '#fff',
         borderRadius: 14,
@@ -122,11 +122,12 @@ function BranchCard({ item }) {
           </View>
         </View>
 
-        {/* City */}
+        {/* City, Region */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
           <Ionicons name="location-outline" size={s(10)} color={DESC} />
           <Text style={{ fontSize: fs(9), color: DESC, marginLeft: 3 }} numberOfLines={1}>
             {item.city}
+            {item.region ? `, ${item.region}` : ''}
           </Text>
         </View>
 
@@ -155,7 +156,7 @@ function BranchCard({ item }) {
           </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -171,10 +172,13 @@ export default function BranchesTabScreen({ branches = BRANCHES }) {
   const active = branches.filter((b) => b.status === 'active').length;
   const attention = branches.filter((b) => b.status === 'attention').length;
 
+  const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+
+  // Search (drives the list)
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return branches
-      .filter((b) => !q || `${b.name} ${b.city}`.toLowerCase().includes(q))
+    return [...branches]
+      .filter((b) => !q || `${b.name} ${b.city} ${b.region}`.toLowerCase().includes(q))
       .sort((a, b) => b.bookings - a.bookings);
   }, [branches, query]);
 
@@ -262,11 +266,11 @@ export default function BranchesTabScreen({ branches = BRANCHES }) {
 
           {/* Stat cards */}
           <View style={{ flexDirection: 'row', marginTop: s(16) }}>
-            <StatCard id="total" label="Total" value={pad2(total)} sub="100% Assigned" />
+            <StatCard id="total" label="Total" value={pad2(total)} sub="All Regions" />
             <View style={{ width: s(10) }} />
-            <StatCard id="active" label="Active" value={pad2(active)} sub="100% Assigned" />
+            <StatCard id="active" label="Active" value={pad2(active)} sub={`${pct(active)}% Of Total`} />
             <View style={{ width: s(10) }} />
-            <StatCard id="attention" label="Attention" value={pad2(attention)} sub="100% Assigned" />
+            <StatCard id="attention" label="Attention" value={pad2(attention)} sub={`${pct(attention)}% Of Total`} />
           </View>
 
           {/* Rank Ledger By */}
@@ -291,7 +295,13 @@ export default function BranchesTabScreen({ branches = BRANCHES }) {
               <Text style={{ fontSize: fs(11), color: DESC, marginTop: 8 }}>No branches found</Text>
             </View>
           ) : (
-            list.map((item) => <BranchCard key={item.id} item={item} />)
+            list.map((item) => (
+              <BranchCard
+                key={item.id}
+                item={item}
+                onPress={() => navigation.navigate('BranchDetail', { branch: item })}
+              />
+            ))
           )}
         </View>
       </ScrollView>
