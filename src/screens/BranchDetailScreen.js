@@ -6,6 +6,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { clinicErrorMessage, fetchBranch } from '../lib/clinic';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
@@ -417,7 +418,7 @@ export default function BranchDetailScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigation.navigate('BranchesTab')}
+            onPress={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
             style={{
               height: s(52),
               borderRadius: 999,

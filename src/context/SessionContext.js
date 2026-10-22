@@ -18,6 +18,18 @@ const EMPTY_USER = {
   photoUrl: null,
 };
 
+function regionObjectFromName(name, previous = null) {
+  const label = String(name || '').trim();
+  if (!label) return previous;
+  if (previous?.name === label) return previous;
+  return {
+    id: label.toLowerCase().replace(/\s+/g, '-'),
+    name: label,
+    code: previous?.code || '',
+    flag: previous?.flag || '',
+  };
+}
+
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(EMPTY_USER);
   const [region, setRegionState] = useState(null);
@@ -51,14 +63,20 @@ export function SessionProvider({ children }) {
       firebaseUser.displayName ||
       (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Admin');
 
+    const nextRegion = local.region || remote?.region || '';
+
     setUser({
       uid: firebaseUser.uid,
       name: display,
       email: local.email || firebaseUser.email || '',
       role: local.role || remote?.role || 'Regional Admin',
-      region: local.region || remote?.region || '',
+      region: nextRegion,
       photoUrl: local.photoUrl || remote?.photoUrl || firebaseUser.photoURL || null,
     });
+
+    if (nextRegion) {
+      setRegionState((prev) => regionObjectFromName(nextRegion, prev));
+    }
   }, []);
 
   useEffect(() => {
@@ -87,33 +105,59 @@ export function SessionProvider({ children }) {
   }, [hydrateProfile]);
 
   const setRegion = useCallback(async (next) => {
-    setRegionState(next);
+    const normalized =
+      typeof next === 'string' ? regionObjectFromName(next) : next;
+    setRegionState(normalized);
     setUser((prev) => ({
       ...prev,
-      region: next?.name || next?.id || prev.region,
+      region: normalized?.name || prev.region,
     }));
     try {
-      await AsyncStorage.setItem(REGION_KEY, JSON.stringify(next));
+      await AsyncStorage.setItem(REGION_KEY, JSON.stringify(normalized));
+      const raw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
+      const profile = raw ? JSON.parse(raw) : {};
+      await AsyncStorage.setItem(
+        PROFILE_STORAGE_KEY,
+        JSON.stringify({ ...profile, region: normalized?.name || profile.region || '' })
+      );
     } catch {
       /* ignore */
     }
   }, []);
 
   const updateUser = useCallback(async (patch) => {
+    let nextUser = null;
     setUser((prev) => {
-      const next = { ...prev, ...patch };
-      AsyncStorage.setItem(
+      nextUser = { ...prev, ...patch };
+      return nextUser;
+    });
+
+    if (patch?.region != null && String(patch.region).trim()) {
+      const nextRegion = regionObjectFromName(patch.region);
+      setRegionState(nextRegion);
+      try {
+        await AsyncStorage.setItem(REGION_KEY, JSON.stringify(nextRegion));
+      } catch {
+        /* ignore */
+      }
+    }
+
+    try {
+      await AsyncStorage.setItem(
         PROFILE_STORAGE_KEY,
         JSON.stringify({
-          name: next.name,
-          email: next.email,
-          role: next.role,
-          region: next.region,
-          photoUrl: next.photoUrl,
+          name: nextUser?.name || '',
+          email: nextUser?.email || '',
+          role: nextUser?.role || 'Regional Admin',
+          region: nextUser?.region || '',
+          photoUrl: nextUser?.photoUrl || null,
         })
-      ).catch(() => {});
-      return next;
-    });
+      );
+    } catch {
+      /* ignore */
+    }
+
+    return nextUser;
   }, []);
 
   const clearSession = useCallback(async () => {
@@ -131,6 +175,8 @@ export function SessionProvider({ children }) {
       ready,
       user,
       region,
+      /** Prefer profile region; fall back to verify-region object. */
+      displayRegion: user.region || region?.name || '',
       setRegion,
       updateUser,
       clearSession,

@@ -186,6 +186,9 @@ export default function NotificationsScreen() {
     try {
       const next = await saveNotificationPreferences(prefs);
       setPrefs(next);
+      // Re-fetch so toggles (e.g. Appointments Threshold) reflect Redis immediately.
+      const confirmed = await fetchNotificationPreferences();
+      setPrefs(confirmed);
       setNotice('Preferences saved.');
     } catch (err) {
       setError(notificationErrorMessage(err));

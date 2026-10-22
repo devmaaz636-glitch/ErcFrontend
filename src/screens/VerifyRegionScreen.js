@@ -74,7 +74,7 @@ export default function VerifyRegionScreen() {
       return;
     }
     await persistRegion({ ...region, code: nextCode });
-    navigation.replace('Home');
+    navigation.replace('MainTabs');
   }
 
   return (

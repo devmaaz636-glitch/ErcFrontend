@@ -3,11 +3,11 @@ import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import BottomTabBar from '../components/BottomTabBar';
 import UserAvatar from '../components/UserAvatar';
 import { IconCircleButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { signOutUser } from '../lib/auth';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { useTopPadding } from '../utils/responsive';
 
@@ -85,13 +85,13 @@ export default function ProfileTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user, region, clearSession } = useSession();
+  const { user, displayRegion, clearSession } = useSession();
 
   const info = [
     { label: 'Full Name', value: user.name },
     { label: 'Primary Email', value: user.email },
     { label: 'Role', value: user.role },
-    { label: 'Assigned Region', value: region?.name || user.region },
+    { label: 'Assigned Region', value: displayRegion },
   ];
 
   function logout() {
@@ -150,7 +150,7 @@ export default function ProfileTabScreen() {
               name="chevron-back"
               color={colors.brand}
               accessibilityLabel="Go back"
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
             />
             <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.ink }}>
               Profile
@@ -190,7 +190,6 @@ export default function ProfileTabScreen() {
         </View>
       </ScrollView>
 
-      <BottomTabBar active="Profile" />
     </View>
   );
 }

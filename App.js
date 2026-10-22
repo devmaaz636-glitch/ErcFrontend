@@ -7,20 +7,17 @@ import * as ExpoSplashScreen from 'expo-splash-screen';
 import { SessionProvider } from './src/context/SessionContext';
 import { ClinicDataProvider } from './src/context/ClinicDataContext';
 import { colors } from './src/theme';
+import MainTabs from './src/navigation/MainTabs';
 import SplashScreen from './src/screens/SplashScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ForgotPasswordCodeScreen from './src/screens/ForgotPasswordCodeScreen';
 import ForgotPasswordNewScreen from './src/screens/ForgotPasswordNewScreen';
 import VerifyRegionScreen from './src/screens/VerifyRegionScreen';
-import HomeScreen from './src/screens/HomeScreen';
-import AppointmentsTabScreen from './src/screens/AppointmentsTabScreen';
 import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
-import BranchesTabScreen from './src/screens/BranchesTabScreen';
 import BranchDetailScreen from './src/screens/BranchDetailScreen';
 import ClinicManagersScreen from './src/screens/ClinicManagersScreen';
 import ClinicManagerDetailScreen from './src/screens/ClinicManagerDetailScreen';
-import ProfileTabScreen from './src/screens/ProfileTabScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
@@ -74,14 +71,16 @@ export default function App() {
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen name="RegionVerify" component={VerifyRegionScreen} />
-                <Stack.Screen name="Home" component={HomeScreen} options={{ animation: 'none' }} />
-                <Stack.Screen name="AppointmentsTab" component={AppointmentsTabScreen} />
+                <Stack.Screen
+                  name="MainTabs"
+                  component={MainTabs}
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
                 <Stack.Screen
                   name="AppointmentDetail"
                   component={AppointmentDetailScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
-                <Stack.Screen name="BranchesTab" component={BranchesTabScreen} options={{ animation: 'none' }} />
                 <Stack.Screen
                   name="BranchDetail"
                   component={BranchDetailScreen}
@@ -97,7 +96,6 @@ export default function App() {
                   component={ClinicManagerDetailScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
-                <Stack.Screen name="ProfileTab" component={ProfileTabScreen} options={{ animation: 'none' }} />
                 <Stack.Screen
                   name="EditProfile"
                   component={EditProfileScreen}

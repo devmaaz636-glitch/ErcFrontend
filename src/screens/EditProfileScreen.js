@@ -20,6 +20,7 @@ import UserAvatar from '../components/UserAvatar';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
 import { useSession } from '../context/SessionContext';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors } from '../theme';
 
 const BROWN = colors.brand;
@@ -174,35 +175,42 @@ export default function EditProfileScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user: sessionUser, updateUser } = useSession();
+  const { user: sessionUser, displayRegion, updateUser } = useSession();
 
   const regions = route.params?.regions?.length ? route.params.regions : REGIONS;
-  const paramUser = route.params?.user || sessionUser;
+  // Session is source of truth; route params only fill gaps on first open.
+  const seed = { ...DEFAULT_USER, ...(route.params?.user || {}), ...sessionUser, region: sessionUser.region || displayRegion || route.params?.user?.region || '' };
 
-  // `user` is the current saved profile (defaults < stored < route params).
-  const [user, setUser] = useState({ ...DEFAULT_USER, ...(paramUser || {}) });
-  const [name, setName] = useState(user.name?.split(' ')[0] || user.name || '');
-  const [email, setEmail] = useState(user.email || '');
-  const [region, setRegion] = useState(user.region || '');
-  const [photoUri, setPhotoUri] = useState(user.photoUrl || null);
+  const [user, setUser] = useState(seed);
+  const [name, setName] = useState(seed.name?.split(' ')[0] || seed.name || '');
+  const [email, setEmail] = useState(seed.email || '');
+  const [region, setRegion] = useState(seed.region || '');
+  const [photoUri, setPhotoUri] = useState(seed.photoUrl || null);
   const [regionOpen, setRegionOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load the previously saved profile once, so edits survive app restarts.
+  // One-time hydrate from storage so region/name persist across iOS + Android restarts.
+  // Do not re-run on session changes — that would wipe in-progress edits.
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-        if (!raw || !alive) return;
-        const merged = { ...DEFAULT_USER, ...JSON.parse(raw), ...(paramUser || {}) };
+        if (!alive) return;
+        const stored = raw ? JSON.parse(raw) : {};
+        const merged = {
+          ...DEFAULT_USER,
+          ...sessionUser,
+          ...stored,
+          region: stored.region || sessionUser.region || displayRegion || '',
+        };
         setUser(merged);
         setName(merged.name?.split(' ')[0] || merged.name || '');
         setEmail(merged.email || '');
         setRegion(merged.region || '');
         setPhotoUri(merged.photoUrl || null);
-      } catch (e) {
-        // Ignore: fall back to defaults / route params.
+      } catch {
+        /* fall back to session seed */
       }
     })();
     return () => {
@@ -261,10 +269,14 @@ export default function EditProfileScreen() {
 
     try {
       setSaving(true);
-      await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updated));
       await updateUser(updated);
       setUser(updated);
-      navigation.navigate('ProfileTab');
+      // Pop back so Profile reuses the same tab instance and shows fresh session state.
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigateToTab(navigation, TAB_ROUTES.Profile);
+      }
     } catch (e) {
       Alert.alert('Could not save', 'Something went wrong while saving your profile. Please try again.');
     } finally {

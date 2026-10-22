@@ -1,18 +1,22 @@
 import { useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
-/** Load clinic/API data when a screen gains focus (skips back-to-back double fire). */
+/**
+ * Optional background sync when a screen focuses.
+ * Skips if data was loaded recently — tab switches stay instant (no spinner / wait).
+ */
 export function useRefreshOnFocus(refresh, { enabled = true } = {}) {
-  const refreshing = useRef(false);
+  const busy = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
-      if (!enabled || refreshing.current) return undefined;
-      refreshing.current = true;
-      Promise.resolve(refresh())
+      if (!enabled || busy.current || typeof refresh !== 'function') return undefined;
+      busy.current = true;
+      // Silent + stale-gated inside ClinicDataContext.refresh
+      Promise.resolve(refresh({ silent: true }))
         .catch(() => {})
         .finally(() => {
-          refreshing.current = false;
+          busy.current = false;
         });
       return undefined;
     }, [refresh, enabled])

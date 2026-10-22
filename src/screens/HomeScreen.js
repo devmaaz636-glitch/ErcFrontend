@@ -1,17 +1,17 @@
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
-import BottomTabBar from '../components/BottomTabBar';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
 import { SearchField, SectionHeader, IconCircleButton } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
@@ -271,8 +271,8 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user, region } = useSession();
-  const { dashboard, loading, error, refresh } = useClinicData();
+  const { user, displayRegion } = useSession();
+  const { dashboard, error, refresh } = useClinicData();
 
   useRefreshOnFocus(refresh);
 
@@ -281,7 +281,7 @@ export default function HomeScreen() {
   const branches = dashboard?.branches || [];
   const doctors = dashboard?.doctors || [];
   const managers = dashboard?.managerPreview || [];
-  const locationLabel = region?.name || user.region || 'Region';
+  const locationLabel = displayRegion || 'Region';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -323,9 +323,6 @@ export default function HomeScreen() {
             <SearchField />
           </View>
 
-          {loading && !dashboard ? (
-            <ActivityIndicator color={colors.brand} style={{ marginTop: s(28) }} />
-          ) : null}
           {error ? (
             <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
               {error}
@@ -353,7 +350,7 @@ export default function HomeScreen() {
           <SectionHeader
             title="Branch Leaderboard"
             large
-            onAction={() => navigation.navigate('BranchesTab')}
+            onAction={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
           />
           {branches.map((item, i) => (
             <BranchRow key={item.id} item={item} rank={i + 1} />
@@ -380,7 +377,6 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <BottomTabBar active="Home" />
     </View>
   );
 }
