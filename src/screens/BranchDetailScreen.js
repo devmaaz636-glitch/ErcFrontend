@@ -1,23 +1,26 @@
+import { useCallback, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { clinicErrorMessage, fetchBranch } from '../lib/clinic';
+import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const BROWN = '#BF824F';
-const GREEN = '#00AD28';
-const RED = '#E5484D';
-const ORANGE = '#E39B4B';
-const INK = '#1F1B16';
-const MUTED = '#BF824F';
-const BG = '#FFF8F1';
-const DESC = '#666666';
-const CARD = '#FFFFFF';
+const BROWN = colors.brand;
+const GREEN = colors.success;
+const RED = colors.danger;
+const ORANGE = colors.warning;
+const INK = colors.ink;
+const MUTED = colors.mutedBrand;
+const BG = colors.background;
+const DESC = colors.desc;
+const CARD = colors.card;
 
 function buildDetail(branch = {}) {
-  const capacity = Math.round(Number(branch.progress) || 82);
+  const capacity = Math.round(Number(branch.capacity ?? branch.progress) || 0);
   const nearLimit = capacity >= 75;
 
   return {
@@ -25,17 +28,12 @@ function buildDetail(branch = {}) {
     name: branch.name || 'Branch',
     city: branch.city || '',
     region: branch.region || '',
-    stats: branch.stats || [
-      { id: 'today', icon: 'calendar-outline', value: '42', label: "Today's Appointments", change: 32.2 },
-      { id: 'upcoming', icon: 'time-outline', value: '14', label: 'Upcoming', change: -8.2 },
-      { id: 'completed', icon: 'checkmark-circle-outline', value: '12', label: 'Completed Visits', change: -3.2 },
-      { id: 'canceled', icon: 'close-circle-outline', value: '09', label: 'Canceled Bookings', change: 32.2 },
-    ],
-    bookingsToday: branch.bookingsToday ?? Math.min(Number(branch.bookings) || 24, 99),
+    stats: branch.stats || [],
+    bookingsToday: branch.bookingsToday ?? Math.min(Number(branch.bookings) || 0, 99),
     capacity,
     capacityNote:
       branch.capacityNote ||
-      'Near the configured capacity threshold. Capacity should use the ERC-defined measure, such as available appointment slots or another agreed operational limit.',
+      'Capacity should use the ERC-defined measure, such as available appointment slots.',
     thresholds: branch.thresholds || [
       {
         id: 'capacity',
@@ -47,33 +45,8 @@ function buildDetail(branch = {}) {
           ? 'Branch utilisation is approaching its configured capacity limit.'
           : 'Branch utilisation is within the configured capacity limit.',
       },
-      {
-        id: 'revenue',
-        icon: 'ellipse-outline',
-        title: 'Revenue Threshold',
-        status: 'Normal',
-        tone: 'ok',
-        body: 'No revenue threshold alert currently shown.',
-      },
     ],
-    alerts: branch.alerts || [
-      {
-        id: 'refund',
-        icon: 'warning-outline',
-        title: 'Refund Spike',
-        status: 'Acknowledged',
-        tone: 'ack',
-        body: 'Refund activity exceeded its normal pace. Today · Illustrative alert.',
-      },
-      {
-        id: 'booking',
-        icon: 'calendar-outline',
-        title: 'Booking Drop',
-        status: 'Needs Review',
-        tone: 'warn',
-        body: 'Booking volume fell below the configured alert threshold. Yesterday · Illustrative alert.',
-      },
-    ],
+    alerts: branch.alerts || [],
   };
 }
 
@@ -250,7 +223,38 @@ export default function BranchDetailScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const detail = buildDetail(route.params?.branch);
+  const branchId = route.params?.branchId || route.params?.branch?.id;
+  const [branch, setBranch] = useState(route.params?.branch || null);
+  const [loading, setLoading] = useState(!route.params?.branch?.stats);
+  const [error, setError] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!branchId) return undefined;
+      let active = true;
+      setLoading(true);
+      fetchBranch(branchId)
+        .then((item) => {
+          if (active) {
+            setBranch(item);
+            setError('');
+          }
+        })
+        .catch((err) => {
+          if (active && !route.params?.branch) {
+            setError(clinicErrorMessage(err));
+          }
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, [branchId, route.params?.branch])
+  );
+
+  const detail = buildDetail(branch || {});
   const capacity = Math.max(0, Math.min(100, detail.capacity));
 
   return (
@@ -267,6 +271,10 @@ export default function BranchDetailScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
+          {loading && !branch ? <ActivityIndicator color={BROWN} style={{ marginVertical: s(20) }} /> : null}
+          {error ? (
+            <Text style={{ fontSize: fs(11), color: RED, textAlign: 'center', marginBottom: s(8) }}>{error}</Text>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable
               accessibilityRole="button"

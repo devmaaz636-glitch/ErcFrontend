@@ -13,6 +13,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const from = route.params?.from || 'signin';
+  const headerTitle = route.params?.headerTitle || 'Change Password';
+  const showBell = from === 'security';
   const [email, setEmail] = useState(route.params?.email || '');
   const [error, setError] = useState('');
   const busy = useRef(false);
@@ -28,7 +31,11 @@ export default function ForgotPasswordScreen() {
     setError('');
     try {
       await requestPasswordReset(nextEmail);
-      navigation.navigate('ForgotPasswordCode', { email: nextEmail });
+      navigation.navigate('ForgotPasswordCode', {
+        email: nextEmail,
+        from,
+        headerTitle,
+      });
     } catch (err) {
       setError(authErrorMessage(err));
     } finally {
@@ -37,7 +44,11 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <ForgotPasswordShell onBack={() => navigation.goBack()}>
+    <ForgotPasswordShell
+      onBack={() => navigation.goBack()}
+      headerTitle={headerTitle}
+      showBell={showBell}
+    >
       <Field
         label="Email"
         value={email}

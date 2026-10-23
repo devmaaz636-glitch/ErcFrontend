@@ -12,13 +12,16 @@ export default function ForgotPasswordCodeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const email = route.params?.email || '';
+  const from = route.params?.from || 'signin';
+  const headerTitle = route.params?.headerTitle || 'Change Password';
+  const showBell = from === 'security';
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const busy = useRef(false);
 
   async function onContinue() {
     if (!email) {
-      navigation.replace('ForgotPassword');
+      navigation.replace('ForgotPassword', { from, headerTitle });
       return;
     }
     if (!String(code).trim()) {
@@ -36,6 +39,8 @@ export default function ForgotPasswordCodeScreen() {
       navigation.navigate('ForgotPasswordNew', {
         email,
         resetToken: result.resetToken,
+        from,
+        headerTitle,
       });
     } catch (err) {
       setError(authErrorMessage(err));
@@ -45,7 +50,11 @@ export default function ForgotPasswordCodeScreen() {
   }
 
   return (
-    <ForgotPasswordShell onBack={() => navigation.goBack()}>
+    <ForgotPasswordShell
+      onBack={() => navigation.goBack()}
+      headerTitle={headerTitle}
+      showBell={showBell}
+    >
       <Field
         label="Code"
         value={code}
