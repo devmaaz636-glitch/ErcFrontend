@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import BottomTabBar from '../components/BottomTabBar';
 import Text from '../components/AppText';
 import { IconCircleButton, SearchField, StatusBadge } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
@@ -198,8 +198,8 @@ export default function AppointmentsTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { region, user } = useSession();
-  const { appointments, loading, error, refresh } = useClinicData();
+  const { displayRegion, user } = useSession();
+  const { appointments, error, refresh } = useClinicData();
   const [tab, setTab] = useState('upcoming');
   const [query, setQuery] = useState('');
 
@@ -238,14 +238,14 @@ export default function AppointmentsTabScreen() {
             <IconCircleButton
               name="chevron-back"
               accessibilityLabel="Go back"
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
             />
             <View style={{ flex: 1, alignItems: 'flex-start', marginLeft: s(12), marginRight: s(8) }}>
               <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink }} numberOfLines={1}>
                 Appointments
               </Text>
               <Text style={{ fontSize: fs(9), color: colors.desc, marginTop: 1 }} numberOfLines={1}>
-                {region?.name || user.region || 'Region'} · {user.role || 'Regional Admin'}
+                {displayRegion || 'Region'} · {user.role || 'Regional Admin'}
               </Text>
             </View>
             <IconCircleButton
@@ -256,9 +256,6 @@ export default function AppointmentsTabScreen() {
             />
           </View>
 
-          {loading && !stats.length ? (
-            <ActivityIndicator color={colors.brand} style={{ marginTop: s(28) }} />
-          ) : null}
           {error ? (
             <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
               {error}
@@ -313,7 +310,6 @@ export default function AppointmentsTabScreen() {
         </View>
       </ScrollView>
 
-      <BottomTabBar active="Appointments" />
     </View>
   );
 }

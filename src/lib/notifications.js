@@ -10,6 +10,7 @@ export const DEFAULT_PREFERENCES = {
   alerts: {
     refund: true,
     accountRequests: false,
+    appointmentsThreshold: false,
     revenueThreshold: false,
     capacityThreshold: false,
     booking: false,
@@ -27,22 +28,36 @@ async function authHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+function mergePreferences(preferences) {
+  return {
+    channels: {
+      ...DEFAULT_PREFERENCES.channels,
+      ...(preferences?.channels || {}),
+    },
+    alerts: {
+      ...DEFAULT_PREFERENCES.alerts,
+      ...(preferences?.alerts || {}),
+    },
+  };
+}
+
 export async function fetchNotificationPreferences() {
   const headers = await authHeaders();
   const { data } = await api.get('/api/notifications/preferences', { headers });
-  return data.preferences || DEFAULT_PREFERENCES;
+  return mergePreferences(data.preferences);
 }
 
 export async function saveNotificationPreferences(preferences) {
   const headers = await authHeaders();
-  const { data } = await api.put('/api/notifications/preferences', preferences, { headers });
-  return data.preferences;
+  const payload = mergePreferences(preferences);
+  const { data } = await api.put('/api/notifications/preferences', payload, { headers });
+  return mergePreferences(data.preferences);
 }
 
 export async function resetNotificationPreferences() {
   const headers = await authHeaders();
   const { data } = await api.post('/api/notifications/preferences/reset', null, { headers });
-  return data.preferences;
+  return mergePreferences(data.preferences);
 }
 
 export async function fetchNotificationFeed() {

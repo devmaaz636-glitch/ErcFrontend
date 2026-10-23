@@ -1,16 +1,16 @@
 import { Fragment, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import BottomTabBar from '../components/BottomTabBar';
 import Text from '../components/AppText';
 import { IconCircleButton, SearchField, StatusBadge } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
@@ -107,8 +107,8 @@ export default function ClinicManagersScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { region } = useSession();
-  const { managers, loading, error, refresh } = useClinicData();
+  const { displayRegion } = useSession();
+  const { managers, error, refresh } = useClinicData();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
@@ -142,12 +142,12 @@ export default function ClinicManagersScreen() {
             <IconCircleButton
               name="chevron-back"
               accessibilityLabel="Go back"
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
             />
             <View style={{ flex: 1, marginLeft: s(12), marginRight: s(8) }}>
               <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink }}>Clinic Managers</Text>
               <Text style={{ fontSize: fs(9), color: colors.desc, marginTop: 1 }}>
-                {region?.name || 'All Regions'} · Regional Admin
+                {displayRegion || 'All Regions'} · Regional Admin
               </Text>
             </View>
             <IconCircleButton
@@ -161,10 +161,6 @@ export default function ClinicManagersScreen() {
           <View style={{ marginTop: s(18) }}>
             <SearchField value={query} onChangeText={setQuery} />
           </View>
-
-          {loading && !managers.items?.length ? (
-            <ActivityIndicator color={colors.brand} style={{ marginTop: s(40) }} />
-          ) : null}
 
           {error ? (
             <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(16), textAlign: 'center' }}>
@@ -204,7 +200,6 @@ export default function ClinicManagersScreen() {
         </View>
       </ScrollView>
 
-      <BottomTabBar active="Home" />
     </View>
   );
 }
