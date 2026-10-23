@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { SessionProvider } from './src/context/SessionContext';
 import { ClinicDataProvider } from './src/context/ClinicDataContext';
+import { NotificationsProvider } from './src/context/NotificationsContext';
 import { colors } from './src/theme';
 import MainTabs from './src/navigation/MainTabs';
 import SplashScreen from './src/screens/SplashScreen';
@@ -38,6 +39,7 @@ export default function App() {
     <SafeAreaProvider>
       <SessionProvider>
         <ClinicDataProvider>
+          <NotificationsProvider>
           <View
             className="flex-1 bg-splash"
             style={{ flex: 1, backgroundColor: colors.brand }}
@@ -114,6 +116,7 @@ export default function App() {
               </Stack.Navigator>
             </NavigationContainer>
           </View>
+          </NotificationsProvider>
         </ClinicDataProvider>
       </SessionProvider>
     </SafeAreaProvider>

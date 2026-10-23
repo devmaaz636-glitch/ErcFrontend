@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { authErrorMessage, saveNewPassword } from '../lib/auth';
 import { passwordProblem } from '../lib/passwordReset';
+import { notifyPasswordChanged } from '../lib/notifyEvents';
 import {
   BROWN,
   ErrorText,
@@ -120,8 +121,8 @@ export default function ForgotPasswordNewScreen() {
   function finish() {
     if (fromSecurity) {
       navigation.reset({
-        index: 1,
-        routes: [{ name: 'Home' }, { name: 'ProfileTab' }],
+        index: 0,
+        routes: [{ name: 'MainTabs', params: { screen: 'ProfileTab' } }],
       });
       return;
     }
@@ -147,6 +148,7 @@ export default function ForgotPasswordNewScreen() {
     setError('');
     try {
       await saveNewPassword(email, password, resetToken);
+      notifyPasswordChanged({ fromSecurity }).catch(() => {});
       setSuccessOpen(true);
     } catch (err) {
       setError(authErrorMessage(err));

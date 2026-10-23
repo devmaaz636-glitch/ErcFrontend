@@ -5,9 +5,12 @@ export const DEFAULT_PREFERENCES = {
   channels: {
     push: false,
     email: true,
-    inApp: false,
+    inApp: true,
   },
   alerts: {
+    profileChanges: true,
+    passwordChanges: true,
+    bookingUpdates: true,
     refund: true,
     accountRequests: false,
     appointmentsThreshold: false,
@@ -74,6 +77,18 @@ export async function publishNotificationEvent({ type, title, body, meta }) {
     { headers }
   );
   return data;
+}
+
+/** Fire a sample clinic alert so you can verify Push / Email / In-App delivery. */
+export async function sendTestNotification(overrides = {}) {
+  return publishNotificationEvent({
+    type: overrides.type || 'refund',
+    title: overrides.title || 'Test: Refund Spike Detected',
+    body:
+      overrides.body ||
+      'This is a test notification from ERC. If you see this in-app, by email, or as a push, that channel is working.',
+    meta: { test: true, at: new Date().toISOString(), ...(overrides.meta || {}) },
+  });
 }
 
 export function notificationErrorMessage(error) {

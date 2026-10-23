@@ -1,51 +1,98 @@
-import { useCallback, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import {
-  DEFAULT_PREFERENCES,
-  fetchNotificationFeed,
-  fetchNotificationPreferences,
-  notificationErrorMessage,
-  resetNotificationPreferences,
-  saveNotificationPreferences,
-} from '../lib/notifications';
+import { useNotifications } from '../context/NotificationsContext';
+import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const BROWN = '#BF824F';
-const INK = '#1F1B16';
-const MUTED = '#8D8680';
-const DESC = '#666666';
-const BG = '#FFF8F1';
+const BROWN = colors.brand;
+const INK = colors.ink;
+const MUTED = colors.muted;
+const DESC = colors.desc;
+const BG = colors.background;
 
 const CHANNELS = [
   {
     key: 'push',
     title: 'Push Notifications',
-    body: 'Receive alerts on your device',
+    body: 'Real-time alerts on your device via Expo Push',
     icon: 'notifications-outline',
   },
   {
     key: 'email',
     title: 'Email Notifications',
-    body: 'Receive updates by email',
+    body: 'Receive updates by email (SMTP)',
     icon: 'mail-outline',
   },
   {
     key: 'inApp',
     title: 'In-App Notifications',
-    body: 'View notifications inside the app',
+    body: 'Live feed over SSE / Redis pub-sub',
     icon: 'radio-button-on-outline',
   },
 ];
 
-function SectionHeader({ title, subtitle }) {
+const ALERTS = [
+  {
+    key: 'profileChanges',
+    title: 'Profile Changes',
+    body: 'Name, email, region, or photo updates',
+    icon: 'person-outline',
+  },
+  {
+    key: 'passwordChanges',
+    title: 'Password Changes',
+    body: 'When your account password is changed or reset',
+    icon: 'lock-closed-outline',
+  },
+  {
+    key: 'bookingUpdates',
+    title: 'Booking Updates',
+    body: 'Appointment and booking activity',
+    icon: 'calendar-outline',
+  },
+  {
+    key: 'refund',
+    title: 'Refund Alerts',
+    body: 'Refund spikes across branches',
+    icon: 'refresh-outline',
+  },
+  {
+    key: 'accountRequests',
+    title: 'Account Requests',
+    body: 'Clinic manager account requests requiring review',
+    icon: 'people-outline',
+  },
+  {
+    key: 'appointmentsThreshold',
+    title: 'Appointments Threshold Alerts',
+    body: 'Appointments reach configured maximum thresholds',
+    icon: 'alert-circle-outline',
+  },
+  {
+    key: 'capacityThreshold',
+    title: 'Capacity Threshold Alerts',
+    body: 'Branches approaching configured capacity limits',
+    icon: 'pulse-outline',
+  },
+  {
+    key: 'booking',
+    title: 'Booking Drop Alerts',
+    body: 'Significant drops in branch bookings',
+    icon: 'trending-down-outline',
+  },
+];
+
+function SectionHeader({ title, subtitle, right }) {
   return (
     <View style={{ marginTop: s(22), marginBottom: s(10) }}>
-      <Text style={{ fontSize: fs(15), fontWeight: '700', color: INK }}>{title}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ flex: 1, fontSize: fs(15), fontWeight: '700', color: INK }}>{title}</Text>
+        {right}
+      </View>
       <Text style={{ fontSize: fs(11), color: DESC, marginTop: 4, lineHeight: 16 }}>{subtitle}</Text>
     </View>
   );
@@ -96,80 +143,18 @@ export default function NotificationsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const [prefs, setPrefs] = useState(DEFAULT_PREFERENCES);
-  const [feed, setFeed] = useState([]);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const saving = useRef(false);
-
-  const load = useCallback(async () => {
-    setError('');
-    try {
-      const [preferences, items] = await Promise.all([
-        fetchNotificationPreferences(),
-        fetchNotificationFeed().catch(() => []),
-      ]);
-      setPrefs(preferences);
-      setFeed(items);
-    } catch (err) {
-      setError(notificationErrorMessage(err));
-      setPrefs(DEFAULT_PREFERENCES);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-      const timer = setInterval(() => {
-        fetchNotificationFeed()
-          .then(setFeed)
-          .catch(() => {});
-      }, 8000);
-      return () => clearInterval(timer);
-    }, [load])
-  );
-
-  function setChannel(key, value) {
-    setPrefs((current) => ({
-      ...current,
-      channels: { ...current.channels, [key]: value },
-    }));
-    setNotice('');
-  }
-
-  async function onSave() {
-    if (saving.current) return;
-    saving.current = true;
-    setError('');
-    setNotice('');
-    try {
-      const next = await saveNotificationPreferences(prefs);
-      setPrefs(next);
-      const confirmed = await fetchNotificationPreferences();
-      setPrefs(confirmed);
-      setNotice('Preferences saved.');
-    } catch (err) {
-      setError(notificationErrorMessage(err));
-    } finally {
-      saving.current = false;
-    }
-  }
-
-  async function onReset() {
-    if (saving.current) return;
-    saving.current = true;
-    setError('');
-    setNotice('');
-    try {
-      const next = await resetNotificationPreferences();
-      setPrefs(next);
-      setNotice('Defaults restored.');
-    } catch (err) {
-      setError(notificationErrorMessage(err));
-    } finally {
-      saving.current = false;
-    }
-  }
+  const {
+    preferences,
+    feed,
+    live,
+    error,
+    notice,
+    setChannel,
+    setAlert,
+    saveAll,
+    resetAll,
+    sendTest,
+  } = useNotifications();
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -213,26 +198,14 @@ export default function NotificationsScreen() {
             >
               Notifications
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              hitSlop={8}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-            </Pressable>
+            <Text style={{ fontSize: fs(9), color: live ? colors.success : MUTED }}>
+              {live ? '● Live' : '○ Syncing'}
+            </Text>
           </View>
 
           <SectionHeader
             title="Notification Channels"
-            subtitle="Choose how you want to receive admin notifications."
+            subtitle="Push, email, and in-app — toggles save instantly and go live in real time."
           />
           {CHANNELS.map((item) => (
             <PrefRow
@@ -240,8 +213,23 @@ export default function NotificationsScreen() {
               icon={item.icon}
               title={item.title}
               body={item.body}
-              value={Boolean(prefs.channels?.[item.key])}
+              value={Boolean(preferences.channels?.[item.key])}
               onValueChange={(value) => setChannel(item.key, value)}
+            />
+          ))}
+
+          <SectionHeader
+            title="Alert Preferences"
+            subtitle="Select the events you want notifications for."
+          />
+          {ALERTS.map((item) => (
+            <PrefRow
+              key={item.key}
+              icon={item.icon}
+              title={item.title}
+              body={item.body}
+              value={Boolean(preferences.alerts?.[item.key])}
+              onValueChange={(value) => setAlert(item.key, value)}
             />
           ))}
 
@@ -249,9 +237,9 @@ export default function NotificationsScreen() {
             <>
               <SectionHeader
                 title="Recent Activity"
-                subtitle="Live alerts delivered from your enabled preferences."
+                subtitle="Live alerts from your enabled channels."
               />
-              {feed.slice(0, 5).map((item) => (
+              {feed.slice(0, 8).map((item) => (
                 <View
                   key={item.id}
                   style={{
@@ -272,7 +260,6 @@ export default function NotificationsScreen() {
               ))}
             </>
           ) : null}
-
         </View>
       </ScrollView>
 
@@ -294,27 +281,23 @@ export default function NotificationsScreen() {
           ) : null}
           <Pressable
             accessibilityRole="button"
-            onPress={onSave}
+            onPress={sendTest}
             style={{
               height: s(52),
               borderRadius: 999,
               backgroundColor: BROWN,
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 0,
             }}
           >
-            <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>Save Preferences</Text>
+            <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>
+              Send Test Notification
+            </Text>
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
-            onPress={() =>
-              Alert.alert('Reset to defaults', 'Restore the default notification preferences?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Reset', onPress: onReset },
-              ])
-            }
+            onPress={saveAll}
             style={{
               height: s(52),
               borderRadius: 999,
@@ -326,7 +309,26 @@ export default function NotificationsScreen() {
               marginTop: s(12),
             }}
           >
-            <Text style={{ fontSize: fs(15), fontWeight: '700', color: BROWN }}>Reset to Defaults</Text>
+            <Text style={{ fontSize: fs(15), fontWeight: '700', color: BROWN }}>Save Preferences</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              Alert.alert('Reset to defaults', 'Restore the default notification preferences?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset', onPress: resetAll },
+              ])
+            }
+            style={{
+              height: s(48),
+              borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: s(8),
+            }}
+          >
+            <Text style={{ fontSize: fs(13), fontWeight: '600', color: MUTED }}>Reset to Defaults</Text>
           </Pressable>
         </View>
       </View>

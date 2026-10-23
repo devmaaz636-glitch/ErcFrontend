@@ -21,6 +21,7 @@ import { scale as s, fs, useTopPadding } from '../utils/responsive';
 import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
 import { useSession } from '../context/SessionContext';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
+import { notifyProfileUpdated } from '../lib/notifyEvents';
 import { colors } from '../theme';
 
 const BROWN = colors.brand;
@@ -269,8 +270,11 @@ export default function EditProfileScreen() {
 
     try {
       setSaving(true);
+      const before = { ...user };
       await updateUser(updated);
       setUser(updated);
+      // Email + in-app (and push if enabled) — does not block navigation.
+      notifyProfileUpdated(before, updated).catch(() => {});
       // Pop back so Profile reuses the same tab instance and shows fresh session state.
       if (navigation.canGoBack()) {
         navigation.goBack();
