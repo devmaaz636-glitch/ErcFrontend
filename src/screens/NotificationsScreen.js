@@ -42,39 +42,6 @@ const CHANNELS = [
   },
 ];
 
-const ALERTS = [
-  {
-    key: 'refund',
-    title: 'Refund Alerts',
-    body: 'Receive alerts on your device',
-    icon: 'refresh-outline',
-  },
-  {
-    key: 'accountRequests',
-    title: 'Account Requests',
-    body: 'Clinic manager account requests requiring review',
-    icon: 'person-outline',
-  },
-{
-  key: 'appointmentsThreshold',
-  title: 'Appointments Threshold Alerts',
-  body: 'Appointments reach configured maximum thresholds',
-  icon: 'calendar-outline',
-},
-  {
-    key: 'capacityThreshold',
-    title: 'Capacity Threshold Alerts',
-    body: 'Branches approaching configured capacity limits',
-    icon: 'pulse-outline',
-  },
-  {
-    key: 'booking',
-    title: 'Booking Alerts',
-    body: 'Significant drops in branch bookings',
-    icon: 'calendar-outline',
-  },
-];
-
 function SectionHeader({ title, subtitle }) {
   return (
     <View style={{ marginTop: s(22), marginBottom: s(10) }}>
@@ -170,14 +137,6 @@ export default function NotificationsScreen() {
     setNotice('');
   }
 
-  function setAlert(key, value) {
-    setPrefs((current) => ({
-      ...current,
-      alerts: { ...current.alerts, [key]: value },
-    }));
-    setNotice('');
-  }
-
   async function onSave() {
     if (saving.current) return;
     saving.current = true;
@@ -186,7 +145,6 @@ export default function NotificationsScreen() {
     try {
       const next = await saveNotificationPreferences(prefs);
       setPrefs(next);
-      // Re-fetch so toggles (e.g. Appointments Threshold) reflect Redis immediately.
       const confirmed = await fetchNotificationPreferences();
       setPrefs(confirmed);
       setNotice('Preferences saved.');
@@ -221,7 +179,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={{
           paddingTop: topPad,
           paddingHorizontal: s(20),
-          paddingBottom: Math.max(insets.bottom, 16) + 24,
+          paddingBottom: s(24),
           alignItems: 'center',
         }}
       >
@@ -287,21 +245,6 @@ export default function NotificationsScreen() {
             />
           ))}
 
-          <SectionHeader
-            title="Alert Preferences"
-            subtitle="Select the events you want notifications for."
-          />
-          {ALERTS.map((item) => (
-            <PrefRow
-              key={item.key}
-              icon={item.icon}
-              title={item.title}
-              body={item.body}
-              value={Boolean(prefs.alerts?.[item.key])}
-              onValueChange={(value) => setAlert(item.key, value)}
-            />
-          ))}
-
           {feed.length > 0 ? (
             <>
               <SectionHeader
@@ -330,13 +273,25 @@ export default function NotificationsScreen() {
             </>
           ) : null}
 
+        </View>
+      </ScrollView>
+
+      <View
+        style={{
+          paddingHorizontal: s(20),
+          paddingTop: s(12),
+          paddingBottom: Math.max(insets.bottom, 16),
+          backgroundColor: BG,
+          alignItems: 'center',
+        }}
+      >
+        <View style={{ width: '100%', maxWidth: 480 }}>
           {error ? (
             <Text style={{ color: '#B42318', fontSize: fs(12), marginBottom: s(10) }}>{error}</Text>
           ) : null}
           {notice ? (
             <Text style={{ color: '#3F6B4A', fontSize: fs(12), marginBottom: s(10) }}>{notice}</Text>
           ) : null}
-
           <Pressable
             accessibilityRole="button"
             onPress={onSave}
@@ -346,7 +301,7 @@ export default function NotificationsScreen() {
               backgroundColor: BROWN,
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: s(8),
+              marginTop: 0,
             }}
           >
             <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>Save Preferences</Text>
@@ -374,7 +329,7 @@ export default function NotificationsScreen() {
             <Text style={{ fontSize: fs(15), fontWeight: '700', color: BROWN }}>Reset to Defaults</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }

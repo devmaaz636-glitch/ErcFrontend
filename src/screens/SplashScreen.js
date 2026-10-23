@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { Animated, Easing, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Platform, Text, useWindowDimensions, View } from 'react-native';
 import { signOutUser } from '../lib/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
@@ -172,14 +172,14 @@ export default function SplashScreen() {
         toValue: 1,
         duration: LOGO_DURATION,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(arcAnim, {
         toValue: 1,
         delay: ARC_DELAY,
         duration: ARC_DURATION,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]);
     animation.start();
@@ -219,8 +219,11 @@ export default function SplashScreen() {
             source={require('../../assets/splashlogo.png')}
             contentFit="contain"
             accessibilityLabel="Enfield Royal Clinics"
-            className="self-center"
-            style={{ width: layout.logoSize, height: layout.logoSize }}
+            style={{
+              alignSelf: 'center',
+              width: `${layout.logoSize}px`,
+              height: `${layout.logoSize}px`,
+            }}
           />
         </Animated.View>
       </View>

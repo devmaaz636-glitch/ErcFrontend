@@ -15,7 +15,6 @@ const SETTINGS = [
   { key: 'edit', label: 'Edit Profile', icon: 'person-outline' },
   { key: 'security', label: 'Security & Privacy', icon: 'shield-checkmark-outline' },
   { key: 'notification', label: 'Notification', icon: 'notifications-outline' },
-  { key: 'managers', label: 'Clinic Managers', icon: 'people-outline' },
 ];
 
 function SectionTitle({ title }) {
@@ -126,9 +125,7 @@ export default function ProfileTabScreen() {
       navigation.navigate('Notifications', { user });
       return;
     }
-    if (key === 'managers') {
-      navigation.navigate('ClinicManagers');
-    }
+  
   }
 
   return (
