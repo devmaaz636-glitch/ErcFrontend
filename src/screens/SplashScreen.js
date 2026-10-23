@@ -164,25 +164,37 @@ export default function SplashScreen() {
   );
 
   const logoAnim = useRef(new Animated.Value(0)).current;
+  const logoSpin = useRef(new Animated.Value(0)).current;
   const arcAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animation = Animated.parallel([
+    const useNative = Platform.OS !== 'web';
+    const entrance = Animated.parallel([
       Animated.timing(logoAnim, {
         toValue: 1,
         duration: LOGO_DURATION,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
+        useNativeDriver: useNative,
       }),
       Animated.timing(arcAnim, {
         toValue: 1,
         delay: ARC_DELAY,
         duration: ARC_DURATION,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
+        useNativeDriver: useNative,
       }),
     ]);
-    animation.start();
+    entrance.start();
+
+    const spinLoop = Animated.loop(
+      Animated.timing(logoSpin, {
+        toValue: 1,
+        duration: 2200,
+        easing: Easing.linear,
+        useNativeDriver: useNative,
+      })
+    );
+    spinLoop.start();
 
     const timeout = setTimeout(() => {
       signOutUser()
@@ -191,14 +203,19 @@ export default function SplashScreen() {
     }, SPLASH_TOTAL);
 
     return () => {
-      animation.stop();
+      entrance.stop();
+      spinLoop.stop();
       clearTimeout(timeout);
     };
-  }, [navigation, logoAnim, arcAnim]);
+  }, [navigation, logoAnim, logoSpin, arcAnim]);
 
   const logoScale = logoAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.85, 1],
+  });
+  const logoRotate = logoSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
   });
 
   return (
@@ -213,7 +230,10 @@ export default function SplashScreen() {
         className="absolute inset-0 items-center justify-center"
       >
         <Animated.View
-          style={{ opacity: logoAnim, transform: [{ scale: logoScale }] }}
+          style={{
+            opacity: logoAnim,
+            transform: [{ scale: logoScale }, { rotate: logoRotate }],
+          }}
         >
           <Image
             source={require('../../assets/splashlogo.png')}

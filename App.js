@@ -22,6 +22,7 @@ import ClinicManagerDetailScreen from './src/screens/ClinicManagerDetailScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import NotificationPreferencesScreen from './src/screens/NotificationPreferencesScreen';
 
 LogBox.ignoreLogs([
   'Splashscreen.setOptions',
@@ -111,6 +112,11 @@ export default function App() {
                 <Stack.Screen
                   name="Notifications"
                   component={NotificationsScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="NotificationPreferences"
+                  component={NotificationPreferencesScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
               </Stack.Navigator>

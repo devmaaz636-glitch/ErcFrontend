@@ -15,6 +15,7 @@ import {
   DEFAULT_PREFERENCES,
   fetchNotificationFeed,
   fetchNotificationPreferences,
+  markNotificationsRead,
   notificationErrorMessage,
   resetNotificationPreferences,
   saveNotificationPreferences,
@@ -341,6 +342,36 @@ export function NotificationsProvider({ children }) {
     }
   }, [feed, persistCache]);
 
+  const markRead = useCallback(
+    async (ids) => {
+      const idList = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+      const previous = feed;
+
+      // Optimistic — badge updates instantly on every tab.
+      setFeed((prev) => {
+        const next =
+          idList.length === 0
+            ? prev.map((item) => ({ ...item, read: true }))
+            : prev.map((item) =>
+                idList.includes(String(item.id)) ? { ...item, read: true } : item
+              );
+        setUnreadCount(next.filter((i) => !i.read).length);
+        persistCache(prefsRef.current, next);
+        return next;
+      });
+
+      try {
+        const items = await markNotificationsRead(idList.length ? idList : undefined);
+        applyFeed(Array.isArray(items) ? items : previous);
+      } catch {
+        applyFeed(previous);
+      }
+    },
+    [feed, applyFeed, persistCache]
+  );
+
+  const markAllRead = useCallback(async () => markRead([]), [markRead]);
+
   const sendTest = useCallback(async () => {
     setError('');
     setNotice('');
@@ -406,6 +437,8 @@ export function NotificationsProvider({ children }) {
       saveAll,
       resetAll,
       sendTest,
+      markRead,
+      markAllRead,
       refresh: syncFromApi,
       channels: preferences.channels,
     }),
@@ -422,6 +455,8 @@ export function NotificationsProvider({ children }) {
       saveAll,
       resetAll,
       sendTest,
+      markRead,
+      markAllRead,
       syncFromApi,
     ]
   );

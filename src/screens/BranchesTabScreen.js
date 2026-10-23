@@ -7,8 +7,9 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField } from '../components/ui';
+import { IconCircleButton, SearchField, SkeletonRow } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
+import { useNotifications } from '../context/NotificationsContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -144,12 +145,14 @@ export default function BranchesTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { branches, error, refresh } = useClinicData();
+  const { branches, error, refresh, loadedOnce } = useClinicData();
+  const { unreadCount } = useNotifications();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
 
   const items = branches.items || [];
+  const showSkeleton = !loadedOnce && items.length === 0;
   const total = items.length;
   const active = items.filter((b) => b.status === 'active').length;
   const attention = items.filter((b) => b.status === 'attention').length;
@@ -193,6 +196,7 @@ export default function BranchesTabScreen() {
               name="notifications-outline"
               color={colors.brand}
               accessibilityLabel="Notifications"
+              badgeCount={unreadCount}
               onPress={() => navigation.navigate('Notifications')}
             />
           </View>
@@ -207,6 +211,24 @@ export default function BranchesTabScreen() {
             </Text>
           ) : null}
 
+          {showSkeleton ? (
+            <>
+              <View style={{ flexDirection: 'row', marginTop: s(16) }}>
+                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
+                <View style={{ width: s(10) }} />
+                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
+                <View style={{ width: s(10) }} />
+                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
+              </View>
+              <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink, marginTop: s(22), marginBottom: s(10) }}>
+                Rank Ledger By
+              </Text>
+              <SkeletonRow lines={2} avatar />
+              <SkeletonRow lines={2} avatar />
+              <SkeletonRow lines={2} avatar />
+            </>
+          ) : (
+            <>
           <View style={{ flexDirection: 'row', marginTop: s(16) }}>
             <StatCard id="total" label="Total" value={pad2(total)} sub="All Regions" />
             <View style={{ width: s(10) }} />
@@ -244,6 +266,8 @@ export default function BranchesTabScreen() {
                 onPress={() => navigation.navigate('BranchDetail', { branch: item, branchId: item.id })}
               />
             ))
+          )}
+            </>
           )}
         </View>
       </ScrollView>

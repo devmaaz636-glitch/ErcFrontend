@@ -6,8 +6,9 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField, StatusBadge } from '../components/ui';
+import { IconCircleButton, SearchField, StatusBadge, SkeletonRow, SkeletonStatGrid } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
+import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -199,13 +200,15 @@ export default function AppointmentsTabScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { displayRegion, user } = useSession();
-  const { appointments, error, refresh } = useClinicData();
+  const { appointments, error, refresh, loadedOnce } = useClinicData();
+  const { unreadCount } = useNotifications();
   const [tab, setTab] = useState('upcoming');
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
 
   const stats = appointments.stats || [];
+  const showSkeleton = !loadedOnce && stats.length === 0;
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (appointments.items || []).filter(
@@ -252,6 +255,7 @@ export default function AppointmentsTabScreen() {
               name="notifications-outline"
               color={colors.mutedBrand}
               accessibilityLabel="Notifications"
+              badgeCount={unreadCount}
               onPress={() => navigation.navigate('Notifications')}
             />
           </View>
@@ -262,51 +266,65 @@ export default function AppointmentsTabScreen() {
             </Text>
           ) : null}
 
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              marginTop: s(20),
-            }}
-          >
-            {stats.map((item) => (
-              <StatCard key={item.id} item={item} />
-            ))}
-          </View>
-
-          <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink, marginTop: s(10) }}>
-            Appointment List
-          </Text>
-
-          <View style={{ marginTop: s(12) }}>
-            <SearchField value={query} onChangeText={setQuery} />
-          </View>
-
-          <FilterTabs active={tab} onChange={setTab} />
-
-          <View style={{ width: '100%', marginTop: s(16) }}>
-            {list.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
-                <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
-                <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No appointments found</Text>
+          {showSkeleton ? (
+            <>
+              <SkeletonStatGrid count={4} />
+              <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink, marginTop: s(10) }}>
+                Appointment List
+              </Text>
+              <SkeletonRow lines={2} style={{ marginTop: s(16) }} />
+              <SkeletonRow lines={2} />
+              <SkeletonRow lines={2} />
+            </>
+          ) : (
+            <>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'space-between',
+                  marginTop: s(20),
+                }}
+              >
+                {stats.map((item) => (
+                  <StatCard key={item.id} item={item} />
+                ))}
               </View>
-            ) : (
-              list.map((item, i) => (
-                <AppointmentCard
-                  key={item.id}
-                  item={item}
-                  featured={i === 0}
-                  onPress={() =>
-                    navigation.navigate('AppointmentDetail', {
-                      appointment: item,
-                      appointmentId: item.id,
-                    })
-                  }
-                />
-              ))
-            )}
-          </View>
+
+              <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink, marginTop: s(10) }}>
+                Appointment List
+              </Text>
+
+              <View style={{ marginTop: s(12) }}>
+                <SearchField value={query} onChangeText={setQuery} />
+              </View>
+
+              <FilterTabs active={tab} onChange={setTab} />
+
+              <View style={{ width: '100%', marginTop: s(16) }}>
+                {list.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
+                    <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
+                    <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No appointments found</Text>
+                  </View>
+                ) : (
+                  list.map((item, i) => (
+                    <AppointmentCard
+                      key={item.id}
+                      item={item}
+                      featured={i === 0}
+                      onPress={() =>
+                        navigation.navigate('AppointmentDetail', {
+                          appointment: item,
+                          appointmentId: item.id,
+                        })
+                      }
+                    />
+                  ))
+                )}
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
 

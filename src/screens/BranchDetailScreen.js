@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchBranch } from '../lib/clinic';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors } from '../theme';
@@ -272,7 +273,13 @@ export default function BranchDetailScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
-          {loading && !branch ? <ActivityIndicator color={BROWN} style={{ marginVertical: s(20) }} /> : null}
+          {loading && !branch ? (
+            <View style={{ marginVertical: s(16) }}>
+              <SkeletonRow lines={2} />
+              <SkeletonRow lines={3} />
+              <SkeletonRow lines={2} />
+            </View>
+          ) : null}
           {error ? (
             <Text style={{ fontSize: fs(11), color: RED, textAlign: 'center', marginBottom: s(8) }}>{error}</Text>
           ) : null}

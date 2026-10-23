@@ -69,6 +69,15 @@ export async function fetchNotificationFeed() {
   return data.items || [];
 }
 
+/** Mark feed items read. Omit ids (or pass []) to mark all. */
+export async function markNotificationsRead(ids) {
+  const headers = await authHeaders();
+  const payload =
+    Array.isArray(ids) && ids.length > 0 ? { ids: ids.map(String) } : {};
+  const { data } = await api.post('/api/notifications/read', payload, { headers });
+  return data.items || [];
+}
+
 export async function publishNotificationEvent({ type, title, body, meta }) {
   const headers = await authHeaders();
   const { data } = await api.post(

@@ -1,79 +1,107 @@
-import { useEffect } from 'react';
+import { useCallback, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { IconCircleButton, SkeletonRow } from '../components/ui';
 import { useNotifications } from '../context/NotificationsContext';
 import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const BROWN = colors.brand;
-const INK = colors.ink;
-const MUTED = colors.muted;
-const DESC = colors.desc;
-const BG = colors.background;
+const TYPE_ICON = {
+  profileChanges: 'person-outline',
+  passwordChanges: 'lock-closed-outline',
+  bookingUpdates: 'calendar-outline',
+  refund: 'cash-outline',
+  accountRequests: 'person-add-outline',
+  appointmentsThreshold: 'alert-circle-outline',
+  revenueThreshold: 'trending-up-outline',
+  capacityThreshold: 'people-outline',
+  booking: 'calendar-outline',
+  push: 'notifications-outline',
+};
 
-const CHANNELS = [
-  {
-    key: 'push',
-    title: 'Push Notifications',
-    body: 'Receive alerts on your device',
-    icon: 'notifications-outline',
-  },
-  {
-    key: 'email',
-    title: 'Email Notifications',
-    body: 'Receive updates by email',
-    icon: 'mail-outline',
-  },
-  {
-    key: 'inApp',
-    title: 'In-App Notifications',
-    body: 'View notifications inside the app',
-    icon: 'radio-button-on-outline',
-  },
-];
+function formatWhen(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
 
-function PrefRow({ icon, title, body, value, onValueChange }) {
+function NotificationCard({ item, onPress }) {
+  const unread = !item.read;
   return (
-    <View
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.title}. ${unread ? 'Unread. ' : ''}Tap to dismiss.`}
       style={{
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 14,
         paddingVertical: s(12),
         paddingHorizontal: s(12),
         marginBottom: s(10),
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        opacity: unread ? 1 : 0.55,
+        borderWidth: unread ? 1 : 0,
+        borderColor: unread ? colors.brandMuted : 'transparent',
       }}
     >
       <View
         style={{
-          width: s(34),
-          height: s(34),
-          borderRadius: s(17),
-          backgroundColor: BROWN,
+          width: s(36),
+          height: s(36),
+          borderRadius: s(18),
+          backgroundColor: unread ? colors.brand : colors.brandSoft,
           alignItems: 'center',
           justifyContent: 'center',
           marginRight: s(12),
         }}
       >
-        <Ionicons name={icon} size={s(16)} color="#fff" />
+        <Ionicons
+          name={TYPE_ICON[item.type] || 'notifications-outline'}
+          size={s(16)}
+          color={unread ? '#fff' : colors.brand}
+        />
       </View>
-      <View style={{ flex: 1, marginRight: 10 }}>
-        <Text style={{ fontSize: fs(13), fontWeight: '700', color: INK }}>{title}</Text>
-        <Text style={{ fontSize: fs(10), color: DESC, marginTop: 3, lineHeight: 14 }}>{body}</Text>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ flex: 1, fontSize: fs(13), fontWeight: '700', color: colors.ink }} numberOfLines={1}>
+            {item.title}
+          </Text>
+          {unread ? (
+            <View
+              style={{
+                width: s(8),
+                height: s(8),
+                borderRadius: s(4),
+                backgroundColor: colors.danger,
+                marginLeft: s(8),
+              }}
+            />
+          ) : null}
+        </View>
+        {item.body ? (
+          <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 4, lineHeight: 16 }} numberOfLines={3}>
+            {item.body}
+          </Text>
+        ) : null}
+        <Text style={{ fontSize: fs(10), color: colors.muted, marginTop: 6 }}>
+          {formatWhen(item.createdAt)}
+        </Text>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: '#E5DED6', true: BROWN }}
-        thumbColor="#fff"
-        ios_backgroundColor="#E5DED6"
-      />
-    </View>
+    </Pressable>
   );
 }
 
@@ -81,45 +109,39 @@ export default function NotificationsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { preferences, error, notice, setChannel, saveAll, resetAll, setNotice, setError } =
-    useNotifications();
+  const { feed, unreadCount, ready, markRead, markAllRead, refresh, live } = useNotifications();
 
-  // Don't show leftover "Test sent · In-App ✓ …" messages on this screen.
-  useEffect(() => {
-    setNotice?.('');
-    setError?.('');
-  }, [setNotice, setError]);
+  useFocusEffect(
+    useCallback(() => {
+      refresh?.().catch(() => {});
+    }, [refresh])
+  );
+
+  // Only unread — tapping a row marks it read and hides it from this list.
+  const visible = useMemo(() => feed.filter((i) => !i.read), [feed]);
+
+  const showSkeleton = !ready && feed.length === 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingTop: topPad,
           paddingHorizontal: s(20),
-          paddingBottom: s(24),
+          paddingBottom: Math.max(insets.bottom, 16) + 24,
           alignItems: 'center',
         }}
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="chevron-back"
+              color={colors.ink}
               accessibilityLabel="Go back"
-              hitSlop={8}
               onPress={() => navigation.goBack()}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-back" size={s(18)} color={INK} />
-            </Pressable>
+            />
             <Text
               style={{
                 flex: 1,
@@ -127,103 +149,108 @@ export default function NotificationsScreen() {
                 marginHorizontal: s(8),
                 fontSize: fs(16),
                 fontWeight: '700',
-                color: INK,
+                color: colors.ink,
               }}
               numberOfLines={1}
             >
               Notifications
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="notifications-outline"
+              color={colors.brand}
               accessibilityLabel="Notifications"
-              hitSlop={8}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-            </Pressable>
+              badgeCount={unreadCount}
+            />
           </View>
 
-          <Text style={{ fontSize: fs(15), fontWeight: '700', color: INK, marginTop: s(22) }}>
-            Notification Channels
-          </Text>
-          <Text style={{ fontSize: fs(11), color: DESC, marginTop: 4, marginBottom: s(12), lineHeight: 16 }}>
-            Choose how you want to receive admin notifications.
-          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: s(22),
+              marginBottom: s(12),
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: fs(15), fontWeight: '700', color: colors.ink }}>
+                Recent Activity
+              </Text>
+              <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 4 }}>
+                {live ? '● Live' : 'Updates sync in the background'}
+                {unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
+              </Text>
+            </View>
+            {unreadCount > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => markAllRead()}
+                hitSlop={8}
+                style={{
+                  paddingHorizontal: s(12),
+                  paddingVertical: s(8),
+                  borderRadius: 999,
+                  backgroundColor: colors.brandSoft,
+                }}
+              >
+                <Text style={{ fontSize: fs(11), fontWeight: '600', color: colors.brand }}>
+                  Clear all
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
 
-          {CHANNELS.map((item) => (
-            <PrefRow
-              key={item.key}
-              icon={item.icon}
-              title={item.title}
-              body={item.body}
-              value={Boolean(preferences.channels?.[item.key])}
-              onValueChange={(value) => setChannel(item.key, value)}
+          {showSkeleton ? (
+            <>
+              <SkeletonRow lines={2} avatar />
+              <SkeletonRow lines={2} avatar />
+              <SkeletonRow lines={2} avatar />
+            </>
+          ) : null}
+
+          {!showSkeleton && visible.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: s(48) }}>
+              <View
+                style={{
+                  width: s(56),
+                  height: s(56),
+                  borderRadius: s(28),
+                  backgroundColor: colors.brandSoft,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: s(12),
+                }}
+              >
+                <Ionicons name="notifications-off-outline" size={s(24)} color={colors.brand} />
+              </View>
+              <Text style={{ fontSize: fs(14), fontWeight: '600', color: colors.ink }}>
+                You're all caught up
+              </Text>
+              <Text
+                style={{
+                  fontSize: fs(11),
+                  color: colors.desc,
+                  marginTop: 6,
+                  textAlign: 'center',
+                  lineHeight: 16,
+                  paddingHorizontal: s(24),
+                }}
+              >
+                New admin alerts will appear here in real time when In-App notifications are on.
+              </Text>
+            </View>
+          ) : null}
+
+          {visible.map((item) => (
+            <NotificationCard
+              key={item.id}
+              item={item}
+              onPress={() => {
+                if (!item.read) markRead([item.id]);
+              }}
             />
           ))}
         </View>
       </ScrollView>
-
-      <View
-        style={{
-          paddingHorizontal: s(20),
-          paddingTop: s(12),
-          paddingBottom: Math.max(insets.bottom, 16),
-          backgroundColor: BG,
-          alignItems: 'center',
-        }}
-      >
-        <View style={{ width: '100%', maxWidth: 480 }}>
-          {error ? (
-            <Text style={{ color: '#B42318', fontSize: fs(12), marginBottom: s(10) }}>{error}</Text>
-          ) : null}
-          {notice && !String(notice).toLowerCase().includes('test') ? (
-            <Text style={{ color: '#3F6B4A', fontSize: fs(12), marginBottom: s(10) }}>{notice}</Text>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={saveAll}
-            style={{
-              height: s(52),
-              borderRadius: 999,
-              backgroundColor: BROWN,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>Save Preferences</Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              Alert.alert('Reset to defaults', 'Restore the default notification preferences?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Reset', onPress: resetAll },
-              ])
-            }
-            style={{
-              height: s(52),
-              borderRadius: 999,
-              backgroundColor: '#fff',
-              borderWidth: 1.5,
-              borderColor: '#E5DED6',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: s(12),
-            }}
-          >
-            <Text style={{ fontSize: fs(15), fontWeight: '700', color: INK }}>Reset to Defaults</Text>
-          </Pressable>
-        </View>
-      </View>
     </View>
   );
 }

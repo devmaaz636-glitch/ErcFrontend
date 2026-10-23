@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
 import { notifyBookingUpdate } from '../lib/notifyEvents';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -257,7 +258,11 @@ export default function AppointmentDetailScreen() {
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
           {loading && !appointment ? (
-            <ActivityIndicator color={BROWN} style={{ marginTop: s(40) }} />
+            <View style={{ marginTop: s(24) }}>
+              <SkeletonRow lines={2} />
+              <SkeletonRow lines={3} />
+              <SkeletonRow lines={2} />
+            </View>
           ) : null}
           {error ? (
             <Text style={{ fontSize: fs(11), color: RED, textAlign: 'center', marginBottom: s(12) }}>

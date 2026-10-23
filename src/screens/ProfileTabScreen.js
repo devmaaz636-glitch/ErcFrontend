@@ -124,7 +124,7 @@ export default function ProfileTabScreen() {
       return;
     }
     if (key === 'notification') {
-      navigation.navigate('Notifications', { user });
+      navigation.navigate('NotificationPreferences', { user });
     }
   }
 
@@ -152,34 +152,13 @@ export default function ProfileTabScreen() {
             <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.ink }}>
               Profile
             </Text>
-            <View>
-              <IconCircleButton
-                name="notifications-outline"
-                color={colors.brand}
-                accessibilityLabel="Notifications"
-                onPress={() => navigation.navigate('Notifications')}
-              />
-              {unreadCount > 0 ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 2,
-                    right: 2,
-                    minWidth: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    backgroundColor: colors.danger,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingHorizontal: 3,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
+            <IconCircleButton
+              name="notifications-outline"
+              color={colors.brand}
+              accessibilityLabel="Notifications"
+              badgeCount={unreadCount}
+              onPress={() => navigation.navigate('Notifications')}
+            />
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 18 }}>

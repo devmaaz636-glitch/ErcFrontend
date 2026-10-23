@@ -7,8 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
-import { SearchField, SectionHeader, IconCircleButton } from '../components/ui';
+import { SearchField, SectionHeader, IconCircleButton, SkeletonRow, SkeletonStatGrid } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
+import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -272,7 +273,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user, displayRegion } = useSession();
-  const { dashboard, error, refresh } = useClinicData();
+  const { dashboard, error, refresh, loadedOnce } = useClinicData();
+  const { unreadCount } = useNotifications();
 
   useRefreshOnFocus(refresh);
 
@@ -282,6 +284,7 @@ export default function HomeScreen() {
   const doctors = dashboard?.doctors || [];
   const managers = dashboard?.managerPreview || [];
   const locationLabel = displayRegion || 'Region';
+  const showSkeleton = !loadedOnce && stats.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -315,6 +318,7 @@ export default function HomeScreen() {
               name="notifications-outline"
               color={colors.brand}
               accessibilityLabel="Notifications"
+              badgeCount={unreadCount}
               onPress={() => navigation.navigate('Notifications')}
             />
           </View>
@@ -329,51 +333,65 @@ export default function HomeScreen() {
             </Text>
           ) : null}
 
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              marginTop: s(22),
-            }}
-          >
-            {stats.map((item) => (
-              <StatCard key={item.id} item={item} />
-            ))}
-          </View>
+          {showSkeleton ? (
+            <>
+              <SkeletonStatGrid count={4} />
+              <SectionHeader title="Need Attention" />
+              <SkeletonRow lines={2} />
+              <SkeletonRow lines={2} />
+              <SectionHeader title="Branch Leaderboard" large />
+              <SkeletonRow lines={2} avatar />
+              <SkeletonRow lines={2} avatar />
+            </>
+          ) : (
+            <>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'space-between',
+                  marginTop: s(22),
+                }}
+              >
+                {stats.map((item) => (
+                  <StatCard key={item.id} item={item} />
+                ))}
+              </View>
 
-          <SectionHeader title="Need Attention" />
-          {attention.map((item) => (
-            <AttentionCard key={item.id} item={item} />
-          ))}
+              <SectionHeader title="Need Attention" />
+              {attention.map((item) => (
+                <AttentionCard key={item.id} item={item} />
+              ))}
 
-          <SectionHeader
-            title="Branch Leaderboard"
-            large
-            onAction={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
-          />
-          {branches.map((item, i) => (
-            <BranchRow key={item.id} item={item} rank={i + 1} />
-          ))}
+              <SectionHeader
+                title="Branch Leaderboard"
+                large
+                onAction={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
+              />
+              {branches.map((item, i) => (
+                <BranchRow key={item.id} item={item} rank={i + 1} />
+              ))}
 
-          <SectionHeader
-            title="Clinic Managers"
-            onAction={() => navigation.navigate('ClinicManagers')}
-          />
-          {managers.map((item) => (
-            <ManagerRow
-              key={item.id}
-              item={item}
-              onPress={() =>
-                navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
-              }
-            />
-          ))}
+              <SectionHeader
+                title="Clinic Managers"
+                onAction={() => navigation.navigate('ClinicManagers')}
+              />
+              {managers.map((item) => (
+                <ManagerRow
+                  key={item.id}
+                  item={item}
+                  onPress={() =>
+                    navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
+                  }
+                />
+              ))}
 
-          <SectionHeader title="Doctors Performance" />
-          {doctors.map((item) => (
-            <DoctorRow key={item.id} item={item} />
-          ))}
+              <SectionHeader title="Doctors Performance" />
+              {doctors.map((item) => (
+                <DoctorRow key={item.id} item={item} />
+              ))}
+            </>
+          )}
         </View>
       </ScrollView>
 
