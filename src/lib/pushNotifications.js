@@ -4,22 +4,39 @@ import { api } from './api';
 import { auth } from './firebase';
 
 /**
- * Lazy + safe load of expo-notifications.
- * Expo Go can throw "Cannot find native module 'ExpoTopicSubscriptionModule'"
- * at import time — never import it at the top level so the app always opens.
- * In-App + Email keep working; Push registers only when the native module exists.
+ * Push helpers — NEVER load expo-notifications inside Expo Go.
+ * Expo Go SDK 57 can crash with:
+ *   Cannot find native module 'ExpoTopicSubscriptionModule'
+ * even inside try/catch. In-App + Email keep working without that package.
  */
+
 let Notifications = null;
 let Device = null;
 let pushNativeReady = false;
 let loadAttempted = false;
 
+/** True when running in Expo Go (no custom native modules). */
+export function isExpoGoRuntime() {
+  return (
+    Constants.appOwnership === 'expo' ||
+    Constants.executionEnvironment === 'storeClient'
+  );
+}
+
 function loadPushNative() {
   if (loadAttempted) return pushNativeReady;
   loadAttempted = true;
 
+  // Critical: do not require('expo-notifications') in Expo Go.
+  if (isExpoGoRuntime()) {
+    Notifications = null;
+    Device = null;
+    pushNativeReady = false;
+    return false;
+  }
+
   try {
-    // Dynamic require — avoids crashing the whole app on startup in Expo Go.
+    // Only used in a custom/dev client or production build.
     // eslint-disable-next-line global-require, import/no-extraneous-dependencies
     const notificationsMod = require('expo-notifications');
     // eslint-disable-next-line global-require, import/no-extraneous-dependencies
@@ -51,6 +68,7 @@ function loadPushNative() {
 }
 
 export function isPushNativeAvailable() {
+  if (isExpoGoRuntime()) return false;
   return loadPushNative();
 }
 
@@ -62,7 +80,7 @@ async function authHeaders() {
 }
 
 export async function ensurePushPermissions() {
-  if (!loadPushNative()) {
+  if (isExpoGoRuntime() || !loadPushNative()) {
     return { granted: false, reason: 'native_unavailable' };
   }
   if (Device && Device.isDevice === false) {
@@ -89,7 +107,7 @@ export async function ensurePushPermissions() {
 }
 
 export async function getExpoPushToken() {
-  if (!loadPushNative()) return null;
+  if (isExpoGoRuntime() || !loadPushNative()) return null;
 
   try {
     const projectId =
@@ -108,6 +126,9 @@ export async function getExpoPushToken() {
 }
 
 export async function registerPushDevice() {
+  if (isExpoGoRuntime()) {
+    return { ok: false, reason: 'native_unavailable' };
+  }
   if (!loadPushNative()) {
     return { ok: false, reason: 'native_unavailable' };
   }
@@ -132,6 +153,7 @@ export async function registerPushDevice() {
 }
 
 export async function unregisterPushDevice(token) {
+  if (isExpoGoRuntime()) return;
   const headers = await authHeaders();
   if (!headers || !token) return;
   try {
@@ -145,7 +167,7 @@ export async function unregisterPushDevice(token) {
 }
 
 export function addNotificationReceivedListener(handler) {
-  if (!loadPushNative() || !Notifications?.addNotificationReceivedListener) {
+  if (isExpoGoRuntime() || !loadPushNative() || !Notifications?.addNotificationReceivedListener) {
     return { remove: () => {} };
   }
   try {
@@ -156,7 +178,11 @@ export function addNotificationReceivedListener(handler) {
 }
 
 export function addNotificationResponseListener(handler) {
-  if (!loadPushNative() || !Notifications?.addNotificationResponseReceivedListener) {
+  if (
+    isExpoGoRuntime() ||
+    !loadPushNative() ||
+    !Notifications?.addNotificationResponseReceivedListener
+  ) {
     return { remove: () => {} };
   }
   try {

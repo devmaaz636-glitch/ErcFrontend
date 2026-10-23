@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,40 +18,11 @@ const SETTINGS = [
   { key: 'notification', label: 'Notification Preferences', icon: 'notifications-outline' },
 ];
 
-const CHANNELS = [
-  {
-    key: 'push',
-    title: 'Push Notifications',
-    body: 'Real-time alerts on this device',
-    icon: 'notifications-outline',
-  },
-  {
-    key: 'email',
-    title: 'Email Notifications',
-    body: 'Updates sent to your account email',
-    icon: 'mail-outline',
-  },
-  {
-    key: 'inApp',
-    title: 'In-App Notifications',
-    body: 'Live feed inside the app (SSE)',
-    icon: 'radio-button-on-outline',
-  },
-];
-
-function SectionTitle({ title, right }) {
+function SectionTitle({ title }) {
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 22,
-        marginBottom: 10,
-      }}
-    >
-      <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: colors.ink }}>{title}</Text>
-      {right}
-    </View>
+    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink, marginTop: 22, marginBottom: 10 }}>
+      {title}
+    </Text>
   );
 }
 
@@ -110,53 +81,12 @@ function ActionRow({ label, icon, onPress }) {
   );
 }
 
-function ChannelRow({ icon, title, body, value, onValueChange }) {
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        borderRadius: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        marginBottom: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}
-    >
-      <View
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 14,
-          backgroundColor: colors.brand,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: 12,
-        }}
-      >
-        <Ionicons name={icon} size={14} color={colors.white} />
-      </View>
-      <View style={{ flex: 1, marginRight: 10 }}>
-        <Text style={{ fontSize: 11, fontWeight: '600', color: colors.ink }}>{title}</Text>
-        <Text style={{ fontSize: 9, color: colors.muted, marginTop: 3, lineHeight: 13 }}>{body}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: '#E5DED6', true: colors.brand }}
-        thumbColor="#fff"
-        ios_backgroundColor="#E5DED6"
-      />
-    </View>
-  );
-}
-
 export default function ProfileTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user, displayRegion, clearSession } = useSession();
-  const { channels, setChannel, live, unreadCount, notice, error } = useNotifications();
+  const { unreadCount } = useNotifications();
 
   const info = [
     { label: 'Full Name', value: user.name },
@@ -274,34 +204,6 @@ export default function ProfileTabScreen() {
               onPress={() => onSettingPress(row.key)}
             />
           ))}
-
-          <SectionTitle
-            title="Notification Channels"
-            right={
-              <Text style={{ fontSize: 9, color: live ? colors.success : colors.muted }}>
-                {live ? '● Live' : '○ Syncing'}
-              </Text>
-            }
-          />
-          <Text style={{ fontSize: 9, color: colors.desc, marginBottom: 8, lineHeight: 13 }}>
-            Toggle how you receive real-time clinic alerts. Changes save instantly.
-          </Text>
-          {CHANNELS.map((item) => (
-            <ChannelRow
-              key={item.key}
-              icon={item.icon}
-              title={item.title}
-              body={item.body}
-              value={Boolean(channels?.[item.key])}
-              onValueChange={(value) => setChannel(item.key, value)}
-            />
-          ))}
-          {notice ? (
-            <Text style={{ fontSize: 10, color: colors.success, marginBottom: 6 }}>{notice}</Text>
-          ) : null}
-          {error ? (
-            <Text style={{ fontSize: 10, color: colors.danger, marginBottom: 6 }}>{error}</Text>
-          ) : null}
 
           <PrimaryButton label="Logout" onPress={logout} style={{ marginTop: 18, height: 44 }} />
         </View>

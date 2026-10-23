@@ -23,6 +23,7 @@ import {
 import { openNotificationStream } from '../lib/notificationStream';
 import {
   addNotificationReceivedListener,
+  isExpoGoRuntime,
   registerPushDevice,
   unregisterPushDevice,
 } from '../lib/pushNotifications';
@@ -175,7 +176,8 @@ export function NotificationsProvider({ children }) {
       const prefs = await syncFromApi();
       startRealtime();
 
-      if (prefs?.channels?.push) {
+      // Never touch expo-notifications inside Expo Go (missing native module).
+      if (prefs?.channels?.push && !isExpoGoRuntime()) {
         const result = await registerPushDevice().catch(() => ({ ok: false }));
         if (result?.ok) pushTokenRef.current = result.token;
       }
@@ -201,7 +203,7 @@ export function NotificationsProvider({ children }) {
   // Reflect OS push receipts into the in-app feed — only when Push is enabled
   // (avoids loading expo-notifications native modules on cold start / Expo Go).
   useEffect(() => {
-    if (!preferences.channels?.push) {
+    if (!preferences.channels?.push || isExpoGoRuntime()) {
       return undefined;
     }
     const sub = addNotificationReceivedListener((notification) => {
@@ -251,7 +253,7 @@ export function NotificationsProvider({ children }) {
                   : result.reason === 'simulator'
                     ? 'Push needs a physical device.'
                     : result.reason === 'native_unavailable'
-                      ? 'Push is unavailable in this Expo Go build; In-App and Email still work.'
+                      ? 'Push needs a development build (not Expo Go). In-App and Email still work.'
                       : 'Could not register this device for push.'
               );
             } else {
@@ -361,7 +363,7 @@ export function NotificationsProvider({ children }) {
       setPreferences(saved);
       prefsRef.current = saved;
 
-      if (saved.channels.push && !pushTokenRef.current) {
+      if (saved.channels.push && !pushTokenRef.current && !isExpoGoRuntime()) {
         const reg = await registerPushDevice().catch(() => ({ ok: false }));
         if (reg?.ok) pushTokenRef.current = reg.token;
       }
