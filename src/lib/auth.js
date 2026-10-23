@@ -1,7 +1,10 @@
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
 } from 'firebase/auth';
 import { auth } from './firebase';
 import {
@@ -46,6 +49,17 @@ export function signOutUser() {
   return signOut(auth);
 }
 
+export async function changePassword(currentPassword, newPassword) {
+  const user = auth.currentUser;
+  if (!user?.email) {
+    throw new Error('You must be signed in to change your password.');
+  }
+
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
+}
+
 export function authErrorMessage(error) {
   const resetMessage = resetErrorMessage(error);
   if (error?.response?.data?.message || error?.response?.data?.error) {
@@ -69,6 +83,8 @@ export function authErrorMessage(error) {
       return 'This account has been disabled.';
     case 'auth/weak-password':
       return 'Use at least 8 characters with a letter and a number.';
+    case 'auth/requires-recent-login':
+      return 'For your security, sign in again before changing your password.';
     case 'auth/email-already-in-use':
       return 'Email or password is incorrect.';
     default:

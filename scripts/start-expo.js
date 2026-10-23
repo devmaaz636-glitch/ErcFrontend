@@ -34,7 +34,7 @@ function pickLanIp() {
 }
 
 const mode = process.argv[2] === 'tunnel' ? 'tunnel' : 'lan';
-const extra = process.argv.slice(mode === 'tunnel' ? 3 : 2);
+const extra = process.argv.slice(3);
 const env = { ...process.env };
 const host = pickLanIp();
 
@@ -67,7 +67,8 @@ if (mode === 'lan') {
 console.log('--------------------------------');
 console.log('');
 
-const args = ['expo', 'start', '--host', mode, ...extra];
+const hostFlag = mode === 'tunnel' ? '--tunnel' : '--lan';
+const args = ['expo', 'start', hostFlag, ...extra];
 const child = spawn('npx', args, {
   stdio: 'inherit',
   shell: true,
