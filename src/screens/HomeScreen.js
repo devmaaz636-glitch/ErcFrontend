@@ -171,11 +171,13 @@ function ScoreRing({ value, size = s(34) }) {
   const stroke = 3;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const offset = c * (1 - value / 100);
+  const safeValue = Math.min(100, Math.max(0, Number(value) || 0));
+  const offset = c * (1 - safeValue / 100);
+  const svgSize = String(size);
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+      <Svg width={svgSize} height={svgSize} style={{ position: 'absolute' }}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke="#DDF3E2" strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
@@ -328,9 +330,21 @@ export default function HomeScreen() {
           </View>
 
           {error ? (
-            <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
-              {error}
-            </Text>
+            <View style={{ marginTop: s(12), alignItems: 'center' }}>
+              <Text style={{ fontSize: fs(11), color: colors.danger, textAlign: 'center' }}>
+                {error}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading clinic data"
+                onPress={() => refresh({ force: true, silent: false })}
+                style={{ marginTop: s(8), paddingHorizontal: s(14), paddingVertical: s(7) }}
+              >
+                <Text style={{ fontSize: fs(11), fontWeight: '700', color: colors.brand }}>
+                  Retry
+                </Text>
+              </Pressable>
+            </View>
           ) : null}
 
           {showSkeleton ? (

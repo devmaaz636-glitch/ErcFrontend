@@ -24,13 +24,22 @@ function unwrap(error) {
 }
 
 async function get(path) {
-  try {
-    const headers = await authHeaders();
-    const { data } = await api.get(path, { headers });
-    return data;
-  } catch (error) {
-    throw unwrap(error);
+  const headers = await authHeaders();
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const { data } = await api.get(path, { headers });
+      return data;
+    } catch (error) {
+      lastError = error;
+      const status = error?.response?.status;
+      const retryable =
+        !status || status >= 500 || error?.code === 'ECONNABORTED' || error?.message === 'Network Error';
+      if (!retryable || attempt === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
   }
+  throw unwrap(lastError);
 }
 
 export async function fetchDashboard() {

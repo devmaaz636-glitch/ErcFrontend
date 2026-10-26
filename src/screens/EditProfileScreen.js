@@ -333,7 +333,7 @@ export default function EditProfileScreen() {
       toValue: 0,
       duration: 200,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start(({ finished }) => {
       if (finished) setPopupVisible(false);
     });
@@ -346,7 +346,7 @@ export default function EditProfileScreen() {
       toValue: 1,
       duration: 220,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
     progressAnim.stopAnimation();
     progressAnim.setValue(0);
