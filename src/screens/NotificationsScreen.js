@@ -175,10 +175,10 @@ export default function NotificationsScreen() {
               <Text style={{ fontSize: fs(15), fontWeight: '700', color: colors.ink }}>
                 Recent Activity
               </Text>
-              <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 4 }}>
+              {/* <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 4 }}>
                 {live ? '● Live' : 'Updates sync in the background'}
                 {unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
-              </Text>
+              </Text> */}
             </View>
             {unreadCount > 0 ? (
               <Pressable

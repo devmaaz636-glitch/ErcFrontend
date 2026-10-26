@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -44,6 +46,11 @@ const DEFAULT_USER = {
   photoUrl: null,
 };
 
+const EMAIL_LOCKED_TITLE = 'Email cannot be changed';
+const EMAIL_LOCKED_MESSAGE =
+  'Please contact the developer to change your email address. It can only be updated from the web application.';
+const POPUP_DURATION_MS = 10000;
+
 /* ---------- Text field ---------- */
 function Field({ label, value, onChangeText, placeholder, keyboardType, showClear, onClear }) {
   return (
@@ -78,6 +85,121 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, showClea
           </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/* ---------- Locked (read-only) email field ---------- */
+function LockedEmailField({ label, value, onPress }) {
+  return (
+    <View style={{ marginBottom: s(16) }}>
+      <Text style={{ fontSize: fs(14), fontWeight: '700', color: INK, marginBottom: s(8) }}>
+        {label}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${value || 'not set'}. Cannot be edited`}
+        onPress={onPress}
+        style={{
+          height: s(52),
+          borderRadius: 14,
+          backgroundColor: FIELD,
+          paddingHorizontal: s(14),
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <Text
+          style={{ flex: 1, fontSize: fs(14), color: MUTED }}
+          numberOfLines={1}
+        >
+          {value || '—'}
+        </Text>
+        <Ionicons name="lock-closed-outline" size={s(18)} color={MUTED} />
+      </Pressable>
+    </View>
+  );
+}
+
+/* ---------- Info popup (auto-hides) ---------- */
+function InfoPopup({ title, message, anim, progress, top, onClose }) {
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        top,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        paddingHorizontal: s(16),
+        zIndex: 50,
+      }}
+    >
+      <Animated.View
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          backgroundColor: '#fff',
+          borderRadius: 16,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: '#F1E7DD',
+          shadowColor: BROWN,
+          shadowOpacity: 0.22,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 10,
+          opacity: anim,
+          transform: [
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-24, 0] }) },
+          ],
+        }}
+      >
+        <View style={{ flexDirection: 'row', padding: s(14), alignItems: 'flex-start' }}>
+          <View
+            style={{
+              width: s(38),
+              height: s(38),
+              borderRadius: s(19),
+              backgroundColor: BROWN_SOFT,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="lock-closed" size={s(18)} color={BROWN} />
+          </View>
+
+          <View style={{ flex: 1, marginLeft: s(12), marginRight: s(8) }}>
+            <Text style={{ fontSize: fs(14), fontWeight: '700', color: INK }}>{title}</Text>
+            <Text style={{ fontSize: fs(12), color: MUTED, marginTop: 3, lineHeight: fs(17) }}>
+              {message}
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss message"
+            hitSlop={10}
+            onPress={onClose}
+          >
+            <Ionicons name="close" size={s(18)} color={MUTED} />
+          </Pressable>
+        </View>
+
+        {/* Countdown bar: empties over the 10 seconds */}
+        <View style={{ height: 3, backgroundColor: BROWN_SOFT }}>
+          <Animated.View
+            style={{
+              height: 3,
+              backgroundColor: BROWN,
+              width: progress.interpolate({ inputRange: [0, 1], outputRange: ['100%', '0%'] }),
+            }}
+          />
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -176,19 +298,68 @@ export default function EditProfileScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user: sessionUser, displayRegion, updateUser } = useSession();
+  const { user: sessionUserRaw, displayRegion, updateUser } = useSession();
+  const sessionUser = sessionUserRaw ?? {};
 
   const regions = route.params?.regions?.length ? route.params.regions : REGIONS;
   // Session is source of truth; route params only fill gaps on first open.
-  const seed = { ...DEFAULT_USER, ...(route.params?.user || {}), ...sessionUser, region: sessionUser.region || displayRegion || route.params?.user?.region || '' };
+  const seed = {
+    ...DEFAULT_USER,
+    ...(route.params?.user || {}),
+    ...sessionUser,
+    region: sessionUser.region || displayRegion || route.params?.user?.region || '',
+  };
 
   const [user, setUser] = useState(seed);
   const [name, setName] = useState(seed.name?.split(' ')[0] || seed.name || '');
-  const [email, setEmail] = useState(seed.email || '');
   const [region, setRegion] = useState(seed.region || '');
   const [photoUri, setPhotoUri] = useState(seed.photoUrl || null);
   const [regionOpen, setRegionOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Email is read-only. It always comes from the session (or the stored profile as a fallback).
+  const email = user.email || '';
+
+  // Popup shown when the admin taps the locked email field. Auto-hides after 10 seconds.
+  const [popupVisible, setPopupVisible] = useState(false);
+  const popupAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const hideTimer = useRef(null);
+
+  function hideEmailPopup() {
+    clearTimeout(hideTimer.current);
+    progressAnim.stopAnimation();
+    Animated.timing(popupAnim, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setPopupVisible(false);
+    });
+  }
+
+  function showEmailLockedMessage() {
+    clearTimeout(hideTimer.current);
+    setPopupVisible(true);
+    Animated.timing(popupAnim, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+    progressAnim.stopAnimation();
+    progressAnim.setValue(0);
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: POPUP_DURATION_MS,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+    hideTimer.current = setTimeout(hideEmailPopup, POPUP_DURATION_MS);
+  }
+
+  useEffect(() => () => clearTimeout(hideTimer.current), []);
 
   // One-time hydrate from storage so region/name persist across iOS + Android restarts.
   // Do not re-run on session changes — that would wipe in-progress edits.
@@ -203,11 +374,12 @@ export default function EditProfileScreen() {
           ...DEFAULT_USER,
           ...sessionUser,
           ...stored,
+          // Email is managed from the web app, so the session value always wins.
+          email: sessionUser.email || stored.email || '',
           region: stored.region || sessionUser.region || displayRegion || '',
         };
         setUser(merged);
         setName(merged.name?.split(' ')[0] || merged.name || '');
-        setEmail(merged.email || '');
         setRegion(merged.region || '');
         setPhotoUri(merged.photoUrl || null);
       } catch {
@@ -243,15 +415,10 @@ export default function EditProfileScreen() {
   async function saveChanges() {
     if (saving) return;
     const nextName = name.trim();
-    const nextEmail = email.trim();
     const nextRegion = region.trim();
 
     if (!nextName) {
       Alert.alert('Name required', 'Enter your name.');
-      return;
-    }
-    if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
-      Alert.alert('Email required', 'Enter a valid email address.');
       return;
     }
     if (!nextRegion) {
@@ -263,7 +430,7 @@ export default function EditProfileScreen() {
     const updated = {
       ...user,
       name: nextName.includes(' ') ? nextName : `${nextName} ${lastName}`.trim(),
-      email: nextEmail,
+      email, // never changed from the app
       region: nextRegion,
       photoUrl: photoUri,
     };
@@ -449,12 +616,10 @@ export default function EditProfileScreen() {
                 showClear
                 onClear={() => setName('')}
               />
-              <Field
+              <LockedEmailField
                 label="Email"
                 value={email}
-                onChangeText={setEmail}
-                placeholder="debra.holt@example.com"
-                keyboardType="email-address"
+                onPress={showEmailLockedMessage}
               />
               <DropdownField
                 label="Region"
@@ -495,6 +660,17 @@ export default function EditProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {popupVisible ? (
+        <InfoPopup
+          title={EMAIL_LOCKED_TITLE}
+          message={EMAIL_LOCKED_MESSAGE}
+          anim={popupAnim}
+          progress={progressAnim}
+          top={Math.max(insets.top, 12) + s(8)}
+          onClose={hideEmailPopup}
+        />
+      ) : null}
     </View>
   );
 }
