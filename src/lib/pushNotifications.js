@@ -5,9 +5,10 @@ import { auth } from './firebase';
 
 /**
  * Push helpers — NEVER load expo-notifications inside Expo Go.
- * Expo Go SDK 57 can crash with:
+ * Expo Go SDK 53+ crashes with:
  *   Cannot find native module 'ExpoTopicSubscriptionModule'
- * even inside try/catch. In-App + Email keep working without that package.
+ * even inside try/catch once the package is required. In-App + Email
+ * keep working without that package.
  */
 
 let Notifications = null;
@@ -15,19 +16,34 @@ let Device = null;
 let pushNativeReady = false;
 let loadAttempted = false;
 
-/** True when running in Expo Go (no custom native modules). */
+/**
+ * Fail closed: treat as Expo Go unless we positively detect a custom
+ * native binary (bare / standalone). Avoids false negatives that
+ * require() expo-notifications and crash the admin app.
+ */
 export function isExpoGoRuntime() {
-  return (
-    Constants.appOwnership === 'expo' ||
-    Constants.executionEnvironment === 'storeClient'
-  );
+  try {
+    const ownership = Constants.appOwnership;
+    const env = Constants.executionEnvironment;
+
+    if (ownership === 'expo') return true;
+    if (env === 'storeClient') return true;
+
+    // Custom / production binaries can load native push.
+    if (ownership === 'guest') return false;
+    if (env === 'bare' || env === 'standalone') return false;
+
+    // Unknown environment → do not touch expo-notifications.
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 function loadPushNative() {
   if (loadAttempted) return pushNativeReady;
   loadAttempted = true;
 
-  // Critical: do not require('expo-notifications') in Expo Go.
   if (isExpoGoRuntime()) {
     Notifications = null;
     Device = null;

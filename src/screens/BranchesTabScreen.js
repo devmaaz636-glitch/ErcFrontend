@@ -7,9 +7,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField, SkeletonRow } from '../components/ui';
+import { IconCircleButton, NotificationBellButton, SearchField, SkeletonRow } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
-import { useNotifications } from '../context/NotificationsContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -146,7 +145,6 @@ export default function BranchesTabScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { branches, error, refresh, loadedOnce } = useClinicData();
-  const { unreadCount } = useNotifications();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
@@ -192,13 +190,7 @@ export default function BranchesTabScreen() {
             >
               Branches
             </Text>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           <View style={{ marginTop: s(18) }}>

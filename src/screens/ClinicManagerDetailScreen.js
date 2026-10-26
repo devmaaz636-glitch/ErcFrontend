@@ -5,8 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import { IconCircleButton, PrimaryButton, StatusBadge, SkeletonRow } from '../components/ui';
-import { useNotifications } from '../context/NotificationsContext';
+import {
+  IconCircleButton,
+  NotificationBellButton,
+  PrimaryButton,
+  StatusBadge,
+  SkeletonRow,
+} from '../components/ui';
 import { clinicErrorMessage, fetchManager } from '../lib/clinic';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -70,8 +75,6 @@ export default function ClinicManagerDetailScreen() {
   const [manager, setManager] = useState(initial);
   const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState('');
-  const { unreadCount } = useNotifications();
-
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -126,13 +129,7 @@ export default function ClinicManagerDetailScreen() {
                 {manager?.role || 'Clinic Manager'}
               </Text>
             </View>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           {loading && !manager ? (

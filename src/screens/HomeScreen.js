@@ -7,9 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
-import { SearchField, SectionHeader, IconCircleButton, SkeletonRow, SkeletonStatGrid } from '../components/ui';
+import { SearchField, SectionHeader, NotificationBellButton, SkeletonRow, SkeletonStatGrid } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
-import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -276,7 +275,6 @@ export default function HomeScreen() {
   const topPad = useTopPadding(24);
   const { user, displayRegion } = useSession();
   const { dashboard, error, refresh, loadedOnce } = useClinicData();
-  const { unreadCount } = useNotifications();
 
   useRefreshOnFocus(refresh);
 
@@ -316,13 +314,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           <View style={{ marginTop: s(18) }}>

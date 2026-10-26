@@ -6,9 +6,14 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField, StatusBadge, SkeletonRow } from '../components/ui';
+import {
+  IconCircleButton,
+  NotificationBellButton,
+  SearchField,
+  StatusBadge,
+  SkeletonRow,
+} from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
-import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -110,7 +115,6 @@ export default function ClinicManagersScreen() {
   const topPad = useTopPadding(24);
   const { displayRegion } = useSession();
   const { managers, error, refresh, loadedOnce } = useClinicData();
-  const { unreadCount } = useNotifications();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
@@ -153,13 +157,7 @@ export default function ClinicManagersScreen() {
                 {displayRegion || 'All Regions'} · Regional Admin
               </Text>
             </View>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           <View style={{ marginTop: s(18) }}>

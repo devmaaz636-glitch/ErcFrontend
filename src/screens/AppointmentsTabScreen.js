@@ -5,9 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField, StatusBadge, SkeletonRow, SkeletonStatGrid } from '../components/ui';
+import {
+  IconCircleButton,
+  NotificationBellButton,
+  SearchField,
+  StatusBadge,
+  SkeletonRow,
+  SkeletonStatGrid,
+} from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
-import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -189,7 +195,6 @@ export default function AppointmentsTabScreen() {
   const topPad = useTopPadding(24);
   const { displayRegion, user } = useSession();
   const { appointments, error, refresh, loadedOnce } = useClinicData();
-  const { unreadCount } = useNotifications();
   const [tab, setTab] = useState('upcoming');
   const [query, setQuery] = useState('');
 
@@ -239,13 +244,7 @@ export default function AppointmentsTabScreen() {
                 {displayRegion || 'Region'} · {user.role || 'Regional Admin'}
               </Text>
             </View>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.mutedBrand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <NotificationBellButton color={colors.mutedBrand} />
           </View>
 
           {error ? (

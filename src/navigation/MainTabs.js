@@ -16,7 +16,8 @@ export default function MainTabs() {
         headerShown: false,
         // Soft cross-fade between tabs (iOS + Android).
         animation: 'fade',
-        freezeOnBlur: true,
+        // Keep tabs live so shared unread badges update on every screen.
+        freezeOnBlur: false,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >

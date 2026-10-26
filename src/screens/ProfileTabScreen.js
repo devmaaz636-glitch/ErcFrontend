@@ -13,9 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import UserAvatar from '../components/UserAvatar';
-import { IconCircleButton, PrimaryButton } from '../components/ui';
+import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
-import { useNotifications } from '../context/NotificationsContext';
 import { signOutUser } from '../lib/auth';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -158,7 +157,6 @@ export default function ProfileTabScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user: sessionUser, displayRegion, clearSession } = useSession();
-  const { unreadCount } = useNotifications();
   const [loggingOut, setLoggingOut] = useState(false);
   const logoutLock = useRef(false);
 
@@ -248,13 +246,7 @@ export default function ProfileTabScreen() {
             <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.ink }}>
               Profile
             </Text>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 18 }}>

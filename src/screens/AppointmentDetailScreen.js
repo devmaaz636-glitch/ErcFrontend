@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import { SkeletonRow } from '../components/ui';
+import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
 import { notifyBookingUpdate } from '../lib/notifyEvents';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -270,23 +270,14 @@ export default function AppointmentDetailScreen() {
             </Text>
           ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              hitSlop={8}
-              onPress={() => navigation.goBack()}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 2,
-              }}
-            >
-              <Ionicons name="chevron-back" size={s(18)} color={INK} />
-            </Pressable>
+            <View style={{ marginTop: 2 }}>
+              <IconCircleButton
+                name="chevron-back"
+                color={INK}
+                accessibilityLabel="Go back"
+                onPress={() => navigation.goBack()}
+              />
+            </View>
 
             <View style={{ flex: 1, marginLeft: s(12), marginRight: s(8) }}>
               <Text style={{ fontSize: fs(16), fontWeight: '700', color: INK }} numberOfLines={2}>
@@ -297,22 +288,9 @@ export default function AppointmentDetailScreen() {
               </Text>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              hitSlop={8}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 2,
-              }}
-            >
-              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-            </Pressable>
+            <View style={{ marginTop: 2 }}>
+              <NotificationBellButton color={BROWN} />
+            </View>
           </View>
 
           <SectionTitle title="Appointment Details" />
