@@ -1,5 +1,4 @@
 import {
-  createUserWithEmailAndPassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
   signInWithEmailAndPassword,
@@ -14,23 +13,8 @@ import {
   verifyResetCode,
 } from './passwordReset';
 
-const NEW_ACCOUNT_CODES = new Set([
-  'auth/invalid-credential',
-  'auth/user-not-found',
-  'auth/wrong-password',
-]);
-
 export async function signInWithEmail(email, password) {
-  const nextEmail = email.trim();
-
-  try {
-    return await signInWithEmailAndPassword(auth, nextEmail, password);
-  } catch (error) {
-    if (!NEW_ACCOUNT_CODES.has(error?.code)) {
-      throw error;
-    }
-    return createUserWithEmailAndPassword(auth, nextEmail, password);
-  }
+  return signInWithEmailAndPassword(auth, email.trim(), password);
 }
 
 export function requestPasswordReset(email) {

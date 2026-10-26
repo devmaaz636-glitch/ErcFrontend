@@ -168,7 +168,7 @@ export default function ForgotPasswordNewScreen() {
           label="New Password"
           value={password}
           onChangeText={setPassword}
-          placeholder="debra.holt@example.com"
+          placeholder="At least 8 characters"
           secureTextEntry={!showPassword}
           trailing={
             <Pressable
@@ -189,7 +189,7 @@ export default function ForgotPasswordNewScreen() {
           label="Confirm Password"
           value={confirm}
           onChangeText={setConfirm}
-          placeholder="debra.holt@example.com"
+          placeholder="Repeat your new password"
           secureTextEntry={!showConfirm}
           trailing={
             <Pressable

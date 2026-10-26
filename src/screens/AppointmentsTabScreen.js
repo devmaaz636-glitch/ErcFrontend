@@ -4,7 +4,6 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
 import { IconCircleButton, SearchField, StatusBadge, SkeletonRow, SkeletonStatGrid } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
@@ -128,11 +127,13 @@ function FilterTabs({ active, onChange }) {
   );
 }
 
-function AppointmentCard({ item, featured, onPress }) {
-  const gradId = `appt-${item.id}`;
+function AppointmentCard({ item, onPress }) {
   const st = LIST_STATUS[item.status] || LIST_STATUS.upcoming;
-  const titleColor = featured ? colors.white : colors.ink;
-  const subColor = featured ? 'rgba(255,255,255,0.85)' : colors.desc;
+  const patient = item.patient || 'Appointment';
+  const code = item.code || 'Appointment details';
+  const treatment = item.treatment || 'Clinic visit';
+  const time = item.time || 'Time not available';
+  const doctor = item.doctor || 'Doctor not assigned';
 
   return (
     <Pressable
@@ -145,26 +146,14 @@ function AppointmentCard({ item, featured, onPress }) {
         marginBottom: s(12),
       }}
     >
-      {featured ? (
-        <Svg width="100%" height="100%" style={{ position: 'absolute' }}>
-          <Defs>
-            <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={colors.brand} />
-              <Stop offset="1" stopColor={colors.brandLight} />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradId})`} />
-        </Svg>
-      ) : null}
-
       <View style={{ padding: s(14) }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <View style={{ flex: 1, marginRight: s(8) }}>
-            <Text style={{ fontSize: fs(13), fontWeight: '700', color: titleColor }} numberOfLines={1}>
-              {item.patient}
+            <Text style={{ fontSize: fs(13), fontWeight: '700', color: colors.ink }} numberOfLines={1}>
+              {patient}
             </Text>
-            <Text style={{ fontSize: fs(9), color: subColor, marginTop: 2 }} numberOfLines={1}>
-              {item.code}
+            <Text style={{ fontSize: fs(9), color: colors.desc, marginTop: 2 }} numberOfLines={1}>
+              {code}
             </Text>
           </View>
           <StatusBadge
@@ -172,22 +161,21 @@ function AppointmentCard({ item, featured, onPress }) {
             label={st.label}
             color={st.color}
             bg={st.bg}
-            featured={featured}
           />
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(10) }}>
-          <Text style={{ flex: 1, fontSize: fs(10), color: titleColor }} numberOfLines={1}>
-            {item.treatment}
+          <Text style={{ flex: 1, fontSize: fs(10), color: colors.ink }} numberOfLines={1}>
+            {treatment}
           </Text>
-          <Ionicons name="time-outline" size={s(11)} color={subColor} />
-          <Text style={{ fontSize: fs(9), color: subColor, marginLeft: 4 }}>{item.time}</Text>
+          <Ionicons name="time-outline" size={s(11)} color={colors.desc} />
+          <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 4 }}>{time}</Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(6) }}>
-          <Ionicons name="person-outline" size={s(11)} color={subColor} />
-          <Text style={{ fontSize: fs(9), color: subColor, marginLeft: 4 }} numberOfLines={1}>
-            {item.doctor}
+          <Ionicons name="person-outline" size={s(11)} color={colors.desc} />
+          <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 4 }} numberOfLines={1}>
+            {doctor}
           </Text>
         </View>
       </View>
@@ -308,11 +296,10 @@ export default function AppointmentsTabScreen() {
                     <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No appointments found</Text>
                   </View>
                 ) : (
-                  list.map((item, i) => (
+                  list.map((item) => (
                     <AppointmentCard
                       key={item.id}
                       item={item}
-                      featured={i === 0}
                       onPress={() =>
                         navigation.navigate('AppointmentDetail', {
                           appointment: item,

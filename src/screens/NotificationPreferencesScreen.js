@@ -135,6 +135,7 @@ export default function NotificationPreferencesScreen() {
               accessibilityRole="button"
               accessibilityLabel="Notifications"
               hitSlop={8}
+              onPress={() => navigation.navigate('Notifications')}
               style={{
                 width: s(36),
                 height: s(36),

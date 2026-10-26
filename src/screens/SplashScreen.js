@@ -239,8 +239,11 @@ export default function SplashScreen() {
             source={require('../../assets/splashlogo.png')}
             contentFit="contain"
             accessibilityLabel="Enfield Royal Clinics"
-            className="self-center"
-            style={{ width: layout.logoSize, height: layout.logoSize }}
+            style={{
+              alignSelf: 'center',
+              width: Platform.OS === 'web' ? `${layout.logoSize}px` : layout.logoSize,
+              height: Platform.OS === 'web' ? `${layout.logoSize}px` : layout.logoSize,
+            }}
           />
         </Animated.View>
       </View>

@@ -1,6 +1,12 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth, inMemoryPersistence, initializeAuth } from 'firebase/auth';
+import {
+  browserLocalPersistence,
+  getAuth,
+  inMemoryPersistence,
+  initializeAuth,
+} from 'firebase/auth';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { Platform } from 'react-native';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDIdGSzIPL_j6iIxsYt9JV-2ZJMYqFaZ98',
@@ -17,7 +23,10 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 function createAuth() {
   try {
     return initializeAuth(app, {
-      persistence: inMemoryPersistence,
+      persistence:
+        Platform.OS === 'web'
+          ? browserLocalPersistence
+          : inMemoryPersistence,
     });
   } catch {
     return getAuth(app);

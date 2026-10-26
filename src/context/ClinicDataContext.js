@@ -48,38 +48,63 @@ export function ClinicDataProvider({ children }) {
 
     const job = (async () => {
       try {
-        const [dashboard, appointments, branches, managers] = await Promise.all([
+        const results = await Promise.allSettled([
           fetchDashboard(),
           fetchAppointments(),
           fetchBranches(),
           fetchManagers(),
         ]);
+        const [dashboardResult, appointmentsResult, branchesResult, managersResult] = results;
+        const dashboard = dashboardResult.status === 'fulfilled' ? dashboardResult.value : null;
+        const appointments =
+          appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : null;
+        const branches = branchesResult.status === 'fulfilled' ? branchesResult.value : null;
+        const managers = managersResult.status === 'fulfilled' ? managersResult.value : null;
+        const failed = results.filter((result) => result.status === 'rejected');
+
+        if (failed.length === results.length) {
+          throw failed[0].reason;
+        }
+
         setData({
           dashboard: {
-            stats: dashboard.stats || [],
-            attention: dashboard.attention || [],
-            branches: dashboard.branches || [],
-            doctors: dashboard.doctors || [],
-            managerPreview: dashboard.managerPreview || [],
+            stats: dashboard?.stats || [],
+            attention: dashboard?.attention || [],
+            branches: dashboard?.branches || [],
+            doctors: dashboard?.doctors || [],
+            managerPreview: dashboard?.managerPreview || [],
           },
           appointments: {
-            stats: appointments.stats || [],
-            items: appointments.items || [],
+            stats: appointments?.stats || [],
+            items: appointments?.items || [],
           },
-          branches: { items: branches.items || [] },
+          branches: { items: branches?.items || [] },
           managers: {
-            stats: managers.stats || null,
-            items: managers.items || [],
+            stats: managers?.stats || null,
+            items: managers?.items || [],
           },
         });
+        if (failed.length > 0) {
+          setError('Some clinic data could not be refreshed. Pull to retry.');
+        }
         loadedOnceRef.current = true;
         setLoadedOnce(true);
         lastFetchAtRef.current = Date.now();
       } catch (err) {
-        setError(clinicErrorMessage(err));
+        setError(
+          failedCountMessage(err, loadedOnceRef.current)
+        );
       } finally {
         setLoading(false);
         inFlightRef.current = null;
+      }
+
+      function failedCountMessage(error, hasExistingData) {
+        const message = clinicErrorMessage(error);
+        if (hasExistingData && message === 'Could not load clinic data.') {
+          return 'Some clinic data could not be refreshed. Pull to retry.';
+        }
+        return message;
       }
     })();
 
