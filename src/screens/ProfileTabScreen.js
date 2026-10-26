@@ -1,5 +1,14 @@
+import { useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +20,10 @@ import { signOutUser } from '../lib/auth';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { useTopPadding } from '../utils/responsive';
+
+// If the network is slow or down, stop waiting for the server after this long
+// and finish logging out locally.
+const SIGN_OUT_TIMEOUT_MS = 8000;
 
 const SETTINGS = [
   { key: 'edit', label: 'Edit Profile', icon: 'person-outline' },
@@ -81,12 +94,76 @@ function ActionRow({ label, icon, onPress }) {
   );
 }
 
+/* Full-screen loading overlay shown while logging out.
+   Uses a Modal so it also covers the tab bar and blocks every tap. */
+function LogoutOverlay({ visible }) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => {}}
+    >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 32,
+        }}
+      >
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={{
+            width: '100%',
+            maxWidth: 280,
+            backgroundColor: '#fff',
+            borderRadius: 18,
+            paddingVertical: 24,
+            paddingHorizontal: 20,
+            alignItems: 'center',
+            shadowColor: colors.brand,
+            shadowOpacity: 0.2,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 10,
+          }}
+        >
+          <ActivityIndicator size="large" color={colors.brand} />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: 16 }}>
+            Logging out…
+          </Text>
+          <Text
+            style={{
+              fontSize: 11,
+              color: colors.muted,
+              marginTop: 6,
+              textAlign: 'center',
+              lineHeight: 16,
+            }}
+          >
+            Please wait a moment while we sign you out securely.
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function ProfileTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user, displayRegion, clearSession } = useSession();
+  const { user: sessionUser, displayRegion, clearSession } = useSession();
   const { unreadCount } = useNotifications();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const logoutLock = useRef(false);
+
+  // The session is cleared during logout, so never read fields from a null user.
+  const user = sessionUser ?? {};
 
   const info = [
     { label: 'Full Name', value: user.name },
@@ -95,21 +172,40 @@ export default function ProfileTabScreen() {
     { label: 'Assigned Region', value: displayRegion },
   ];
 
+  async function performLogout() {
+    if (logoutLock.current) return; // ignore double taps
+    logoutLock.current = true;
+    setLoggingOut(true);
+
+    try {
+      // Wait for the server sign-out, but never longer than the timeout
+      // (slow or no internet should not leave the user stuck).
+      await Promise.race([
+        signOutUser(),
+        new Promise((resolve) => setTimeout(resolve, SIGN_OUT_TIMEOUT_MS)),
+      ]);
+    } catch {
+      /* still clear local session */
+    }
+
+    try {
+      await clearSession();
+      navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
+    } catch {
+      logoutLock.current = false;
+      setLoggingOut(false);
+      Alert.alert('Could not log out', 'Something went wrong. Please try again.');
+    }
+  }
+
   function logout() {
+    if (loggingOut) return;
     Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log out',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOutUser();
-          } catch {
-            /* still clear local session */
-          }
-          await clearSession();
-          navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
-        },
+        onPress: performLogout,
       },
     ]);
   }
@@ -187,6 +283,8 @@ export default function ProfileTabScreen() {
           <PrimaryButton label="Logout" onPress={logout} style={{ marginTop: 18, height: 44 }} />
         </View>
       </ScrollView>
+
+      <LogoutOverlay visible={loggingOut} />
     </View>
   );
 }
