@@ -1,13 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import {
   clinicErrorMessage,
   fetchAppointments,
   fetchBranches,
   fetchDashboard,
   fetchManagers,
+  fetchManagerAppointments,
+  fetchManagerAppointmentRequests,
+  fetchManagerDashboard,
+  fetchManagerDoctors,
+  fetchManagerTreatments,
 } from '../lib/clinic';
+import { useSession } from './SessionContext';
 
 const ClinicDataContext = createContext(null);
 
@@ -22,6 +26,9 @@ const EMPTY = {
 const STALE_MS = 2 * 60 * 1000;
 
 export function ClinicDataProvider({ children }) {
+  const { user, ready } = useSession();
+  const isManager = user.role === 'clinic_manager';
+  const sessionKey = `${user.uid || 'signed-out'}:${user.role}`;
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,6 +37,17 @@ export function ClinicDataProvider({ children }) {
   const loadedOnceRef = useRef(false);
   const inFlightRef = useRef(null);
   const lastFetchAtRef = useRef(0);
+  const requestGenerationRef = useRef(0);
+
+  useEffect(() => {
+    requestGenerationRef.current += 1;
+    inFlightRef.current = null;
+    setData(EMPTY);
+    loadedOnceRef.current = false;
+    setLoadedOnce(false);
+    lastFetchAtRef.current = 0;
+    setError('');
+  }, [isManager]);
 
   const refresh = useCallback(async ({ silent = true, force = false } = {}) => {
     const now = Date.now();
@@ -47,33 +65,52 @@ export function ClinicDataProvider({ children }) {
     setError('');
 
     const job = (async () => {
+      const requestGeneration = requestGenerationRef.current;
       try {
-        const results = await Promise.allSettled([
-          fetchDashboard(),
-          fetchAppointments(),
-          fetchBranches(),
-          fetchManagers(),
-        ]);
-        const [dashboardResult, appointmentsResult, branchesResult, managersResult] = results;
+        const results = isManager
+          ? await Promise.allSettled([
+              fetchManagerDashboard(),
+              fetchManagerAppointments(),
+              fetchManagerAppointmentRequests(),
+              fetchManagerTreatments(),
+              fetchManagerDoctors(),
+            ])
+          : await Promise.allSettled([
+              fetchDashboard(),
+              fetchAppointments(),
+              fetchBranches(),
+              fetchManagers(),
+            ]);
+        const [dashboardResult, appointmentsResult, thirdResult, fourthResult, fifthResult] = results;
         const dashboard = dashboardResult.status === 'fulfilled' ? dashboardResult.value : null;
         const appointments =
           appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : null;
-        const branches = branchesResult.status === 'fulfilled' ? branchesResult.value : null;
-        const managers = managersResult.status === 'fulfilled' ? managersResult.value : null;
+        const branches = isManager ? null : thirdResult.status === 'fulfilled' ? thirdResult.value : null;
+        const managers = isManager ? null : fourthResult.status === 'fulfilled' ? fourthResult.value : null;
         const failed = results.filter((result) => result.status === 'rejected');
 
         if (failed.length === results.length) {
           throw failed[0].reason;
         }
 
+        if (requestGeneration !== requestGenerationRef.current) return;
+
         setData({
-          dashboard: {
-            stats: dashboard?.stats || [],
-            attention: dashboard?.attention || [],
-            branches: dashboard?.branches || [],
-            doctors: dashboard?.doctors || [],
-            managerPreview: dashboard?.managerPreview || [],
-          },
+          dashboard: isManager
+            ? {
+                ...dashboard,
+                appointmentRequests:
+                  dashboard?.appointmentRequests || thirdResult.value?.items || [],
+                treatments: dashboard?.treatments || fourthResult.value?.items || [],
+                doctors: dashboard?.doctors || fifthResult.value?.items || [],
+              }
+            : {
+                stats: dashboard?.stats || [],
+                attention: dashboard?.attention || [],
+                branches: dashboard?.branches || [],
+                doctors: dashboard?.doctors || [],
+                managerPreview: dashboard?.managerPreview || [],
+            },
           appointments: {
             stats: appointments?.stats || [],
             items: appointments?.items || [],
@@ -91,12 +128,15 @@ export function ClinicDataProvider({ children }) {
         setLoadedOnce(true);
         lastFetchAtRef.current = Date.now();
       } catch (err) {
+        if (requestGeneration !== requestGenerationRef.current) return;
         setError(
           failedCountMessage(err, loadedOnceRef.current)
         );
       } finally {
         setLoading(false);
-        inFlightRef.current = null;
+        if (requestGeneration === requestGenerationRef.current) {
+          inFlightRef.current = null;
+        }
       }
 
       function failedCountMessage(error, hasExistingData) {
@@ -110,24 +150,25 @@ export function ClinicDataProvider({ children }) {
 
     inFlightRef.current = job;
     return job;
-  }, []);
+  }, [sessionKey]);
 
-  // Prefetch once after sign-in so every tab already has data (no wait on switch).
+  // SessionContext is the single source of truth for the authenticated role.
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        setData(EMPTY);
-        loadedOnceRef.current = false;
-        setLoadedOnce(false);
-        lastFetchAtRef.current = 0;
-        setError('');
-        setLoading(false);
-        return;
-      }
-      refresh({ silent: true, force: true }).catch(() => {});
-    });
-    return unsub;
-  }, [refresh]);
+    if (!ready) return undefined;
+
+    if (!user.uid) {
+      setData(EMPTY);
+      loadedOnceRef.current = false;
+      setLoadedOnce(false);
+      lastFetchAtRef.current = 0;
+      setError('');
+      setLoading(false);
+      return undefined;
+    }
+
+    refresh({ silent: true, force: true }).catch(() => {});
+    return undefined;
+  }, [ready, sessionKey, user.uid, refresh]);
 
   const value = useMemo(
     () => ({

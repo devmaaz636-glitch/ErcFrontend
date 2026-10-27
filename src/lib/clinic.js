@@ -46,6 +46,45 @@ export async function fetchDashboard() {
   return get('/api/clinic/dashboard');
 }
 
+export async function fetchManagerDashboard() {
+  return get('/api/manager/dashboard');
+}
+
+export async function fetchManagerAppointments() {
+  return get('/api/manager/appointments');
+}
+
+export async function fetchManagerAppointmentRequests() {
+  return get('/api/manager/appointment-requests');
+}
+
+export async function fetchManagerTreatments() {
+  return get('/api/manager/treatments');
+}
+
+export async function fetchManagerDoctors() {
+  return get('/api/manager/doctors');
+}
+
+export async function fetchManagerAppointmentRequest(id) {
+  const data = await get(`/api/manager/appointment-requests/${encodeURIComponent(id)}`);
+  return data.item;
+}
+
+export async function updateManagerAppointmentRequest(id, body) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.patch(
+      `/api/manager/appointment-requests/${encodeURIComponent(id)}`,
+      body,
+      { headers }
+    );
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
 export async function fetchAppointments() {
   return get('/api/clinic/appointments');
 }

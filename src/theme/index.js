@@ -10,11 +10,13 @@ export { colors, default as colorTokens } from './colors';
 export { spacing, radius } from './spacing';
 export { typography } from './typography';
 export { shadows } from './shadows';
+export { managerDashboard } from './managerDashboard';
 
 import { colors } from './colors';
 import { spacing, radius } from './spacing';
 import { typography } from './typography';
 import { shadows } from './shadows';
+import { managerDashboard } from './managerDashboard';
 
 export const theme = {
   colors,
@@ -22,6 +24,7 @@ export const theme = {
   radius,
   typography,
   shadows,
+  managerDashboard,
 };
 
 export default theme;
