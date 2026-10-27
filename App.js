@@ -9,6 +9,7 @@ import { ClinicDataProvider } from './src/context/ClinicDataContext';
 import { NotificationsProvider } from './src/context/NotificationsContext';
 import { colors } from './src/theme';
 import MainTabs from './src/navigation/MainTabs';
+import ManagerTabs from './src/navigation/ManagerTabs';
 import SplashScreen from './src/screens/SplashScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -23,6 +24,7 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import NotificationPreferencesScreen from './src/screens/NotificationPreferencesScreen';
+import AppointmentRequestDetailScreen from './src/screens/AppointmentRequestDetailScreen';
 
 LogBox.ignoreLogs([
   'Splashscreen.setOptions',
@@ -80,8 +82,18 @@ export default function App() {
                   options={{ animation: 'fade', gestureEnabled: false }}
                 />
                 <Stack.Screen
+                  name="ManagerTabs"
+                  component={ManagerTabs}
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen
                   name="AppointmentDetail"
                   component={AppointmentDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="AppointmentRequestDetail"
+                  component={AppointmentRequestDetailScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen

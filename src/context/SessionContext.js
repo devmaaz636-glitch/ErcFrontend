@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { getUserProfile } from '../lib/users';
+import { getAuthenticatedUserProfile, getUserProfile } from '../lib/users';
 import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
 
 const SessionContext = createContext(null);
@@ -17,6 +17,15 @@ const EMPTY_USER = {
   region: '',
   photoUrl: null,
 };
+
+function normalizeRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  if (role === 'admin' || role === 'regional_admin' || role === 'regionaladmin') return 'admin';
+  if (role === 'clinic_manager' || role === 'clinicmanager' || role === 'manager') {
+    return 'clinic_manager';
+  }
+  return '';
+}
 
 function regionObjectFromName(name, previous = null) {
   const label = String(name || '').trim();
@@ -49,11 +58,25 @@ export function SessionProvider({ children }) {
       /* ignore */
     }
 
+    let claims = {};
+    try {
+      claims = (await firebaseUser.getIdTokenResult(true)).claims || {};
+    } catch {
+      /* Backend profile remains the source of truth when claims are unavailable. */
+    }
+
     let remote = null;
     try {
       remote = await getUserProfile(firebaseUser.uid);
     } catch {
       /* Firestore optional at boot */
+    }
+
+    let backendUser = null;
+    try {
+      backendUser = await getAuthenticatedUserProfile();
+    } catch {
+      /* Backend profile is unavailable during offline startup. */
     }
 
     const display =
@@ -69,8 +92,15 @@ export function SessionProvider({ children }) {
       uid: firebaseUser.uid,
       name: display,
       email: local.email || firebaseUser.email || '',
-      role: local.role || remote?.role || 'Regional Admin',
-      region: nextRegion,
+      role:
+        normalizeRole(claims.role) ||
+        normalizeRole(backendUser?.role) ||
+        normalizeRole(remote?.role) ||
+        normalizeRole(local.role) ||
+        'admin',
+      branchId: claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId || null,
+      clinicId: claims.clinicId || claims.branchId || backendUser?.clinicId || backendUser?.branchId || null,
+      region: backendUser?.region || nextRegion,
       photoUrl: local.photoUrl || remote?.photoUrl || firebaseUser.photoURL || null,
     });
 

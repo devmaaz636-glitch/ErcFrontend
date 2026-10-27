@@ -7,6 +7,7 @@ import { cssInterop } from 'nativewind';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../context/SessionContext';
+import { auth } from '../lib/firebase';
 
 cssInterop(Image, { className: 'style' });
 const REGIONS = [
@@ -16,6 +17,11 @@ const REGIONS = [
   { id: 'om',   name: 'Oman',                 code: '96800', flag: '🇴🇲' },
   { id: 'pk',   name: 'Pakistan',             code: '92000', flag: '🇵🇰' },
 ];
+
+function isClinicManagerRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  return role === 'clinic_manager' || role === 'clinicmanager' || role === 'manager';
+}
 
 function Chevron() {
   return (
@@ -74,7 +80,14 @@ export default function VerifyRegionScreen() {
       return;
     }
     await persistRegion({ ...region, code: nextCode });
-    navigation.replace('MainTabs');
+    let role = '';
+    try {
+      const tokenResult = await auth.currentUser?.getIdTokenResult(true);
+      role = tokenResult?.claims?.role || '';
+    } catch {
+      /* Session bootstrap will surface an authorization error if claims cannot be read. */
+    }
+    navigation.replace(isClinicManagerRole(role) ? 'ManagerTabs' : 'MainTabs');
   }
 
   return (

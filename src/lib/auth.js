@@ -14,7 +14,9 @@ import {
 } from './passwordReset';
 
 export async function signInWithEmail(email, password) {
-  return signInWithEmailAndPassword(auth, email.trim(), password);
+  const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+  await result.user.getIdToken(true);
+  return result;
 }
 
 export function requestPasswordReset(email) {
