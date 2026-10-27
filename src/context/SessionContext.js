@@ -13,7 +13,9 @@ const EMPTY_USER = {
   uid: null,
   name: '',
   email: '',
-  role: 'Regional Admin',
+  role: '',
+  branchId: null,
+  clinicId: null,
   region: '',
   photoUrl: null,
 };
@@ -50,34 +52,22 @@ export function SessionProvider({ children }) {
       return;
     }
 
+    // Parallel boot: local disk + claims + remote profiles (was sequential = multi-second lag).
+    const [localRaw, tokenResult, remote, backendUser] = await Promise.all([
+      AsyncStorage.getItem(PROFILE_STORAGE_KEY).catch(() => null),
+      firebaseUser.getIdTokenResult(false).catch(() => null),
+      getUserProfile(firebaseUser.uid).catch(() => null),
+      getAuthenticatedUserProfile().catch(() => null),
+    ]);
+
     let local = {};
     try {
-      const raw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-      if (raw) local = JSON.parse(raw);
+      if (localRaw) local = JSON.parse(localRaw);
     } catch {
       /* ignore */
     }
 
-    let claims = {};
-    try {
-      claims = (await firebaseUser.getIdTokenResult(true)).claims || {};
-    } catch {
-      /* Backend profile remains the source of truth when claims are unavailable. */
-    }
-
-    let remote = null;
-    try {
-      remote = await getUserProfile(firebaseUser.uid);
-    } catch {
-      /* Firestore optional at boot */
-    }
-
-    let backendUser = null;
-    try {
-      backendUser = await getAuthenticatedUserProfile();
-    } catch {
-      /* Backend profile is unavailable during offline startup. */
-    }
+    const claims = tokenResult?.claims || {};
 
     const display =
       local.name ||
@@ -88,16 +78,21 @@ export function SessionProvider({ children }) {
 
     const nextRegion = local.region || remote?.region || '';
 
+    const resolvedRole =
+      normalizeRole(claims.role) ||
+      normalizeRole(backendUser?.role) ||
+      normalizeRole(remote?.role) ||
+      normalizeRole(local.role) ||
+      (claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId
+        ? 'clinic_manager'
+        : '') ||
+      'admin';
+
     setUser({
       uid: firebaseUser.uid,
       name: display,
       email: local.email || firebaseUser.email || '',
-      role:
-        normalizeRole(claims.role) ||
-        normalizeRole(backendUser?.role) ||
-        normalizeRole(remote?.role) ||
-        normalizeRole(local.role) ||
-        'admin',
+      role: resolvedRole,
       branchId: claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId || null,
       clinicId: claims.clinicId || claims.branchId || backendUser?.clinicId || backendUser?.branchId || null,
       region: backendUser?.region || nextRegion,

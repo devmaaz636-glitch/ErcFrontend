@@ -1,11 +1,21 @@
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
+import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
 
@@ -55,16 +65,25 @@ function Pencil() {
 
 export default function VerifyRegionScreen() {
   const navigation = useNavigation();
-  const { setRegion: persistRegion } = useSession();
+  const { setRegion: persistRegion, user, updateUser } = useSession();
+  const { ensureManagerHomeReady } = useClinicData();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [region, setRegion] = useState(REGIONS[0]);
   const [code, setCode] = useState(REGIONS[0].code);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
 
   const logoSize = Math.min(width * 0.42, 176);
   const photoHeight = Math.max(width * (434 / 430), height * 0.5);
+
+  // Warm clinic-manager home while user is still on this screen (cache / dashboard).
+  useEffect(() => {
+    if (user?.role !== 'clinic_manager') return undefined;
+    ensureManagerHomeReady().catch(() => {});
+    return undefined;
+  }, [user?.role, ensureManagerHomeReady]);
 
   function selectRegion(next) {
     setRegion(next);
@@ -79,15 +98,46 @@ export default function VerifyRegionScreen() {
       setError('Select your region and region code.');
       return;
     }
-    await persistRegion({ ...region, code: nextCode });
-    let role = '';
+    if (starting) return;
+    setStarting(true);
+    setError('');
     try {
-      const tokenResult = await auth.currentUser?.getIdTokenResult(true);
-      role = tokenResult?.claims?.role || '';
+      await persistRegion({ ...region, code: nextCode });
+
+      let role = user?.role || '';
+      let branchId = user?.branchId || user?.clinicId || null;
+      try {
+        // Use cached token claims (already refreshed at sign-in) — no multi-second force refresh.
+        const tokenResult = await auth.currentUser?.getIdTokenResult(false);
+        const claims = tokenResult?.claims || {};
+        role = claims.role || role;
+        branchId = claims.branchId || claims.clinicId || branchId;
+      } catch {
+        /* Session bootstrap will surface an authorization error if claims cannot be read. */
+      }
+
+      // Manager: open home only when full dashboard is in memory (usually already warmed at sign-in).
+      if (isClinicManagerRole(role) || branchId) {
+        updateUser({
+          role: 'clinic_manager',
+          branchId: branchId || null,
+          clinicId: branchId || null,
+        }).catch(() => {});
+        const readyHome = await ensureManagerHomeReady().catch(() => false);
+        if (!readyHome) {
+          setError('Could not load your clinic home. Check connection and try again.');
+          setStarting(false);
+          return;
+        }
+        navigation.replace('ManagerTabs');
+        return;
+      }
+
+      navigation.replace('MainTabs');
     } catch {
-      /* Session bootstrap will surface an authorization error if claims cannot be read. */
+      setError('Could not continue. Check your connection and try again.');
+      setStarting(false);
     }
-    navigation.replace(isClinicManagerRole(role) ? 'ManagerTabs' : 'MainTabs');
   }
 
   return (
@@ -208,12 +258,18 @@ export default function VerifyRegionScreen() {
 
             <Pressable
               accessibilityRole="button"
+              disabled={starting}
               onPress={confirmRegion}
               className="mt-6 h-[54px] items-center justify-center rounded-full bg-splash"
+              style={{ opacity: starting ? 0.85 : 1 }}
             >
-              <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
-                Get Started
-              </Text>
+              {starting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
+                  Get Started
+                </Text>
+              )}
             </Pressable>
 
             <Text allowFontScaling={false} className="mt-5 text-center text-[14px] text-muted">

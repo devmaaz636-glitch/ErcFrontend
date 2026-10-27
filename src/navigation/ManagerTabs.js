@@ -15,7 +15,7 @@ export default function ManagerTabs() {
       screenOptions={{
         headerShown: false,
         animation: 'fade',
-        freezeOnBlur: true,
+        freezeOnBlur: false,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >

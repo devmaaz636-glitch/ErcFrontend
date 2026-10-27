@@ -1,14 +1,32 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './api';
 import { auth } from './firebase';
 
-async function authHeaders() {
+export function managerClinicCacheKey(uid) {
+  // Bump version when seed/dashboard shape changes so managers never keep stale empty homes.
+  return `@erc/manager-clinic-cache:v5:${uid}`;
+}
+
+/** After login we force-refresh once; later manager calls reuse the cached ID token. */
+let managerTokenPrimed = false;
+
+/** One in-flight warm per uid so Sign-In + Verify Region share the same fetch. */
+const warmPromises = new Map();
+
+export function resetManagerTokenPrime() {
+  managerTokenPrimed = false;
+}
+
+async function authHeaders({ forceRefresh = false } = {}) {
   const user = auth.currentUser;
   if (!user) {
     const error = new Error('Sign in required.');
     error.code = 'auth/required';
     throw error;
   }
-  const token = await user.getIdToken();
+  const shouldForce = forceRefresh || !managerTokenPrimed;
+  const token = await user.getIdToken(shouldForce);
+  managerTokenPrimed = true;
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -46,24 +64,131 @@ export async function fetchDashboard() {
   return get('/api/clinic/dashboard');
 }
 
+async function getManager(path) {
+  const headers = await authHeaders({ forceRefresh: false });
+  try {
+    const { data } = await api.get(path, { headers });
+    return data;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
 export async function fetchManagerDashboard() {
-  return get('/api/manager/dashboard');
+  return getManager('/api/manager/dashboard');
 }
 
 export async function fetchManagerAppointments() {
-  return get('/api/manager/appointments');
+  return getManager('/api/manager/appointments');
 }
 
 export async function fetchManagerAppointmentRequests() {
-  return get('/api/manager/appointment-requests');
+  return getManager('/api/manager/appointment-requests');
 }
 
 export async function fetchManagerTreatments() {
-  return get('/api/manager/treatments');
+  return getManager('/api/manager/treatments');
 }
 
 export async function fetchManagerDoctors() {
-  return get('/api/manager/doctors');
+  return getManager('/api/manager/doctors');
+}
+
+export async function readManagerHomeCache(uid) {
+  if (!uid) return null;
+  try {
+    const raw = await AsyncStorage.getItem(managerClinicCacheKey(uid));
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (!cached?.dashboard) return null;
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+async function writeManagerHomeCache(uid, payload) {
+  if (!uid || !payload?.dashboard) return;
+  try {
+    await AsyncStorage.setItem(
+      managerClinicCacheKey(uid),
+      JSON.stringify({ ...payload, at: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Warm disk cache as soon as a clinic manager signs in.
+ * Deduped per uid — Verify Region can await the same promise (zero extra wait).
+ */
+export function warmManagerHomeCache(uid) {
+  if (!uid) return Promise.resolve(null);
+  if (warmPromises.has(uid)) return warmPromises.get(uid);
+
+  const job = (async () => {
+    try {
+      const existing = await readManagerHomeCache(uid);
+      // Fresh enough (< 5 min): reuse disk, refresh quietly later from context.
+      if (existing?.dashboard && existing.at && Date.now() - existing.at < 5 * 60 * 1000) {
+        return existing;
+      }
+
+      const dashboard = await fetchManagerDashboard();
+      if (!dashboard) return existing;
+      const payload = {
+        dashboard,
+        appointments: existing?.appointments || { stats: [], items: [] },
+        appointmentRequests: existing?.appointmentRequests || {
+          items: dashboard.appointmentRequests || [],
+          counts: null,
+        },
+      };
+      await writeManagerHomeCache(uid, payload);
+
+      Promise.all([
+        fetchManagerAppointments().catch(() => null),
+        fetchManagerAppointmentRequests().catch(() => null),
+      ])
+        .then(async ([appointments, requests]) => {
+          await writeManagerHomeCache(uid, {
+            dashboard: {
+              ...dashboard,
+              appointmentRequests: Array.isArray(requests?.items)
+                ? requests.items.filter((item) => item.status === 'pending')
+                : dashboard.appointmentRequests || [],
+            },
+            appointments: appointments
+              ? {
+                  stats: appointments.stats || [],
+                  items: appointments.items || [],
+                }
+              : payload.appointments,
+            appointmentRequests: requests
+              ? {
+                  items: requests.items || [],
+                  counts: requests.counts || null,
+                }
+              : payload.appointmentRequests,
+          });
+        })
+        .catch(() => {});
+
+      return payload;
+    } catch {
+      return readManagerHomeCache(uid);
+    }
+  })();
+
+  warmPromises.set(uid, job);
+  job.finally(() => {
+    // Keep resolved promise briefly so concurrent callers reuse result.
+    setTimeout(() => {
+      if (warmPromises.get(uid) === job) warmPromises.delete(uid);
+    }, 30_000);
+  });
+  return job;
 }
 
 export async function fetchManagerAppointmentRequest(id) {
