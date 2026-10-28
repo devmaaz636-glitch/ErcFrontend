@@ -14,10 +14,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 import Svg, { Path } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
+import { colors } from '../theme';
 
 cssInterop(Image, { className: 'style' });
 const REGIONS = [
@@ -65,12 +67,17 @@ function Pencil() {
 
 export default function VerifyRegionScreen() {
   const navigation = useNavigation();
-  const { setRegion: persistRegion, user, updateUser } = useSession();
-  const { ensureManagerHomeReady } = useClinicData();
+  const route = useRoute();
+  const switchMode = route.params?.mode === 'switch';
+  const { setRegion: persistRegion, user, updateUser, region: sessionRegion } = useSession();
+  const { ensureManagerHomeReady, ensureAdminHomeReady } = useClinicData();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [region, setRegion] = useState(REGIONS[0]);
-  const [code, setCode] = useState(REGIONS[0].code);
+  const initialRegion =
+    REGIONS.find((item) => item.name === sessionRegion?.name || item.id === sessionRegion?.id) ||
+    REGIONS[0];
+  const [region, setRegion] = useState(initialRegion);
+  const [code, setCode] = useState(sessionRegion?.code || initialRegion.code);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
@@ -78,12 +85,17 @@ export default function VerifyRegionScreen() {
   const logoSize = Math.min(width * 0.42, 176);
   const photoHeight = Math.max(width * (434 / 430), height * 0.5);
 
-  // Warm clinic-manager home while user is still on this screen (cache / dashboard).
+  // Warm home while user is still on this screen (admin + clinic manager).
   useEffect(() => {
-    if (user?.role !== 'clinic_manager') return undefined;
-    ensureManagerHomeReady().catch(() => {});
+    if (user?.role === 'clinic_manager') {
+      ensureManagerHomeReady().catch(() => {});
+      return undefined;
+    }
+    if (user?.role === 'admin' || !user?.role) {
+      ensureAdminHomeReady().catch(() => {});
+    }
     return undefined;
-  }, [user?.role, ensureManagerHomeReady]);
+  }, [user?.role, ensureManagerHomeReady, ensureAdminHomeReady]);
 
   function selectRegion(next) {
     setRegion(next);
@@ -103,6 +115,7 @@ export default function VerifyRegionScreen() {
     setError('');
     try {
       await persistRegion({ ...region, code: nextCode });
+      updateUser({ region: region.name }).catch(() => {});
 
       let role = user?.role || '';
       let branchId = user?.branchId || user?.clinicId || null;
@@ -116,24 +129,33 @@ export default function VerifyRegionScreen() {
         /* Session bootstrap will surface an authorization error if claims cannot be read. */
       }
 
-      // Manager: open home only when full dashboard is in memory (usually already warmed at sign-in).
+      // Instant cache/shell hydrate only — network continues in background (no wait / no blink).
+      if (isClinicManagerRole(role) || branchId) {
+        await ensureManagerHomeReady().catch(() => true);
+      } else {
+        await ensureAdminHomeReady().catch(() => true);
+      }
+
       if (isClinicManagerRole(role) || branchId) {
         updateUser({
           role: 'clinic_manager',
           branchId: branchId || null,
           clinicId: branchId || null,
+          region: region.name,
         }).catch(() => {});
-        const readyHome = await ensureManagerHomeReady().catch(() => false);
-        if (!readyHome) {
-          setError('Could not load your clinic home. Check connection and try again.');
-          setStarting(false);
-          return;
+        if (switchMode) {
+          navigation.goBack();
+        } else {
+          navigation.replace('ManagerTabs');
         }
-        navigation.replace('ManagerTabs');
         return;
       }
 
-      navigation.replace('MainTabs');
+      if (switchMode) {
+        navigation.goBack();
+      } else {
+        navigation.replace('MainTabs');
+      }
     } catch {
       setError('Could not continue. Check your connection and try again.');
       setStarting(false);
@@ -171,6 +193,28 @@ export default function VerifyRegionScreen() {
             paddingTop: insets.top,
           }}
         >
+          {switchMode ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close switch region"
+              onPress={() => navigation.goBack()}
+              hitSlop={10}
+              style={{
+                position: 'absolute',
+                top: insets.top + 8,
+                left: 16,
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.92)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2,
+              }}
+            >
+              <Ionicons name="close" size={20} color={colors.ink} />
+            </Pressable>
+          ) : null}
           <Image
             source={require('../../assets/splashlogo.png')}
             contentFit="contain"
@@ -194,10 +238,12 @@ export default function VerifyRegionScreen() {
               className="text-ink"
               style={{ fontSize: Math.min(Math.max(width * 0.062, 22), 26), fontWeight: '700' }}
             >
-              Verify Your Region
+              {switchMode ? 'Switch Region' : 'Verify Your Region'}
             </Text>
             <Text allowFontScaling={false} className="mt-2 text-[14px] leading-5 text-muted">
-              Please verify that the region assigned to your account is correct before continuing.
+              {switchMode
+                ? 'Choose another region for your regional admin workspace.'
+                : 'Please verify that the region assigned to your account is correct before continuing.'}
             </Text>
 
             <Text allowFontScaling={false} className="mb-2 mt-6 text-[15px] font-semibold text-ink">
@@ -267,7 +313,7 @@ export default function VerifyRegionScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
-                  Get Started
+                  {switchMode ? 'Save Region' : 'Get Started'}
                 </Text>
               )}
             </Pressable>

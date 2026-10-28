@@ -1,4 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  createAdminSeedAppointments,
+  createAdminSeedBranches,
+  createAdminSeedDashboard,
+  createAdminSeedManagers,
+} from './adminSeed';
 import { api } from './api';
 import { auth } from './firebase';
 
@@ -7,11 +13,55 @@ export function managerClinicCacheKey(uid) {
   return `@erc/manager-clinic-cache:v5:${uid}`;
 }
 
+export function adminClinicCacheKey(uid) {
+  return `@erc/admin-clinic-cache:v3:${uid}`;
+}
+
+/** In-memory last-good admin payload — survives re-renders; used offline / low net. */
+let lastAdminHomePayloadMem = null;
+
+export function peekAdminHomePayload() {
+  return lastAdminHomePayloadMem;
+}
+
+/** Instant full admin design seed so Home/tabs never paint empty while network catches up. */
+export function adminHomeShell() {
+  return {
+    _shell: true,
+    dashboard: createAdminSeedDashboard(),
+    appointments: createAdminSeedAppointments(),
+    branches: createAdminSeedBranches(),
+    managers: createAdminSeedManagers(),
+  };
+}
+
+export function isAdminShellPayload(payload) {
+  return Boolean(payload?._shell);
+}
+
+export function hasRealAdminDashboard(payload) {
+  const dash = payload?.dashboard;
+  if (!dash) return false;
+  return Boolean(
+    dash.branches?.length ||
+      dash.doctors?.length ||
+      dash.managerPreview?.length ||
+      dash.attention?.length ||
+      dash.stats?.some((item) => item?.value != null && String(item.value) !== '—')
+  );
+}
+
+export function rememberAdminHomePayload(payload) {
+  if (!payload?.dashboard || isAdminShellPayload(payload)) return;
+  lastAdminHomePayloadMem = payload;
+}
+
 /** After login we force-refresh once; later manager calls reuse the cached ID token. */
 let managerTokenPrimed = false;
 
 /** One in-flight warm per uid so Sign-In + Verify Region share the same fetch. */
 const warmPromises = new Map();
+const adminWarmPromises = new Map();
 
 export function resetManagerTokenPrime() {
   managerTokenPrimed = false;
@@ -186,6 +236,140 @@ export function warmManagerHomeCache(uid) {
     // Keep resolved promise briefly so concurrent callers reuse result.
     setTimeout(() => {
       if (warmPromises.get(uid) === job) warmPromises.delete(uid);
+    }, 30_000);
+  });
+  return job;
+}
+
+export async function readAdminHomeCache(uid) {
+  if (!uid) return null;
+  try {
+    const raw = await AsyncStorage.getItem(adminClinicCacheKey(uid));
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (!cached?.dashboard) return null;
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+async function writeAdminHomeCache(uid, payload) {
+  if (!uid || !payload?.dashboard) return;
+  rememberAdminHomePayload(payload);
+  try {
+    await AsyncStorage.setItem(
+      adminClinicCacheKey(uid),
+      JSON.stringify({ ...payload, at: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Warm regional-admin home cache at Sign-In / Region Verify (same pattern as clinic manager).
+ * Returns disk/memory immediately when fresh; network upgrades in the background.
+ */
+export function warmAdminHomeCache(uid) {
+  if (!uid) return Promise.resolve(null);
+  if (adminWarmPromises.has(uid)) return adminWarmPromises.get(uid);
+
+  const job = (async () => {
+    try {
+      const existing = await readAdminHomeCache(uid);
+      if (existing?.dashboard) {
+        rememberAdminHomePayload(existing);
+        if (existing.at && Date.now() - existing.at < 5 * 60 * 1000) {
+          // Soft network refresh while callers use cache.
+          fetchDashboard()
+            .then(async (dashboard) => {
+              if (!dashboard) return;
+              const next = {
+                dashboard: {
+                  stats: dashboard.stats || [],
+                  attention: dashboard.attention || [],
+                  branches: dashboard.branches || [],
+                  doctors: dashboard.doctors || [],
+                  managerPreview: dashboard.managerPreview || [],
+                },
+                appointments: existing.appointments || { stats: [], items: [] },
+                branches: existing.branches || { items: [] },
+                managers: existing.managers || { stats: null, items: [] },
+              };
+              await writeAdminHomeCache(uid, next);
+              const [appointments, branchList, managers] = await Promise.all([
+                fetchAppointments().catch(() => null),
+                fetchBranches().catch(() => null),
+                fetchManagers().catch(() => null),
+              ]);
+              await writeAdminHomeCache(uid, {
+                ...next,
+                appointments: appointments
+                  ? { stats: appointments.stats || [], items: appointments.items || [] }
+                  : next.appointments,
+                branches: branchList ? { items: branchList.items || [] } : next.branches,
+                managers: managers
+                  ? { stats: managers.stats || null, items: managers.items || [] }
+                  : next.managers,
+              });
+            })
+            .catch(() => {});
+          return existing;
+        }
+      }
+
+      const mem = peekAdminHomePayload();
+      if (mem?.dashboard) {
+        /* keep serving memory while we fetch */
+      }
+
+      const dashboard = await fetchDashboard();
+      if (!dashboard) return existing || mem;
+
+      const payload = {
+        dashboard: {
+          stats: dashboard.stats || [],
+          attention: dashboard.attention || [],
+          branches: dashboard.branches || [],
+          doctors: dashboard.doctors || [],
+          managerPreview: dashboard.managerPreview || [],
+        },
+        appointments: existing?.appointments || mem?.appointments || { stats: [], items: [] },
+        branches: existing?.branches || mem?.branches || { items: [] },
+        managers: existing?.managers || mem?.managers || { stats: null, items: [] },
+      };
+      await writeAdminHomeCache(uid, payload);
+
+      Promise.all([
+        fetchAppointments().catch(() => null),
+        fetchBranches().catch(() => null),
+        fetchManagers().catch(() => null),
+      ])
+        .then(async ([appointments, branches, managers]) => {
+          await writeAdminHomeCache(uid, {
+            dashboard: payload.dashboard,
+            appointments: appointments
+              ? { stats: appointments.stats || [], items: appointments.items || [] }
+              : payload.appointments,
+            branches: branches ? { items: branches.items || [] } : payload.branches,
+            managers: managers
+              ? { stats: managers.stats || null, items: managers.items || [] }
+              : payload.managers,
+          });
+        })
+        .catch(() => {});
+
+      return payload;
+    } catch {
+      return (await readAdminHomeCache(uid)) || peekAdminHomePayload();
+    }
+  })();
+
+  adminWarmPromises.set(uid, job);
+  job.finally(() => {
+    setTimeout(() => {
+      if (adminWarmPromises.get(uid) === job) adminWarmPromises.delete(uid);
     }, 30_000);
   });
   return job;

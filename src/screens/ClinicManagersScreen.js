@@ -6,15 +6,14 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
+import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwitcher';
 import {
   IconCircleButton,
   NotificationBellButton,
   SearchField,
   StatusBadge,
-  SkeletonRow,
 } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
-import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -113,14 +112,13 @@ export default function ClinicManagersScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { displayRegion } = useSession();
-  const { managers, error, refresh, loadedOnce } = useClinicData();
+  const regionLabel = useActiveRegionLabel();
+  const { managers, error, refresh } = useClinicData();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
 
   const cards = managers.stats?.cards || [];
-  const showSkeleton = !loadedOnce && cards.length === 0 && (managers.items || []).length === 0;
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (managers.items || []).filter((m) => {
@@ -145,7 +143,7 @@ export default function ClinicManagersScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 30 }}>
             <IconCircleButton
               name="chevron-back"
               accessibilityLabel="Go back"
@@ -154,9 +152,11 @@ export default function ClinicManagersScreen() {
             <View style={{ flex: 1, marginLeft: s(12), marginRight: s(8) }}>
               <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink }}>Clinic Managers</Text>
               <Text style={{ fontSize: fs(9), color: colors.desc, marginTop: 1 }}>
-                {displayRegion || 'All Regions'} · Regional Admin
+                {regionLabel || 'All Regions'} · Regional Admin
               </Text>
             </View>
+            <RegionGlobeButton color={colors.brand} />
+            <View style={{ width: s(8) }} />
             <NotificationBellButton color={colors.brand} />
           </View>
 
@@ -164,63 +164,43 @@ export default function ClinicManagersScreen() {
             <SearchField value={query} onChangeText={setQuery} />
           </View>
 
-          {error ? (
+          {error && list.length === 0 && cards.length === 0 ? (
             <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(16), textAlign: 'center' }}>
               {error}
             </Text>
           ) : null}
 
-          {showSkeleton ? (
-            <>
-              <View style={{ flexDirection: 'row', marginTop: s(16) }}>
-                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
-                <View style={{ width: s(10) }} />
-                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
-                <View style={{ width: s(10) }} />
-                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
-              </View>
-              <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink, marginTop: s(22) }}>
-                Manager Directory
-              </Text>
-              <SkeletonRow lines={2} avatar style={{ marginTop: s(12) }} />
-              <SkeletonRow lines={2} avatar />
-              <SkeletonRow lines={2} avatar />
-            </>
-          ) : (
-            <>
-              <View style={{ flexDirection: 'row', marginTop: s(16) }}>
-                {cards.map((card, index) => (
-                  <Fragment key={card.id}>
-                    {index > 0 ? <View style={{ width: s(10) }} /> : null}
-                    <StatCard id={card.id} label={card.label} value={card.value} sub={card.sub} />
-                  </Fragment>
-                ))}
-              </View>
+          <View style={{ flexDirection: 'row', marginTop: s(16) }}>
+            {cards.map((card, index) => (
+              <Fragment key={card.id}>
+                {index > 0 ? <View style={{ width: s(10) }} /> : null}
+                <StatCard id={card.id} label={card.label} value={card.value} sub={card.sub} />
+              </Fragment>
+            ))}
+          </View>
 
-              <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink, marginTop: s(22) }}>
-                Manager Directory
-              </Text>
+          <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink, marginTop: s(22) }}>
+            Manager Directory
+          </Text>
 
-              <View style={{ marginTop: s(12) }}>
-                {list.length === 0 ? (
-                  <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
-                    <Ionicons name="people-outline" size={s(28)} color={colors.muted} />
-                    <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No managers found</Text>
-                  </View>
-                ) : (
-                  list.map((item) => (
-                    <ManagerCard
-                      key={item.id}
-                      item={item}
-                      onPress={() =>
-                        navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
-                      }
-                    />
-                  ))
-                )}
+          <View style={{ marginTop: s(12) }}>
+            {list.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
+                <Ionicons name="people-outline" size={s(28)} color={colors.muted} />
+                <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No managers found</Text>
               </View>
-            </>
-          )}
+            ) : (
+              list.map((item) => (
+                <ManagerCard
+                  key={item.id}
+                  item={item}
+                  onPress={() =>
+                    navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
+                  }
+                />
+              ))
+            )}
+          </View>
         </View>
       </ScrollView>
 

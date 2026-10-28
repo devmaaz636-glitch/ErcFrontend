@@ -6,8 +6,13 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import Text from '../components/AppText';
+import { RegionGlobeButton, RegionLabelButton } from '../components/RegionSwitcher';
 import UserAvatar from '../components/UserAvatar';
-import { SearchField, SectionHeader, NotificationBellButton, SkeletonRow, SkeletonStatGrid } from '../components/ui';
+import {
+  SearchField,
+  SectionHeader,
+  NotificationBellButton,
+} from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
@@ -273,8 +278,8 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user, displayRegion } = useSession();
-  const { dashboard, error, refresh, loadedOnce } = useClinicData();
+  const { user } = useSession();
+  const { dashboard, error, refresh } = useClinicData();
 
   useRefreshOnFocus(refresh);
 
@@ -283,8 +288,7 @@ export default function HomeScreen() {
   const branches = dashboard?.branches || [];
   const doctors = dashboard?.doctors || [];
   const managers = dashboard?.managerPreview || [];
-  const locationLabel = displayRegion || 'Region';
-  const showSkeleton = !loadedOnce && stats.length === 0;
+  const showHardError = Boolean(error) && stats.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -301,19 +305,19 @@ export default function HomeScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 30 }}>
             <UserAvatar uri={user.photoUrl} size={s(40)} />
-            <View style={{ flex: 1, marginLeft: s(10) }}>
+            <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
               <Text style={{ fontSize: fs(14), fontWeight: '700', color: colors.ink }} numberOfLines={1}>
                 Hi, {user.name || 'there'} 👋
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                <Ionicons name="location-sharp" size={s(11)} color={colors.brand} />
-                <Text style={{ fontSize: fs(11), color: colors.mutedBrand, marginLeft: 2 }} numberOfLines={1}>
-                  {locationLabel}
-                </Text>
+              <View style={{ marginTop: 2 }}>
+                <RegionLabelButton color={colors.brand} />
               </View>
             </View>
+            {/* Two header icons: region + notifications */}
+            <RegionGlobeButton color={colors.brand} />
+            <View style={{ width: s(8) }} />
             <NotificationBellButton color={colors.brand} />
           </View>
 
@@ -321,7 +325,7 @@ export default function HomeScreen() {
             <SearchField />
           </View>
 
-          {error ? (
+          {showHardError ? (
             <View style={{ marginTop: s(12), alignItems: 'center' }}>
               <Text style={{ fontSize: fs(11), color: colors.danger, textAlign: 'center' }}>
                 {error}
@@ -339,65 +343,51 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {showSkeleton ? (
-            <>
-              <SkeletonStatGrid count={4} />
-              <SectionHeader title="Need Attention" />
-              <SkeletonRow lines={2} />
-              <SkeletonRow lines={2} />
-              <SectionHeader title="Branch Leaderboard" large />
-              <SkeletonRow lines={2} avatar />
-              <SkeletonRow lines={2} avatar />
-            </>
-          ) : (
-            <>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'space-between',
-                  marginTop: s(22),
-                }}
-              >
-                {stats.map((item) => (
-                  <StatCard key={item.id} item={item} />
-                ))}
-              </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              marginTop: s(22),
+            }}
+          >
+            {stats.map((item) => (
+              <StatCard key={item.id} item={item} />
+            ))}
+          </View>
 
-              <SectionHeader title="Need Attention" />
-              {attention.map((item) => (
-                <AttentionCard key={item.id} item={item} />
-              ))}
+          <SectionHeader title="Need Attention" />
+          {attention.map((item) => (
+            <AttentionCard key={item.id} item={item} />
+          ))}
 
-              <SectionHeader
-                title="Branch Leaderboard"
-                large
-                onAction={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
-              />
-              {branches.map((item, i) => (
-                <BranchRow key={item.id} item={item} rank={i + 1} />
-              ))}
+          <SectionHeader
+            title="Branch Leaderboard"
+            large
+            onAction={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
+          />
+          {branches.map((item, i) => (
+            <BranchRow key={item.id} item={item} rank={i + 1} />
+          ))}
 
-              <SectionHeader
-                title="Clinic Managers"
-                onAction={() => navigation.navigate('ClinicManagers')}
-              />
-              {managers.map((item) => (
-                <ManagerRow
-                  key={item.id}
-                  item={item}
-                  onPress={() =>
-                    navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
-                  }
-                />
-              ))}
+          <SectionHeader
+            title="Clinic Managers"
+            onAction={() => navigation.navigate('ClinicManagers')}
+          />
+          {managers.map((item) => (
+            <ManagerRow
+              key={item.id}
+              item={item}
+              onPress={() =>
+                navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
+              }
+            />
+          ))}
 
-              <SectionHeader title="Doctors Performance" />
-              {doctors.map((item) => (
-                <DoctorRow key={item.id} item={item} />
-              ))}
-            </>
-          )}
+          <SectionHeader title="Doctors Performance" />
+          {doctors.map((item) => (
+            <DoctorRow key={item.id} item={item} />
+          ))}
         </View>
       </ScrollView>
 

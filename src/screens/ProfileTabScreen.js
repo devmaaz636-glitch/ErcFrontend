@@ -12,13 +12,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { RegionGlobeButton } from '../components/RegionSwitcher';
 import UserAvatar from '../components/UserAvatar';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { signOutUser } from '../lib/auth';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
-import { useTopPadding } from '../utils/responsive';
+import { scale as s, useTopPadding } from '../utils/responsive';
 
 // If the network is slow or down, stop waiting for the server after this long
 // and finish logging out locally.
@@ -236,7 +237,7 @@ export default function ProfileTabScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 30 }}>
             <IconCircleButton
               name="chevron-back"
               color={colors.brand}
@@ -246,6 +247,12 @@ export default function ProfileTabScreen() {
             <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.ink }}>
               Profile
             </Text>
+            {user.role === 'admin' || user.role === 'Regional Admin' ? (
+              <>
+                <RegionGlobeButton color={colors.brand} />
+                <View style={{ width: s(8) }} />
+              </>
+            ) : null}
             <NotificationBellButton color={colors.brand} />
           </View>
 

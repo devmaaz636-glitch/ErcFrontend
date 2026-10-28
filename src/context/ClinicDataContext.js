@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  adminClinicCacheKey,
+  adminHomeShell,
   clinicErrorMessage,
   fetchAppointments,
   fetchBranches,
@@ -9,9 +11,15 @@ import {
   fetchManagerAppointments,
   fetchManagerAppointmentRequests,
   fetchManagerDashboard,
+  hasRealAdminDashboard,
+  isAdminShellPayload,
   managerClinicCacheKey,
+  peekAdminHomePayload,
+  readAdminHomeCache,
   readManagerHomeCache,
+  rememberAdminHomePayload,
   resetManagerTokenPrime,
+  warmAdminHomeCache,
   warmManagerHomeCache,
 } from '../lib/clinic';
 import { useSession } from './SessionContext';
@@ -46,6 +54,33 @@ const STALE_MS = 2 * 60 * 1000;
 
 function managerCacheKey(uid) {
   return managerClinicCacheKey(uid);
+}
+
+function adminCacheKey(uid) {
+  return adminClinicCacheKey(uid);
+}
+
+function adminPayload({
+  dashboard,
+  appointments,
+  branches,
+  managers,
+} = {}) {
+  return {
+    dashboard: dashboard
+      ? {
+          stats: dashboard.stats || [],
+          attention: dashboard.attention || [],
+          branches: dashboard.branches || [],
+          doctors: dashboard.doctors || [],
+          managerPreview: dashboard.managerPreview || [],
+        }
+      : null,
+    appointments: appointments || { stats: [], items: [] },
+    appointmentRequests: { items: [], counts: null },
+    branches: branches || { items: [] },
+    managers: managers || { stats: null, items: [] },
+  };
 }
 
 function buildManagerDashboard(dashboard) {
@@ -107,6 +142,8 @@ export function ClinicDataProvider({ children }) {
   const prevIsManagerRef = useRef(isManager);
   /** Set when Verify Region confirms manager — avoids admin API 403 while session catches up. */
   const managerModeRef = useRef(false);
+  /** Set when Verify Region confirms admin — hydrate cache before MainTabs paints. */
+  const adminModeRef = useRef(false);
 
   useEffect(() => {
     dataRef.current = data;
@@ -114,12 +151,13 @@ export function ClinicDataProvider({ children }) {
 
   useEffect(() => {
     if (isManager) managerModeRef.current = true;
-  }, [isManager]);
+    if (isAdmin) adminModeRef.current = true;
+  }, [isManager, isAdmin]);
 
   /**
-   * Role flip handling (manager-only care):
-   * - Becoming manager: DO NOT wipe to EMPTY (that caused home blink).
-   * - Leaving manager → admin: clear so admin never sees manager payload.
+   * Role flip handling:
+   * - Becoming manager/admin: DO NOT wipe to EMPTY (that caused home blink).
+   * - Leaving manager → admin: clear manager payload, then admin cache hydrates.
    */
   useEffect(() => {
     const wasManager = prevIsManagerRef.current;
@@ -139,6 +177,7 @@ export function ClinicDataProvider({ children }) {
 
     if (!wasManager && isManager) {
       managerModeRef.current = true;
+      adminModeRef.current = false;
       requestGenerationRef.current += 1;
       inFlightRef.current = null;
       setError('');
@@ -162,6 +201,23 @@ export function ClinicDataProvider({ children }) {
     }
   }, []);
 
+  const persistAdminCache = useCallback(async (uid, nextData) => {
+    if (!uid || !nextData?.dashboard) return;
+    const payload = {
+      dashboard: nextData.dashboard,
+      appointments: nextData.appointments,
+      branches: nextData.branches,
+      managers: nextData.managers,
+      at: Date.now(),
+    };
+    rememberAdminHomePayload(payload);
+    try {
+      await AsyncStorage.setItem(adminCacheKey(uid), JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const applyManagerData = useCallback(
     (nextData, { markFresh = false } = {}) => {
       setData(nextData);
@@ -175,6 +231,75 @@ export function ClinicDataProvider({ children }) {
     [persistManagerCache, user.uid]
   );
 
+  const applyAdminData = useCallback(
+    (nextData, { markFresh = false } = {}) => {
+      // Never replace a painted full home with another seed shell.
+      if (isAdminShellPayload(nextData) && hasRealAdminDashboard(dataRef.current)) {
+        return;
+      }
+
+      const prev = dataRef.current;
+      const incomingShell = isAdminShellPayload(nextData);
+
+      // Live API always wins section-by-section; seed fills any gap so design never goes blank.
+      const merged = incomingShell
+        ? nextData
+        : {
+            ...nextData,
+            dashboard: nextData.dashboard
+              ? {
+                  stats: nextData.dashboard.stats?.length
+                    ? nextData.dashboard.stats
+                    : prev.dashboard?.stats || [],
+                  attention: nextData.dashboard.attention?.length
+                    ? nextData.dashboard.attention
+                    : prev.dashboard?.attention || [],
+                  branches: nextData.dashboard.branches?.length
+                    ? nextData.dashboard.branches
+                    : prev.dashboard?.branches || [],
+                  doctors: nextData.dashboard.doctors?.length
+                    ? nextData.dashboard.doctors
+                    : prev.dashboard?.doctors || [],
+                  managerPreview: nextData.dashboard.managerPreview?.length
+                    ? nextData.dashboard.managerPreview
+                    : prev.dashboard?.managerPreview || [],
+                }
+              : prev.dashboard,
+            appointments: {
+              stats: nextData.appointments?.stats?.length
+                ? nextData.appointments.stats
+                : prev.appointments?.stats || [],
+              items: nextData.appointments?.items?.length
+                ? nextData.appointments.items
+                : prev.appointments?.items || [],
+            },
+            appointmentRequests: nextData.appointmentRequests || prev.appointmentRequests,
+            branches: {
+              items: nextData.branches?.items?.length
+                ? nextData.branches.items
+                : prev.branches?.items || [],
+            },
+            managers: {
+              stats: nextData.managers?.stats || prev.managers?.stats || null,
+              items: nextData.managers?.items?.length
+                ? nextData.managers.items
+                : prev.managers?.items || [],
+            },
+          };
+
+      setData(merged);
+      dataRef.current = merged;
+      loadedOnceRef.current = true;
+      setLoadedOnce(true);
+      setError('');
+      if (markFresh) lastFetchAtRef.current = Date.now();
+      if (!incomingShell) {
+        persistAdminCache(user.uid, merged);
+      }
+    },
+    [persistAdminCache, user.uid]
+  );
+
   const readManagerCache = useCallback(async (uid) => {
     const cached = await readManagerHomeCache(uid);
     if (!cached?.dashboard) return null;
@@ -184,6 +309,12 @@ export function ClinicDataProvider({ children }) {
       cached.appointmentRequests,
       cached.appointmentRequests
     );
+  }, []);
+
+  const readAdminCache = useCallback(async (uid) => {
+    const cached = await readAdminHomeCache(uid);
+    if (!cached?.dashboard) return null;
+    return adminPayload(cached);
   }, []);
 
   // Clinic-manager only: hydrate from disk ASAP (no EMPTY flash).
@@ -199,6 +330,35 @@ export function ClinicDataProvider({ children }) {
       alive = false;
     };
   }, [ready, user.uid, isManager, readManagerCache, applyManagerData]);
+
+  // Regional admin: hydrate from disk / memory / shell ASAP (never paint empty skeleton).
+  useEffect(() => {
+    if (!ready || !user.uid || !(isAdmin || adminModeRef.current) || isManager) return undefined;
+    let alive = true;
+    (async () => {
+      if (dataRef.current?.dashboard) return;
+      try {
+        const cached = await readAdminCache(user.uid);
+        if (!alive || dataRef.current?.dashboard) return;
+        if (cached?.dashboard) {
+          applyAdminData(cached, { markFresh: false });
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!alive || dataRef.current?.dashboard) return;
+      const mem = peekAdminHomePayload();
+      if (mem?.dashboard) {
+        applyAdminData(adminPayload(mem), { markFresh: false });
+        return;
+      }
+      applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [ready, user.uid, isAdmin, isManager, readAdminCache, applyAdminData]);
 
   const refreshManagerHome = useCallback(async () => {
     const requestGeneration = requestGenerationRef.current;
@@ -268,77 +428,91 @@ export function ClinicDataProvider({ children }) {
           }
 
           // Wait until role is known — never hit admin APIs with a manager token.
-          if (!isAdmin) {
+          if (!isAdmin && !adminModeRef.current) {
             return;
           }
 
-          const results = await Promise.allSettled([
-            fetchDashboard(),
+          // Dashboard-first: paint home fast on low internet; tabs fill in behind.
+          let dashboard = null;
+          try {
+            dashboard = await fetchDashboard();
+          } catch (dashErr) {
+            if (!dataRef.current?.dashboard) throw dashErr;
+          }
+
+          if (requestGeneration !== requestGenerationRef.current) return;
+
+          if (dashboard) {
+            applyAdminData(
+              adminPayload({
+                dashboard: {
+                  stats: dashboard.stats || dataRef.current.dashboard?.stats || [],
+                  attention: dashboard.attention || dataRef.current.dashboard?.attention || [],
+                  branches: dashboard.branches || dataRef.current.dashboard?.branches || [],
+                  doctors: dashboard.doctors || dataRef.current.dashboard?.doctors || [],
+                  managerPreview:
+                    dashboard.managerPreview || dataRef.current.dashboard?.managerPreview || [],
+                },
+                appointments: dataRef.current.appointments,
+                branches: dataRef.current.branches,
+                managers: dataRef.current.managers,
+              }),
+              { markFresh: true }
+            );
+          }
+
+          Promise.allSettled([
             fetchAppointments(),
             fetchBranches(),
             fetchManagers(),
-          ]);
-          const [dashboardResult, appointmentsResult, thirdResult, fourthResult] = results;
-          const dashboard = dashboardResult.status === 'fulfilled' ? dashboardResult.value : null;
-          const appointments =
-            appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : null;
-          const branches = thirdResult.status === 'fulfilled' ? thirdResult.value : null;
-          const managers = fourthResult.status === 'fulfilled' ? fourthResult.value : null;
-          const failed = results.filter((result) => result.status === 'rejected');
+          ]).then((results) => {
+            if (requestGeneration !== requestGenerationRef.current) return;
+            const [appointmentsResult, branchesResult, managersResult] = results;
+            const appointments =
+              appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : null;
+            const branches =
+              branchesResult.status === 'fulfilled' ? branchesResult.value : null;
+            const managers =
+              managersResult.status === 'fulfilled' ? managersResult.value : null;
 
-          if (failed.length === results.length) {
-            throw failed[0].reason;
-          }
-
-          if (requestGeneration !== requestGenerationRef.current) return;
-
-          setData({
-            dashboard: {
-              stats: dashboard?.stats || [],
-              attention: dashboard?.attention || [],
-              branches: dashboard?.branches || [],
-              doctors: dashboard?.doctors || [],
-              managerPreview: dashboard?.managerPreview || [],
-            },
-            appointments: {
-              stats: appointments?.stats || [],
-              items: appointments?.items || [],
-            },
-            branches: { items: branches?.items || [] },
-            managers: {
-              stats: managers?.stats || null,
-              items: managers?.items || [],
-            },
+            applyAdminData(
+              adminPayload({
+                dashboard: dataRef.current.dashboard,
+                appointments: {
+                  stats: appointments?.stats || dataRef.current.appointments?.stats || [],
+                  items: appointments?.items || dataRef.current.appointments?.items || [],
+                },
+                branches: {
+                  items: branches?.items || dataRef.current.branches?.items || [],
+                },
+                managers: {
+                  stats: managers?.stats ?? dataRef.current.managers?.stats ?? null,
+                  items: managers?.items || dataRef.current.managers?.items || [],
+                },
+              }),
+              { markFresh: true }
+            );
           });
-          if (failed.length > 0) {
-            setError('Some clinic data could not be refreshed. Pull to retry.');
-          }
-          loadedOnceRef.current = true;
-          setLoadedOnce(true);
-          lastFetchAtRef.current = Date.now();
         } catch (err) {
           if (requestGeneration !== requestGenerationRef.current) return;
-          setError(failedCountMessage(err, loadedOnceRef.current || Boolean(dataRef.current?.dashboard)));
+          // Keep prior design visible — only surface error when nothing useful is on screen.
+          if (!dataRef.current?.dashboard?.stats?.length) {
+            setError(clinicErrorMessage(err));
+          } else {
+            setError('');
+          }
         } finally {
           setLoading(false);
           if (requestGeneration === requestGenerationRef.current) {
             inFlightRef.current = null;
           }
         }
-
-        function failedCountMessage(error, hasExistingData) {
-          const message = clinicErrorMessage(error);
-          if (hasExistingData && message === 'Could not load clinic data.') {
-            return 'Some clinic data could not be refreshed. Pull to retry.';
-          }
-          return message;
-        }
       })();
 
       inFlightRef.current = job;
       return job;
     },
-    [sessionKey, isManager, isAdmin, refreshManagerHome]
+    [sessionKey, isManager, isAdmin, refreshManagerHome, applyAdminData]
   );
 
   /**
@@ -356,42 +530,97 @@ export function ClinicDataProvider({ children }) {
       return true;
     }
 
-    const cached = await readManagerCache(user.uid);
-    if (cached?.dashboard) {
-      applyManagerData(cached, { markFresh: false });
-      refresh({ silent: true, force: true }).catch(() => {});
-      return true;
+    try {
+      const cached = await readManagerCache(user.uid);
+      if (cached?.dashboard) {
+        applyManagerData(cached, { markFresh: false });
+        refresh({ silent: true, force: true }).catch(() => {});
+        return true;
+      }
+    } catch {
+      /* disk cache optional */
     }
 
-    // Await the same warm started at login (no duplicate slow fetch).
-    const warmed = await warmManagerHomeCache(user.uid);
-    if (warmed?.dashboard) {
-      applyManagerData(
-        managerPayload(
-          warmed.dashboard,
-          warmed.appointments,
-          warmed.appointmentRequests,
-          warmed.appointmentRequests
-        ),
-        { markFresh: true }
-      );
-      return true;
+    try {
+      // Await the same warm started at login (no duplicate slow fetch).
+      const warmed = await warmManagerHomeCache(user.uid);
+      if (warmed?.dashboard) {
+        applyManagerData(
+          managerPayload(
+            warmed.dashboard,
+            warmed.appointments,
+            warmed.appointmentRequests,
+            warmed.appointmentRequests
+          ),
+          { markFresh: true }
+        );
+        return true;
+      }
+    } catch {
+      /* network warm optional */
     }
 
     try {
       await refreshManagerHome();
-      return Boolean(dataRef.current?.dashboard);
     } catch (err) {
       setError(clinicErrorMessage(err));
-      return Boolean(dataRef.current?.dashboard);
     }
+
+    // Never block Get Started on flaky network — home can retry on focus.
+    return true;
   }, [user.uid, readManagerCache, applyManagerData, refresh, refreshManagerHome]);
+
+  /**
+   * Instant admin home for Verify Region / MainTabs:
+   * memory → disk → in-memory last-good → UI shell, then network in background.
+   * Never awaits the network — no skeleton / blink on low internet.
+   */
+  const ensureAdminHomeReady = useCallback(async () => {
+    adminModeRef.current = true;
+    managerModeRef.current = false;
+
+    if (dataRef.current?.dashboard) {
+      refresh({ silent: true, force: false }).catch(() => {});
+      return true;
+    }
+
+    const mem = peekAdminHomePayload();
+    if (mem?.dashboard) {
+      applyAdminData(adminPayload(mem), { markFresh: false });
+    }
+
+    try {
+      const cached = await readAdminCache(user.uid);
+      if (cached?.dashboard) {
+        applyAdminData(cached, { markFresh: false });
+      }
+    } catch {
+      /* disk cache optional */
+    }
+
+    // Guarantee a paintable dashboard before navigation (no skeleton).
+    if (!dataRef.current?.dashboard) {
+      applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
+    }
+
+    // Network upgrade — fire and forget.
+    warmAdminHomeCache(user.uid)
+      .then((warmed) => {
+        if (!warmed?.dashboard) return;
+        applyAdminData(adminPayload(warmed), { markFresh: true });
+      })
+      .catch(() => {});
+    refresh({ silent: true, force: true }).catch(() => {});
+
+    return true;
+  }, [user.uid, readAdminCache, applyAdminData, refresh]);
 
   useEffect(() => {
     if (!ready) return undefined;
 
     if (!user.uid) {
       managerModeRef.current = false;
+      adminModeRef.current = false;
       resetManagerTokenPrime();
       setData(EMPTY);
       loadedOnceRef.current = false;
@@ -402,8 +631,8 @@ export function ClinicDataProvider({ children }) {
       return undefined;
     }
 
-    // Only fetch once role is known (or manager mode locked from Verify Region).
-    if (!isManager && !isAdmin && !managerModeRef.current) {
+    // Only fetch once role is known (or mode locked from Verify Region).
+    if (!isManager && !isAdmin && !managerModeRef.current && !adminModeRef.current) {
       return undefined;
     }
 
@@ -453,6 +682,7 @@ export function ClinicDataProvider({ children }) {
       refresh,
       isManager,
       ensureManagerHomeReady,
+      ensureAdminHomeReady,
       applyAppointmentRequestUpdate,
     }),
     [
@@ -463,6 +693,7 @@ export function ClinicDataProvider({ children }) {
       refresh,
       isManager,
       ensureManagerHomeReady,
+      ensureAdminHomeReady,
       applyAppointmentRequestUpdate,
     ]
   );

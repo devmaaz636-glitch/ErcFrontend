@@ -6,13 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwitcher';
 import {
   IconCircleButton,
   NotificationBellButton,
   SearchField,
   StatusBadge,
-  SkeletonRow,
-  SkeletonStatGrid,
 } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
@@ -67,11 +66,19 @@ function formatRequestWhen(item) {
   return time ? `${dateLabel} · ${time}` : dateLabel;
 }
 
+const ADMIN_STAT_ICONS = {
+  today: 'calendar-outline',
+  upcoming: 'time-outline',
+  completed: 'checkmark-circle-outline',
+  canceled: 'close-circle-outline',
+};
+
 function StatCard({ item }) {
   const up = item.change >= 0;
   const tone = up ? colors.success : colors.danger;
   const toneBg = up ? colors.successBg : colors.dangerBg;
   const iconSize = s(30);
+  const iconName = ADMIN_STAT_ICONS[item.id] || item.icon || 'calendar-outline';
 
   return (
     <View
@@ -97,7 +104,7 @@ function StatCard({ item }) {
             justifyContent: 'center',
           }}
         >
-          <Ionicons name={item.icon} size={s(15)} color={colors.brand} />
+          <Ionicons name={iconName} size={s(15)} color={colors.brand} />
         </View>
         <View
           style={{
@@ -340,8 +347,9 @@ export default function AppointmentsTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { displayRegion, user } = useSession();
-  const { appointments, appointmentRequests, dashboard, error, refresh, loadedOnce } = useClinicData();
+  const { user } = useSession();
+  const regionLabel = useActiveRegionLabel();
+  const { appointments, appointmentRequests, dashboard, error, refresh } = useClinicData();
   const isManager = user.role === 'clinic_manager';
 
   const [adminTab, setAdminTab] = useState('upcoming');
@@ -355,13 +363,12 @@ export default function AppointmentsTabScreen() {
   );
   useRefreshOnFocus(refreshOnFocus);
 
+  // Keep admin appointment cards on appointment stats only — never mix home dashboard stats.
   const stats = isManager
     ? appointments.stats?.length
       ? appointments.stats
       : dashboard?.stats || []
     : appointments.stats || [];
-
-  const showSkeleton = !isManager && !loadedOnce && stats.length === 0;
 
   const managerItems = useMemo(() => {
     if (appointmentRequests?.items?.length) return appointmentRequests.items;
@@ -404,7 +411,8 @@ export default function AppointmentsTabScreen() {
     });
   }, [managerItems, managerTab, query]);
 
-  const subtitle = `${displayRegion || dashboard?.clinic?.region || dashboard?.clinic?.city || 'Region'} · ${roleLabel(user, isManager)}`;
+  const subtitle = `${regionLabel || dashboard?.clinic?.region || dashboard?.clinic?.city || 'Region'} · ${roleLabel(user, isManager)}`;
+  const showHardError = Boolean(error) && stats.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -421,7 +429,7 @@ export default function AppointmentsTabScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 30 }}>
             <IconCircleButton
               name="chevron-back"
               accessibilityLabel="Go back"
@@ -435,105 +443,94 @@ export default function AppointmentsTabScreen() {
                 {subtitle}
               </Text>
             </View>
-            <NotificationBellButton color={colors.mutedBrand} />
+            {/* Two header icons for admin: region + notifications */}
+            {!isManager ? <RegionGlobeButton color={colors.brand} /> : null}
+            {!isManager ? <View style={{ width: s(8) }} /> : null}
+            <NotificationBellButton color={isManager ? colors.mutedBrand : colors.brand} />
           </View>
 
-          {error ? (
+          {showHardError ? (
             <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
               {error}
             </Text>
           ) : null}
 
-          {showSkeleton ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              marginTop: s(20),
+            }}
+          >
+            {stats.map((item) => (
+              <StatCard key={item.id} item={item} />
+            ))}
+          </View>
+
+          {isManager ? (
             <>
-              <SkeletonStatGrid count={4} />
-              <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink, marginTop: s(10) }}>
-                Appointment List
-              </Text>
-              <SkeletonRow lines={2} style={{ marginTop: s(16) }} />
-              <SkeletonRow lines={2} />
-              <SkeletonRow lines={2} />
+              <ManagerFilterTabs
+                active={managerTab}
+                onChange={setManagerTab}
+                counts={managerCounts}
+              />
+              <View style={{ width: '100%', marginTop: s(12) }}>
+                {managerList.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
+                    <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
+                    <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>
+                      No appointment requests found
+                    </Text>
+                  </View>
+                ) : (
+                  managerList.map((item) => (
+                    <ManagerRequestCard
+                      key={item.id}
+                      item={item}
+                      onReview={() =>
+                        navigation.navigate('AppointmentRequestDetail', { requestId: item.id })
+                      }
+                    />
+                  ))
+                )}
+              </View>
             </>
           ) : (
             <>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'space-between',
-                  marginTop: s(20),
-                }}
-              >
-                {stats.map((item) => (
-                  <StatCard key={item.id} item={item} />
-                ))}
+              <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink, marginTop: s(10) }}>
+                Appointment List
+              </Text>
+
+              <View style={{ marginTop: s(12) }}>
+                <SearchField value={query} onChangeText={setQuery} />
               </View>
 
-              {isManager ? (
-                <>
-                  <ManagerFilterTabs
-                    active={managerTab}
-                    onChange={setManagerTab}
-                    counts={managerCounts}
-                  />
-                  <View style={{ width: '100%', marginTop: s(12) }}>
-                    {managerList.length === 0 ? (
-                      <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
-                        <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
-                        <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>
-                          No appointment requests found
-                        </Text>
-                      </View>
-                    ) : (
-                      managerList.map((item) => (
-                        <ManagerRequestCard
-                          key={item.id}
-                          item={item}
-                          onReview={() =>
-                            navigation.navigate('AppointmentRequestDetail', { requestId: item.id })
-                          }
-                        />
-                      ))
-                    )}
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink, marginTop: s(10) }}>
-                    Appointment List
-                  </Text>
+              <AdminFilterTabs active={adminTab} onChange={setAdminTab} />
 
-                  <View style={{ marginTop: s(12) }}>
-                    <SearchField value={query} onChangeText={setQuery} />
+              <View style={{ width: '100%', marginTop: s(16) }}>
+                {adminList.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
+                    <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
+                    <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>
+                      No appointments found
+                    </Text>
                   </View>
-
-                  <AdminFilterTabs active={adminTab} onChange={setAdminTab} />
-
-                  <View style={{ width: '100%', marginTop: s(16) }}>
-                    {adminList.length === 0 ? (
-                      <View style={{ alignItems: 'center', paddingVertical: s(30) }}>
-                        <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
-                        <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>
-                          No appointments found
-                        </Text>
-                      </View>
-                    ) : (
-                      adminList.map((item) => (
-                        <AppointmentCard
-                          key={item.id}
-                          item={item}
-                          onPress={() =>
-                            navigation.navigate('AppointmentDetail', {
-                              appointment: item,
-                              appointmentId: item.id,
-                            })
-                          }
-                        />
-                      ))
-                    )}
-                  </View>
-                </>
-              )}
+                ) : (
+                  adminList.map((item) => (
+                    <AppointmentCard
+                      key={item.id}
+                      item={item}
+                      onPress={() =>
+                        navigation.navigate('AppointmentDetail', {
+                          appointment: item,
+                          appointmentId: item.id,
+                        })
+                      }
+                    />
+                  ))
+                )}
+              </View>
             </>
           )}
         </View>

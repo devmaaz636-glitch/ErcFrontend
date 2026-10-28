@@ -17,13 +17,18 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { authErrorMessage, signInWithEmail } from '../lib/auth';
-import { warmManagerHomeCache } from '../lib/clinic';
+import { warmAdminHomeCache, warmManagerHomeCache } from '../lib/clinic';
 import { auth } from '../lib/firebase';
 import { saveSignedInUser } from '../lib/users';
 
 function isClinicManagerRole(value) {
   const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
   return role === 'clinic_manager' || role === 'clinicmanager' || role === 'manager';
+}
+
+function isAdminRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  return role === 'admin' || role === 'regional_admin' || role === 'regionaladmin';
 }
 
 cssInterop(Image, { className: 'style' });
@@ -146,13 +151,17 @@ export default function SignInScreen() {
       persistRememberedEmail().catch(() => {});
       if (auth.currentUser) {
         saveSignedInUser(auth.currentUser).catch(() => {});
-        // Clinic manager: warm home cache during Region Verify so Get Started is instant.
+        // Warm home cache during Region Verify so Get Started is instant (admin + manager).
         auth.currentUser
           .getIdTokenResult(false)
           .then((tokenResult) => {
             const claims = tokenResult?.claims || {};
             if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
               return warmManagerHomeCache(auth.currentUser.uid);
+            }
+            // Default / admin: warm regional dashboard for zero-blink MainTabs home.
+            if (isAdminRole(claims.role) || !isClinicManagerRole(claims.role)) {
+              return warmAdminHomeCache(auth.currentUser.uid);
             }
             return null;
           })
