@@ -5,23 +5,48 @@ import {
   createAdminSeedDashboard,
   createAdminSeedManagers,
 } from './adminSeed';
+import {
+  createManagerSeedAppointments,
+  createManagerSeedDashboard,
+  createManagerSeedRequests,
+} from './managerSeed';
 import { api } from './api';
 import { auth } from './firebase';
 
 export function managerClinicCacheKey(uid) {
   // Bump version when seed/dashboard shape changes so managers never keep stale empty homes.
-  return `@erc/manager-clinic-cache:v5:${uid}`;
+  return `@erc/manager-clinic-cache:v6:${uid}`;
 }
 
 export function adminClinicCacheKey(uid) {
   return `@erc/admin-clinic-cache:v3:${uid}`;
 }
 
-/** In-memory last-good admin payload — survives re-renders; used offline / low net. */
+/** In-memory last-good payloads — survives re-renders; used offline / low net. */
 let lastAdminHomePayloadMem = null;
+let lastManagerHomePayloadMem = null;
 
 export function peekAdminHomePayload() {
   return lastAdminHomePayloadMem;
+}
+
+export function peekManagerHomePayload() {
+  return lastManagerHomePayloadMem;
+}
+
+export function rememberManagerHomePayload(payload) {
+  if (!payload?.dashboard || payload?._shell) return;
+  lastManagerHomePayloadMem = payload;
+}
+
+/** Instant full manager design so Get Started never waits on network. */
+export function managerHomeShell() {
+  return {
+    _shell: true,
+    dashboard: createManagerSeedDashboard(),
+    appointments: createManagerSeedAppointments(),
+    appointmentRequests: createManagerSeedRequests(),
+  };
 }
 
 /** Instant full admin design seed so Home/tabs never paint empty while network catches up. */
@@ -140,6 +165,21 @@ export async function fetchManagerTreatments() {
   return getManager('/api/manager/treatments');
 }
 
+export async function fetchManagerTreatment(id) {
+  const data = await get(`/api/manager/treatments/${encodeURIComponent(id)}`);
+  return data.item;
+}
+
+export async function createManagerTreatment(body) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.post('/api/manager/treatments', body, { headers });
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
 export async function fetchManagerDoctors() {
   return getManager('/api/manager/doctors');
 }
@@ -159,6 +199,7 @@ export async function readManagerHomeCache(uid) {
 
 async function writeManagerHomeCache(uid, payload) {
   if (!uid || !payload?.dashboard) return;
+  rememberManagerHomePayload(payload);
   try {
     await AsyncStorage.setItem(
       managerClinicCacheKey(uid),
@@ -171,7 +212,7 @@ async function writeManagerHomeCache(uid, payload) {
 
 /**
  * Warm disk cache as soon as a clinic manager signs in.
- * Deduped per uid — Verify Region can await the same promise (zero extra wait).
+ * Returns any disk/memory cache immediately — network upgrades in the background.
  */
 export function warmManagerHomeCache(uid) {
   if (!uid) return Promise.resolve(null);
@@ -180,17 +221,55 @@ export function warmManagerHomeCache(uid) {
   const job = (async () => {
     try {
       const existing = await readManagerHomeCache(uid);
-      // Fresh enough (< 5 min): reuse disk, refresh quietly later from context.
-      if (existing?.dashboard && existing.at && Date.now() - existing.at < 5 * 60 * 1000) {
+      if (existing?.dashboard) {
+        rememberManagerHomePayload(existing);
+        // Soft network refresh while callers already navigate with cache.
+        fetchManagerDashboard()
+          .then(async (dashboard) => {
+            if (!dashboard) return;
+            const next = {
+              dashboard,
+              appointments: existing.appointments || { stats: [], items: [] },
+              appointmentRequests: existing.appointmentRequests || {
+                items: dashboard.appointmentRequests || [],
+                counts: null,
+              },
+            };
+            await writeManagerHomeCache(uid, next);
+            const [appointments, requests] = await Promise.all([
+              fetchManagerAppointments().catch(() => null),
+              fetchManagerAppointmentRequests().catch(() => null),
+            ]);
+            await writeManagerHomeCache(uid, {
+              dashboard: {
+                ...dashboard,
+                appointmentRequests: Array.isArray(requests?.items)
+                  ? requests.items.filter((item) => item.status === 'pending')
+                  : dashboard.appointmentRequests || [],
+              },
+              appointments: appointments
+                ? { stats: appointments.stats || [], items: appointments.items || [] }
+                : next.appointments,
+              appointmentRequests: requests
+                ? { items: requests.items || [], counts: requests.counts || null }
+                : next.appointmentRequests,
+            });
+          })
+          .catch(() => {});
         return existing;
       }
 
+      const mem = peekManagerHomePayload();
+      if (mem?.dashboard) {
+        /* serve memory while fetching */
+      }
+
       const dashboard = await fetchManagerDashboard();
-      if (!dashboard) return existing;
+      if (!dashboard) return existing || mem;
       const payload = {
         dashboard,
-        appointments: existing?.appointments || { stats: [], items: [] },
-        appointmentRequests: existing?.appointmentRequests || {
+        appointments: existing?.appointments || mem?.appointments || { stats: [], items: [] },
+        appointmentRequests: existing?.appointmentRequests || mem?.appointmentRequests || {
           items: dashboard.appointmentRequests || [],
           counts: null,
         },
@@ -227,13 +306,12 @@ export function warmManagerHomeCache(uid) {
 
       return payload;
     } catch {
-      return readManagerHomeCache(uid);
+      return (await readManagerHomeCache(uid)) || peekManagerHomePayload();
     }
   })();
 
   warmPromises.set(uid, job);
   job.finally(() => {
-    // Keep resolved promise briefly so concurrent callers reuse result.
     setTimeout(() => {
       if (warmPromises.get(uid) === job) warmPromises.delete(uid);
     }, 30_000);

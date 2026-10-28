@@ -14,10 +14,13 @@ import {
   hasRealAdminDashboard,
   isAdminShellPayload,
   managerClinicCacheKey,
+  managerHomeShell,
   peekAdminHomePayload,
+  peekManagerHomePayload,
   readAdminHomeCache,
   readManagerHomeCache,
   rememberAdminHomePayload,
+  rememberManagerHomePayload,
   resetManagerTokenPrime,
   warmAdminHomeCache,
   warmManagerHomeCache,
@@ -185,17 +188,16 @@ export function ClinicDataProvider({ children }) {
   }, [isManager]);
 
   const persistManagerCache = useCallback(async (uid, nextData) => {
-    if (!uid || !nextData?.dashboard) return;
+    if (!uid || !nextData?.dashboard || nextData?._shell) return;
+    const payload = {
+      dashboard: nextData.dashboard,
+      appointments: nextData.appointments,
+      appointmentRequests: nextData.appointmentRequests,
+      at: Date.now(),
+    };
+    rememberManagerHomePayload(payload);
     try {
-      await AsyncStorage.setItem(
-        managerCacheKey(uid),
-        JSON.stringify({
-          dashboard: nextData.dashboard,
-          appointments: nextData.appointments,
-          appointmentRequests: nextData.appointmentRequests,
-          at: Date.now(),
-        })
-      );
+      await AsyncStorage.setItem(managerCacheKey(uid), JSON.stringify(payload));
     } catch {
       /* ignore cache write failures */
     }
@@ -516,11 +518,9 @@ export function ClinicDataProvider({ children }) {
   );
 
   /**
-   * Zero-loading home for clinic manager:
-   * 1) Use in-memory / disk cache if present (instant)
-   * 2) Else join the warm promise started at Sign-In (usually already done on Verify Region)
-   * 3) Soft-refresh in background after paint
-   * Method: cache-first stale-while-revalidate
+   * Instant clinic-manager home for Get Started:
+   * seed/memory first (sync), disk upgrade, network in background.
+   * Never awaits the network — ManagerTabs opens immediately.
    */
   const ensureManagerHomeReady = useCallback(async () => {
     managerModeRef.current = true;
@@ -530,21 +530,45 @@ export function ClinicDataProvider({ children }) {
       return true;
     }
 
-    try {
-      const cached = await readManagerCache(user.uid);
-      if (cached?.dashboard) {
-        applyManagerData(cached, { markFresh: false });
-        refresh({ silent: true, force: true }).catch(() => {});
-        return true;
-      }
-    } catch {
-      /* disk cache optional */
+    // Sync paint first so a 250ms Get Started race never lands on empty tabs.
+    const mem = peekManagerHomePayload();
+    if (mem?.dashboard) {
+      applyManagerData(
+        managerPayload(
+          mem.dashboard,
+          mem.appointments,
+          mem.appointmentRequests,
+          mem.appointmentRequests
+        ),
+        { markFresh: false }
+      );
+    } else {
+      const shell = managerHomeShell();
+      applyManagerData(
+        {
+          ...managerPayload(
+            shell.dashboard,
+            shell.appointments,
+            shell.appointmentRequests,
+            shell.appointmentRequests
+          ),
+          _shell: true,
+        },
+        { markFresh: false }
+      );
     }
 
-    try {
-      // Await the same warm started at login (no duplicate slow fetch).
-      const warmed = await warmManagerHomeCache(user.uid);
-      if (warmed?.dashboard) {
+    // Disk upgrade (fast) — does not block navigation if slow.
+    readManagerCache(user.uid)
+      .then((cached) => {
+        if (cached?.dashboard) applyManagerData(cached, { markFresh: false });
+      })
+      .catch(() => {});
+
+    // Network upgrade — fire and forget.
+    warmManagerHomeCache(user.uid)
+      .then((warmed) => {
+        if (!warmed?.dashboard) return;
         applyManagerData(
           managerPayload(
             warmed.dashboard,
@@ -554,21 +578,12 @@ export function ClinicDataProvider({ children }) {
           ),
           { markFresh: true }
         );
-        return true;
-      }
-    } catch {
-      /* network warm optional */
-    }
+      })
+      .catch(() => {});
+    refresh({ silent: true, force: true }).catch(() => {});
 
-    try {
-      await refreshManagerHome();
-    } catch (err) {
-      setError(clinicErrorMessage(err));
-    }
-
-    // Never block Get Started on flaky network — home can retry on focus.
     return true;
-  }, [user.uid, readManagerCache, applyManagerData, refresh, refreshManagerHome]);
+  }, [user.uid, readManagerCache, applyManagerData, refresh]);
 
   /**
    * Instant admin home for Verify Region / MainTabs:

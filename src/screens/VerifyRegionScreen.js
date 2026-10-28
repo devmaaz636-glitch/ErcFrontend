@@ -129,14 +129,19 @@ export default function VerifyRegionScreen() {
         /* Session bootstrap will surface an authorization error if claims cannot be read. */
       }
 
-      // Instant cache/shell hydrate only — network continues in background (no wait / no blink).
-      if (isClinicManagerRole(role) || branchId) {
-        await ensureManagerHomeReady().catch(() => true);
-      } else {
-        await ensureAdminHomeReady().catch(() => true);
-      }
+      // Prime home from cache/seed only — never wait on network before tabs open.
+      const isManagerFlow = isClinicManagerRole(role) || branchId;
+      const prime = isManagerFlow
+        ? ensureManagerHomeReady().catch(() => true)
+        : ensureAdminHomeReady().catch(() => true);
 
-      if (isClinicManagerRole(role) || branchId) {
+      // Cap any disk hydrate at ~250ms so Get Started always feels instant.
+      await Promise.race([
+        prime,
+        new Promise((resolve) => setTimeout(() => resolve(true), 250)),
+      ]);
+
+      if (isManagerFlow) {
         updateUser({
           role: 'clinic_manager',
           branchId: branchId || null,

@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from '../components/BottomTabBar';
 import ManagerHomeScreen from '../screens/ManagerHomeScreen';
 import AppointmentsTabScreen from '../screens/AppointmentsTabScreen';
+import TreatmentsTabScreen from '../screens/TreatmentsTabScreen';
 import ManagerPlaceholderScreen from '../screens/ManagerPlaceholderScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
 import { colors } from '../theme';
@@ -27,8 +28,8 @@ export default function ManagerTabs() {
       />
       <Tab.Screen
         name="TreatmentsTab"
-        component={ManagerPlaceholderScreen}
-        initialParams={{ title: 'Treatments' }}
+        component={TreatmentsTabScreen}
+        options={{ title: 'Treatments' }}
       />
       <Tab.Screen
         name="DoctorsTab"
