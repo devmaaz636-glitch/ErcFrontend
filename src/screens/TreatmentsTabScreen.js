@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import {
@@ -18,6 +18,7 @@ import { colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 const treatmentImage = require('../../assets/treatmentimage.png');
+const treatmentDetailImage = require('../../assets/treatmentdetail.png');
 
 const FALLBACK_CATEGORIES = [
   'All',
@@ -67,7 +68,11 @@ function CategoryChip({ label, active, onPress }) {
 
 function TreatmentCard({ item, onView }) {
   const active = String(item.status || 'active').toLowerCase() === 'active';
-  const imageSource = item.imageUri ? { uri: item.imageUri } : treatmentImage;
+  const imageSource = item.imageUri
+    ? { uri: item.imageUri }
+    : item.custom
+      ? treatmentDetailImage
+      : treatmentImage;
   return (
     <View
       style={{
@@ -78,17 +83,24 @@ function TreatmentCard({ item, onView }) {
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        <Image
-          source={imageSource}
-          contentFit="cover"
+        <View
           style={{
-            width: s(52),
-            height: s(52),
-            borderRadius: s(26),
+            width: s(56),
+            height: s(56),
+            borderRadius: s(28),
             marginRight: s(12),
-            backgroundColor: colors.brandSoft,
+            backgroundColor: '#EFE7DF',
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          <Image
+            source={imageSource}
+            contentFit={item.imageUri || item.custom ? 'cover' : 'contain'}
+            style={{ width: s(56), height: s(56) }}
+          />
+        </View>
         <View style={{ flex: 1, marginRight: s(8) }}>
           <Text
             style={{ color: theme.colors.text, fontSize: fs(13), fontWeight: '700' }}
@@ -115,7 +127,7 @@ function TreatmentCard({ item, onView }) {
               {item.priceLabel || `${item.currency || 'AED'} ${item.price ?? '—'}`}
             </Text>
             <Text style={{ color: theme.colors.tertiaryText, fontSize: fs(9), marginLeft: 6 }}>
-              {item.unit || 'Per Session'}
+              {item.unit || item.session || 'Per Session'}
             </Text>
           </View>
         </View>
@@ -160,6 +172,7 @@ function TreatmentCard({ item, onView }) {
 
 export default function TreatmentsTabScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
 
@@ -185,13 +198,14 @@ export default function TreatmentsTabScreen() {
       setItems(Array.isArray(data.items) ? data.items : []);
       setError('');
       setLoadedOnce(true);
+      return data.items || [];
     } catch (err) {
-      // Keep categories painted; show soft error only when list is empty.
       setCategories((prev) => (prev?.length ? prev : FALLBACK_CATEGORIES));
-      if (!items.length) setError(clinicErrorMessage(err));
       setLoadedOnce(true);
+      setError((prev) => prev || clinicErrorMessage(err));
+      return null;
     }
-  }, [items.length]);
+  }, []);
 
   useEffect(() => {
     load().catch(() => {});
@@ -199,13 +213,31 @@ export default function TreatmentsTabScreen() {
 
   useRefreshOnFocus(load);
 
+  useEffect(() => {
+    const created = route.params?.newlyCreated;
+    const refreshedAt = route.params?.refreshedAt;
+    if (!created?.id && !refreshedAt) return undefined;
+    if (created?.id) {
+      setItems((prev) => {
+        const without = prev.filter((item) => item.id !== created.id);
+        return [created, ...without];
+      });
+      setCategory('All');
+      setQuery('');
+      setError('');
+    }
+    load().catch(() => {});
+    navigation.setParams?.({ newlyCreated: undefined, refreshedAt: undefined });
+    return undefined;
+  }, [route.params?.newlyCreated, route.params?.refreshedAt, load, navigation]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((item) => {
-      const catOk = category === 'All' || item.category === category;
+      const catOk = category === 'All' || item.category === category || item.department === category;
       if (!catOk) return false;
       if (!q) return true;
-      const hay = `${item.name || ''} ${item.category || ''} ${item.duration || ''} ${item.priceLabel || ''}`;
+      const hay = `${item.name || ''} ${item.category || ''} ${item.department || ''} ${item.description || ''} ${item.duration || ''} ${item.priceLabel || ''}`;
       return hay.toLowerCase().includes(q);
     });
   }, [items, category, query]);
@@ -338,6 +370,8 @@ export default function TreatmentsTabScreen() {
                   navigation.navigate('TreatmentDetail', {
                     treatmentId: item.id,
                     treatment: item,
+                    departments,
+                    currency,
                   })
                 }
               />

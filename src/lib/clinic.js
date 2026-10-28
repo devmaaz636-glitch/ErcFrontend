@@ -180,6 +180,32 @@ export async function createManagerTreatment(body) {
   }
 }
 
+export async function updateManagerTreatment(id, body) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.patch(
+      `/api/manager/treatments/${encodeURIComponent(id)}`,
+      body,
+      { headers }
+    );
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
+export async function deleteManagerTreatment(id) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.delete(`/api/manager/treatments/${encodeURIComponent(id)}`, {
+      headers,
+    });
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
 export async function fetchManagerDoctors() {
   return getManager('/api/manager/doctors');
 }

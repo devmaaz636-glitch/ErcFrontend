@@ -16,7 +16,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { IconCircleButton } from '../components/ui';
-import { clinicErrorMessage, createManagerTreatment } from '../lib/clinic';
+import {
+  clinicErrorMessage,
+  createManagerTreatment,
+  updateManagerTreatment,
+} from '../lib/clinic';
 import { colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
@@ -95,15 +99,19 @@ export default function AddTreatmentScreen() {
     ? route.params.departments
     : DEFAULT_DEPARTMENTS;
   const currency = route.params?.currency || 'AED';
+  const editing = route.params?.mode === 'edit' && route.params?.treatment?.id;
+  const seed = editing ? route.params.treatment : null;
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [department, setDepartment] = useState('');
+  const [name, setName] = useState(seed?.name || '');
+  const [description, setDescription] = useState(seed?.description || '');
+  const [department, setDepartment] = useState(seed?.department || seed?.category || '');
   const [departmentOpen, setDepartmentOpen] = useState(false);
-  const [price, setPrice] = useState('');
-  const [duration, setDuration] = useState('');
-  const [session, setSession] = useState('');
-  const [imageUri, setImageUri] = useState(null);
+  const [price, setPrice] = useState(
+    seed?.price != null && Number.isFinite(Number(seed.price)) ? String(seed.price) : ''
+  );
+  const [duration, setDuration] = useState(seed?.duration || '');
+  const [session, setSession] = useState(seed?.session || seed?.unit || '');
+  const [imageUri, setImageUri] = useState(seed?.imageUri || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -155,7 +163,7 @@ export default function AddTreatmentScreen() {
     setSaving(true);
     setError('');
     try {
-      await createManagerTreatment({
+      const payload = {
         name: name.trim(),
         description: description.trim(),
         department: department.trim(),
@@ -164,9 +172,29 @@ export default function AddTreatmentScreen() {
         duration: String(duration).trim(),
         session: String(session).trim() || 'Per Session',
         unit: String(session).trim() || 'Per Session',
+        sessions: Number(String(session).match(/(\d+)/)?.[1] || 12),
         imageUri: imageUri || null,
-      });
-      navigation.goBack();
+      };
+      const saved = editing
+        ? await updateManagerTreatment(seed.id, payload)
+        : await createManagerTreatment(payload);
+
+      if (editing) {
+        navigation.navigate({
+          name: 'TreatmentDetail',
+          params: { treatmentId: saved.id, treatment: saved, refreshedAt: Date.now() },
+          merge: true,
+        });
+      } else {
+        navigation.navigate({
+          name: 'ManagerTabs',
+          params: {
+            screen: 'TreatmentsTab',
+            params: { newlyCreated: saved, refreshedAt: Date.now() },
+          },
+          merge: true,
+        });
+      }
     } catch (err) {
       setError(clinicErrorMessage(err) || 'Could not save treatment.');
     } finally {
@@ -212,7 +240,7 @@ export default function AddTreatmentScreen() {
                   color: theme.colors.text,
                 }}
               >
-                Add New Treatment
+                {editing ? 'Edit Treatment' : 'Add New Treatment'}
               </Text>
               <IconCircleButton
                 name="ellipsis-vertical"
