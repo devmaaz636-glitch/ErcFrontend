@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,8 @@ import { clinicErrorMessage, fetchManagerTreatments } from '../lib/clinic';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
+
+const BUTTON_BG = theme.colors.brandButton || colors.brand || '#B8754A';
 
 const treatmentImage = require('../../assets/treatmentimage.png');
 const treatmentDetailImage = require('../../assets/treatmentdetail.png');
@@ -47,7 +49,7 @@ function CategoryChip({ label, active, onPress }) {
         height: s(34),
         paddingHorizontal: s(16),
         borderRadius: 999,
-        backgroundColor: active ? theme.colors.brandButton || colors.brand : 'transparent',
+        backgroundColor: active ? BUTTON_BG : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: s(8),
@@ -151,21 +153,35 @@ function TreatmentCard({ item, onView }) {
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`View details for ${item.name}`}
-        onPress={onView}
-        style={{
-          height: s(36),
-          borderRadius: 999,
-          backgroundColor: theme.colors.brandButton || colors.brand,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: s(14),
-        }}
-      >
-        <Text style={{ color: '#fff', fontSize: fs(11), fontWeight: '600' }}>View Details</Text>
-      </Pressable>
+      <View style={{ width: '100%', marginTop: s(14) }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`View details for ${item.name}`}
+          onPress={onView}
+          android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: false }}
+          style={({ pressed }) => ({
+            width: '100%',
+            borderRadius: 999,
+            overflow: 'hidden',
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <View
+            style={{
+              width: '100%',
+              height: s(34),
+              borderRadius: 999,
+              backgroundColor: BUTTON_BG,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: fs(10), fontWeight: '600' }}>
+              View Details
+            </Text>
+          </View>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -249,6 +265,9 @@ export default function TreatmentsTabScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        contentInsetAdjustmentBehavior="never"
+        overScrollMode="never"
         contentContainerStyle={{
           paddingTop: topPad,
           paddingHorizontal: spacing.screen,
@@ -257,28 +276,36 @@ export default function TreatmentsTabScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
+          {/* Header: back icon + title + notification bell in one row */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <IconCircleButton
               name="chevron-back"
               accessibilityLabel="Go back"
               onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
             />
-            <View style={{ flex: 1 }} />
+            <Text
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                marginLeft: s(12),
+                fontSize: fs(20),
+                fontWeight: '700',
+                color: theme.colors.text,
+                letterSpacing: -0.3,
+              }}
+            >
+              Treatments
+            </Text>
             <NotificationBellButton color={colors.brand} />
           </View>
 
           <Text
             style={{
-              marginTop: s(18),
-              fontSize: fs(22),
-              fontWeight: '700',
-              color: theme.colors.text,
-              letterSpacing: -0.3,
+              marginTop: s(10),
+              fontSize: fs(11),
+              color: theme.colors.secondaryText,
             }}
           >
-            Treatments
-          </Text>
-          <Text style={{ marginTop: 4, fontSize: fs(11), color: theme.colors.secondaryText }}>
             Manage your branch's treatments.
           </Text>
 
@@ -307,6 +334,7 @@ export default function TreatmentsTabScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            overScrollMode="never"
             contentContainerStyle={{ paddingRight: s(8) }}
           >
             {categories.map((label) => (
@@ -343,7 +371,7 @@ export default function TreatmentsTabScreen() {
                 height: s(32),
                 paddingHorizontal: s(12),
                 borderRadius: 999,
-                backgroundColor: theme.colors.brandButton || colors.brand,
+                backgroundColor: BUTTON_BG,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
