@@ -88,6 +88,9 @@ export function SessionProvider({ children }) {
       normalizeRole(claims.role) ||
       normalizeRole(backendUser?.role) ||
       normalizeRole(remote?.role) ||
+      (claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId
+        ? 'clinic_manager'
+        : '') ||
       'admin';
     const display =
       (sameUserCache && local.name) ||

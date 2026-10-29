@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import { IconCircleButton, SkeletonRow } from '../components/ui';
+import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { useNotifications } from '../context/NotificationsContext';
 import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -39,7 +39,7 @@ function formatWhen(iso) {
 }
 
 function NotificationCard({ item, onPress }) {
-  const unread = !item.read;
+  const unread = item.read !== true;
   return (
     <Pressable
       onPress={onPress}
@@ -118,7 +118,7 @@ export default function NotificationsScreen() {
   );
 
   // Only unread — tapping a row marks it read and hides it from this list.
-  const visible = useMemo(() => feed.filter((i) => !i.read), [feed]);
+  const visible = useMemo(() => feed.filter((i) => i.read !== true), [feed]);
 
   const showSkeleton = !ready && feed.length === 0;
 
@@ -155,12 +155,7 @@ export default function NotificationsScreen() {
             >
               Notifications
             </Text>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-            />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           <View
@@ -245,7 +240,7 @@ export default function NotificationsScreen() {
               key={item.id}
               item={item}
               onPress={() => {
-                if (!item.read) markRead([item.id]);
+                if (item.read !== true) markRead([item.id]);
               }}
             />
           ))}

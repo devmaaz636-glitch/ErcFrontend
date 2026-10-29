@@ -1,4 +1,5 @@
 export { default as IconCircleButton } from './IconCircleButton';
+export { default as NotificationBellButton } from './NotificationBellButton';
 export { default as StatusBadge, STATUS_PRESETS } from './StatusBadge';
 export { default as SearchField } from './SearchField';
 export { default as SectionHeader } from './SectionHeader';

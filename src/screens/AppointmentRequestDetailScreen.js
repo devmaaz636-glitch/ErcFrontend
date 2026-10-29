@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { useClinicData } from '../context/ClinicDataContext';
 import { fetchManagerAppointmentRequest, updateManagerAppointmentRequest } from '../lib/clinic';
 import { managerDashboard as theme } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
@@ -96,6 +97,7 @@ export default function AppointmentRequestDetailScreen() {
   const route = useRoute();
   const topPad = useTopPadding(10);
   const requestId = route.params?.requestId;
+  const { applyAppointmentRequestUpdate, refresh } = useClinicData();
   const [request, setRequest] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -125,6 +127,7 @@ export default function AppointmentRequestDetailScreen() {
 
   const statusLabel = useMemo(() => {
     const status = String(request?.status || 'pending');
+    if (status === 'rescheduled' || status === 'reschedule') return 'Reschedule';
     return status.charAt(0).toUpperCase() + status.slice(1);
   }, [request?.status]);
 
@@ -134,6 +137,8 @@ export default function AppointmentRequestDetailScreen() {
     try {
       const item = await updateManagerAppointmentRequest(requestId, { action, ...extra });
       setRequest(item);
+      applyAppointmentRequestUpdate?.(item);
+      refresh?.({ silent: true, force: true }).catch(() => {});
       setRescheduling(false);
       setReasonModal(false);
       if (action === 'approve') {
@@ -272,7 +277,10 @@ export default function AppointmentRequestDetailScreen() {
                   </Pressable>
                   <Pressable
                     disabled={saving}
-                    onPress={() => setReasonModal(true)}
+                    onPress={() => {
+                      setRescheduling(true);
+                      setReasonModal(true);
+                    }}
                     style={{ height: s(34), borderRadius: s(18), backgroundColor: theme.colors.card, alignItems: 'center', justifyContent: 'center', marginTop: s(10) }}
                   >
                     <Text style={{ color: theme.colors.secondaryText, fontSize: fs(10), fontWeight: '500' }}>Reschedule</Text>
@@ -282,10 +290,34 @@ export default function AppointmentRequestDetailScreen() {
 
               {canReview && rescheduling ? (
                 <Card style={{ marginTop: s(18) }}>
-                  <Text style={{ color: theme.colors.text, fontSize: fs(10), fontWeight: '600' }}>Choose new schedule</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: s(4) }}>
+                    <Text style={{ flex: 1, color: theme.colors.text, fontSize: fs(10), fontWeight: '600' }}>
+                      Choose new schedule
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Close reschedule"
+                      hitSlop={8}
+                      onPress={() => setRescheduling(false)}
+                      style={{
+                        width: s(28),
+                        height: s(28),
+                        borderRadius: s(14),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: theme.colors.page,
+                      }}
+                    >
+                      <Ionicons name="close" size={s(14)} color={theme.colors.secondaryText} />
+                    </Pressable>
+                  </View>
                   <TextInput value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={theme.colors.tertiaryText} style={{ color: theme.colors.text, borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingVertical: s(8), fontSize: fs(10) }} />
                   <TextInput value={time} onChangeText={setTime} placeholder="e.g. 02:30 PM - 03:30 PM" placeholderTextColor={theme.colors.tertiaryText} style={{ color: theme.colors.text, borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingVertical: s(8), fontSize: fs(10) }} />
-                  <Pressable disabled={saving} onPress={() => setRescheduling(false)} style={{ height: s(32), borderRadius: s(17), backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: s(12) }}>
+                  <Pressable
+                    disabled={saving}
+                    onPress={() => setReasonModal(true)}
+                    style={{ height: s(32), borderRadius: s(17), backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: s(12) }}
+                  >
                     <Text style={{ color: '#fff', fontSize: fs(10) }}>Write Reason Of Reschedule</Text>
                   </Pressable>
                 </Card>
@@ -316,6 +348,18 @@ export default function AppointmentRequestDetailScreen() {
               </>
             ) : (
               <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                  hitSlop={8}
+                  onPress={() => {
+                    setReasonModal(false);
+                    setRescheduling(false);
+                  }}
+                  style={modalStyles.close}
+                >
+                  <Ionicons name="close" size={s(15)} color={theme.colors.secondaryText} />
+                </Pressable>
                 <Text style={modalStyles.reasonTitle}>Write Reason Of Reschedule</Text>
                 <TextInput
                   autoFocus
@@ -412,6 +456,7 @@ const modalStyles = {
     fontSize: fs(14, 13),
     fontWeight: '500',
     marginBottom: s(10),
+    paddingRight: s(24),
   },
   reasonInput: {
     width: '100%',

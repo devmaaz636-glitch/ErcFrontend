@@ -1,13 +1,25 @@
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 import Svg, { Path } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
+import { colors } from '../theme';
 
 cssInterop(Image, { className: 'style' });
 const REGIONS = [
@@ -55,16 +67,35 @@ function Pencil() {
 
 export default function VerifyRegionScreen() {
   const navigation = useNavigation();
-  const { setRegion: persistRegion, user } = useSession();
+  const route = useRoute();
+  const switchMode = route.params?.mode === 'switch';
+  const { setRegion: persistRegion, user, updateUser, region: sessionRegion } = useSession();
+  const { ensureManagerHomeReady, ensureAdminHomeReady } = useClinicData();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [region, setRegion] = useState(REGIONS[0]);
-  const [code, setCode] = useState(REGIONS[0].code);
+  const initialRegion =
+    REGIONS.find((item) => item.name === sessionRegion?.name || item.id === sessionRegion?.id) ||
+    REGIONS[0];
+  const [region, setRegion] = useState(initialRegion);
+  const [code, setCode] = useState(sessionRegion?.code || initialRegion.code);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
 
   const logoSize = Math.min(width * 0.42, 176);
   const photoHeight = Math.max(width * (434 / 430), height * 0.5);
+
+  // Warm home while user is still on this screen (admin + clinic manager).
+  useEffect(() => {
+    if (user?.role === 'clinic_manager') {
+      ensureManagerHomeReady().catch(() => {});
+      return undefined;
+    }
+    if (user?.role === 'admin' || !user?.role) {
+      ensureAdminHomeReady().catch(() => {});
+    }
+    return undefined;
+  }, [user?.role, ensureManagerHomeReady, ensureAdminHomeReady]);
 
   function selectRegion(next) {
     setRegion(next);
@@ -79,15 +110,61 @@ export default function VerifyRegionScreen() {
       setError('Select your region and region code.');
       return;
     }
-    await persistRegion({ ...region, code: nextCode });
-    let role = user.role || '';
+    if (starting) return;
+    setStarting(true);
+    setError('');
     try {
-      const tokenResult = await auth.currentUser?.getIdTokenResult(true);
-      role = tokenResult?.claims?.role || role;
+      await persistRegion({ ...region, code: nextCode });
+      updateUser({ region: region.name }).catch(() => {});
+
+      let role = user?.role || '';
+      let branchId = user?.branchId || user?.clinicId || null;
+      try {
+        // Use cached token claims (already refreshed at sign-in) — no multi-second force refresh.
+        const tokenResult = await auth.currentUser?.getIdTokenResult(false);
+        const claims = tokenResult?.claims || {};
+        role = claims.role || role;
+        branchId = claims.branchId || claims.clinicId || branchId;
+      } catch {
+        /* Session bootstrap will surface an authorization error if claims cannot be read. */
+      }
+
+      // Prime home from cache/seed only — never wait on network before tabs open.
+      const isManagerFlow = isClinicManagerRole(role) || branchId;
+      const prime = isManagerFlow
+        ? ensureManagerHomeReady().catch(() => true)
+        : ensureAdminHomeReady().catch(() => true);
+
+      // Cap any disk hydrate at ~250ms so Get Started always feels instant.
+      await Promise.race([
+        prime,
+        new Promise((resolve) => setTimeout(() => resolve(true), 250)),
+      ]);
+
+      if (isManagerFlow) {
+        updateUser({
+          role: 'clinic_manager',
+          branchId: branchId || null,
+          clinicId: branchId || null,
+          region: region.name,
+        }).catch(() => {});
+        if (switchMode) {
+          navigation.goBack();
+        } else {
+          navigation.replace('ManagerTabs');
+        }
+        return;
+      }
+
+      if (switchMode) {
+        navigation.goBack();
+      } else {
+        navigation.replace('MainTabs');
+      }
     } catch {
-      /* Session bootstrap will surface an authorization error if claims cannot be read. */
+      setError('Could not continue. Check your connection and try again.');
+      setStarting(false);
     }
-    navigation.replace(isClinicManagerRole(role) ? 'ManagerTabs' : 'MainTabs');
   }
 
   return (
@@ -121,6 +198,28 @@ export default function VerifyRegionScreen() {
             paddingTop: insets.top,
           }}
         >
+          {switchMode ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close switch region"
+              onPress={() => navigation.goBack()}
+              hitSlop={10}
+              style={{
+                position: 'absolute',
+                top: insets.top + 8,
+                left: 16,
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.92)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2,
+              }}
+            >
+              <Ionicons name="close" size={20} color={colors.ink} />
+            </Pressable>
+          ) : null}
           <Image
             source={require('../../assets/splashlogo.png')}
             contentFit="contain"
@@ -144,10 +243,12 @@ export default function VerifyRegionScreen() {
               className="text-ink"
               style={{ fontSize: Math.min(Math.max(width * 0.062, 22), 26), fontWeight: '700' }}
             >
-              Verify Your Region
+              {switchMode ? 'Switch Region' : 'Verify Your Region'}
             </Text>
             <Text allowFontScaling={false} className="mt-2 text-[14px] leading-5 text-muted">
-              Please verify that the region assigned to your account is correct before continuing.
+              {switchMode
+                ? 'Choose another region for your regional admin workspace.'
+                : 'Please verify that the region assigned to your account is correct before continuing.'}
             </Text>
 
             <Text allowFontScaling={false} className="mb-2 mt-6 text-[15px] font-semibold text-ink">
@@ -208,12 +309,18 @@ export default function VerifyRegionScreen() {
 
             <Pressable
               accessibilityRole="button"
+              disabled={starting}
               onPress={confirmRegion}
               className="mt-6 h-[54px] items-center justify-center rounded-full bg-splash"
+              style={{ opacity: starting ? 0.85 : 1 }}
             >
-              <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
-                Get Started
-              </Text>
+              {starting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
+                  {switchMode ? 'Save Region' : 'Get Started'}
+                </Text>
+              )}
             </Pressable>
 
             <Text allowFontScaling={false} className="mt-5 text-center text-[14px] text-muted">

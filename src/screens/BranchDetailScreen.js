@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import { SkeletonRow } from '../components/ui';
+import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchBranch } from '../lib/clinic';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors } from '../theme';
@@ -284,22 +284,12 @@ export default function BranchDetailScreen() {
             <Text style={{ fontSize: fs(11), color: RED, textAlign: 'center', marginBottom: s(8) }}>{error}</Text>
           ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="chevron-back"
+              color={INK}
               accessibilityLabel="Go back"
-              hitSlop={8}
               onPress={() => navigation.goBack()}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-back" size={s(18)} color={INK} />
-            </Pressable>
+            />
 
             <Text
               style={{ flex: 1, marginLeft: s(12), fontSize: fs(16), fontWeight: '700', color: INK }}
@@ -308,21 +298,7 @@ export default function BranchDetailScreen() {
               Branches
             </Text>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              hitSlop={8}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-            </Pressable>
+            <NotificationBellButton color={BROWN} />
           </View>
 
           {(detail.city || detail.region) && (

@@ -26,7 +26,7 @@ const TAB_META = {
   },
   BranchesTab: { label: 'Branches', icon: 'storefront-outline', activeIcon: 'storefront' },
   ProfileTab: { label: 'Profile', icon: 'person-circle-outline', activeIcon: 'person-circle' },
-  TreatmentsTab: { label: 'Treatments', icon: 'people-outline', activeIcon: 'people' },
+  TreatmentsTab: { label: 'Treatments', icon: 'sparkles-outline', activeIcon: 'sparkles' },
   DoctorsTab: { label: 'Doctors', icon: 'medkit-outline', activeIcon: 'medkit' },
   MoreTab: { label: 'More', icon: 'menu-outline', activeIcon: 'menu' },
 };

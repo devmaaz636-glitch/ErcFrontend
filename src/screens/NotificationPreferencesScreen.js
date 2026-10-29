@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { useNotifications } from '../context/NotificationsContext';
 import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -80,13 +81,14 @@ export default function NotificationPreferencesScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { preferences, error, notice, setChannel, saveAll, resetAll, setNotice, setError } =
+  const { preferences, error, notice, setChannel, saveAll, resetAll, setNotice, setError, refresh } =
     useNotifications();
 
   useEffect(() => {
     setNotice?.('');
     setError?.('');
-  }, [setNotice, setError]);
+    refresh?.().catch(() => {});
+  }, [setNotice, setError, refresh]);
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -102,22 +104,12 @@ export default function NotificationPreferencesScreen() {
       >
         <View style={{ width: '100%', maxWidth: 480 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable
-              accessibilityRole="button"
+            <IconCircleButton
+              name="chevron-back"
+              color={INK}
               accessibilityLabel="Go back"
-              hitSlop={8}
               onPress={() => navigation.goBack()}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-back" size={s(18)} color={INK} />
-            </Pressable>
+            />
             <Text
               style={{
                 flex: 1,
@@ -131,22 +123,7 @@ export default function NotificationPreferencesScreen() {
             >
               Notifications
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              hitSlop={8}
-              onPress={() => navigation.navigate('Notifications')}
-              style={{
-                width: s(36),
-                height: s(36),
-                borderRadius: s(18),
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-            </Pressable>
+            <NotificationBellButton color={BROWN} />
           </View>
 
           <Text style={{ fontSize: fs(15), fontWeight: '700', color: INK, marginTop: s(22) }}>

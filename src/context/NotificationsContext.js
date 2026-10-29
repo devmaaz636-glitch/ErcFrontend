@@ -78,7 +78,8 @@ export function NotificationsProvider({ children }) {
     (items) => {
       const list = Array.isArray(items) ? items : [];
       setFeed(list);
-      setUnreadCount(list.filter((i) => !i.read).length);
+      // Missing `read` counts as unread so older feed items still badge.
+      setUnreadCount(list.filter((i) => i.read !== true).length);
       persistCache(prefsRef.current, list);
     },
     [persistCache]
@@ -90,7 +91,7 @@ export function NotificationsProvider({ children }) {
       setFeed((prev) => {
         if (prev.some((x) => x.id === item.id)) return prev;
         const next = [item, ...prev].slice(0, 50);
-        setUnreadCount(next.filter((i) => !i.read).length);
+        setUnreadCount(next.filter((i) => i.read !== true).length);
         persistCache(prefsRef.current, next);
         return next;
       });
@@ -108,7 +109,7 @@ export function NotificationsProvider({ children }) {
         if (cached.preferences) setPreferences(cached.preferences);
         if (Array.isArray(cached.feed)) {
           setFeed(cached.feed);
-          setUnreadCount(cached.feed.filter((i) => !i.read).length);
+          setUnreadCount(cached.feed.filter((i) => i.read !== true).length);
         }
       })
       .catch(() => {})
@@ -355,7 +356,7 @@ export function NotificationsProvider({ children }) {
             : prev.map((item) =>
                 idList.includes(String(item.id)) ? { ...item, read: true } : item
               );
-        setUnreadCount(next.filter((i) => !i.read).length);
+        setUnreadCount(next.filter((i) => i.read !== true).length);
         persistCache(prefsRef.current, next);
         return next;
       });

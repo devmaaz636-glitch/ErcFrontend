@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { authErrorMessage, changePassword } from '../lib/auth';
 import { passwordProblem } from '../lib/passwordReset';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -141,22 +142,12 @@ export default function SecurityPrivacyScreen() {
         >
           <View style={{ width: '100%', maxWidth: 480 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Pressable
-                accessibilityRole="button"
+              <IconCircleButton
+                name="chevron-back"
+                color={INK}
                 accessibilityLabel="Go back"
-                hitSlop={8}
                 onPress={() => navigation.goBack()}
-                style={{
-                  width: s(36),
-                  height: s(36),
-                  borderRadius: s(18),
-                  backgroundColor: '#fff',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="chevron-back" size={s(18)} color={INK} />
-              </Pressable>
+              />
 
               <Text
                 style={{
@@ -168,24 +159,10 @@ export default function SecurityPrivacyScreen() {
                 }}
                 numberOfLines={1}
               >
-                Edit Profile
+                Security & Privacy
               </Text>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Notifications"
-                hitSlop={8}
-                style={{
-                  width: s(36),
-                  height: s(36),
-                  borderRadius: s(18),
-                  backgroundColor: '#fff',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-              </Pressable>
+              <NotificationBellButton color={BROWN} />
             </View>
 
             <Text style={{ fontSize: fs(13), color: MUTED, marginTop: s(28), lineHeight: s(19) }}>

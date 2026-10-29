@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from '../components/BottomTabBar';
 import ManagerHomeScreen from '../screens/ManagerHomeScreen';
 import AppointmentsTabScreen from '../screens/AppointmentsTabScreen';
+import TreatmentsTabScreen from '../screens/TreatmentsTabScreen';
 import ManagerPlaceholderScreen from '../screens/ManagerPlaceholderScreen';
 import DoctorsTabScreen from '../screens/DoctorsTabScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
@@ -16,7 +17,7 @@ export default function ManagerTabs() {
       screenOptions={{
         headerShown: false,
         animation: 'fade',
-        freezeOnBlur: true,
+        freezeOnBlur: false,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
@@ -28,8 +29,8 @@ export default function ManagerTabs() {
       />
       <Tab.Screen
         name="TreatmentsTab"
-        component={ManagerPlaceholderScreen}
-        initialParams={{ title: 'Treatments' }}
+        component={TreatmentsTabScreen}
+        options={{ title: 'Treatments' }}
       />
       <Tab.Screen
         name="DoctorsTab"

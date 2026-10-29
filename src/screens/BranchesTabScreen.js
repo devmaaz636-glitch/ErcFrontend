@@ -7,9 +7,9 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField, SkeletonRow } from '../components/ui';
+import { RegionGlobeButton } from '../components/RegionSwitcher';
+import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
-import { useNotifications } from '../context/NotificationsContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -145,14 +145,12 @@ export default function BranchesTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { branches, error, refresh, loadedOnce } = useClinicData();
-  const { unreadCount } = useNotifications();
+  const { branches, error, refresh } = useClinicData();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
 
   const items = branches.items || [];
-  const showSkeleton = !loadedOnce && items.length === 0;
   const total = items.length;
   const active = items.filter((b) => b.status === 'active').length;
   const attention = items.filter((b) => b.status === 'attention').length;
@@ -180,7 +178,7 @@ export default function BranchesTabScreen() {
         }}
       >
         <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 30 }}>
             <IconCircleButton
               name="chevron-back"
               accessibilityLabel="Go back"
@@ -192,43 +190,21 @@ export default function BranchesTabScreen() {
             >
               Branches
             </Text>
-            <IconCircleButton
-              name="notifications-outline"
-              color={colors.brand}
-              accessibilityLabel="Notifications"
-              badgeCount={unreadCount}
-              onPress={() => navigation.navigate('Notifications')}
-            />
+            <RegionGlobeButton color={colors.brand} />
+            <View style={{ width: s(8) }} />
+            <NotificationBellButton color={colors.brand} />
           </View>
 
           <View style={{ marginTop: s(18) }}>
             <SearchField value={query} onChangeText={setQuery} showButton={false} />
           </View>
 
-          {error ? (
+          {error && items.length === 0 ? (
             <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
               {error}
             </Text>
           ) : null}
 
-          {showSkeleton ? (
-            <>
-              <View style={{ flexDirection: 'row', marginTop: s(16) }}>
-                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
-                <View style={{ width: s(10) }} />
-                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
-                <View style={{ width: s(10) }} />
-                <SkeletonRow lines={1} style={{ flex: 1, marginBottom: 0 }} />
-              </View>
-              <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink, marginTop: s(22), marginBottom: s(10) }}>
-                Rank Ledger By
-              </Text>
-              <SkeletonRow lines={2} avatar />
-              <SkeletonRow lines={2} avatar />
-              <SkeletonRow lines={2} avatar />
-            </>
-          ) : (
-            <>
           <View style={{ flexDirection: 'row', marginTop: s(16) }}>
             <StatCard id="total" label="Total" value={pad2(total)} sub="All Regions" />
             <View style={{ width: s(10) }} />
@@ -266,8 +242,6 @@ export default function BranchesTabScreen() {
                 onPress={() => navigation.navigate('BranchDetail', { branch: item, branchId: item.id })}
               />
             ))
-          )}
-            </>
           )}
         </View>
       </ScrollView>

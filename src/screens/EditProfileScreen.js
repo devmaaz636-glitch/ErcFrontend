@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
+import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
 import { roleLabel, useSession } from '../context/SessionContext';
@@ -484,22 +485,12 @@ export default function EditProfileScreen() {
           <View style={{ width: '100%', maxWidth: 480 }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Pressable
-                accessibilityRole="button"
+              <IconCircleButton
+                name="chevron-back"
+                color={INK}
                 accessibilityLabel="Go back"
-                hitSlop={8}
                 onPress={() => navigation.goBack()}
-                style={{
-                  width: s(36),
-                  height: s(36),
-                  borderRadius: s(18),
-                  backgroundColor: '#fff',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="chevron-back" size={s(18)} color={INK} />
-              </Pressable>
+              />
 
               <Text
                 style={{
@@ -514,21 +505,7 @@ export default function EditProfileScreen() {
                 Edit Profile
               </Text>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Notifications"
-                hitSlop={8}
-                style={{
-                  width: s(36),
-                  height: s(36),
-                  borderRadius: s(18),
-                  backgroundColor: '#fff',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="notifications-outline" size={s(18)} color={BROWN} />
-              </Pressable>
+              <NotificationBellButton color={BROWN} />
             </View>
 
             {/* Avatar */}
