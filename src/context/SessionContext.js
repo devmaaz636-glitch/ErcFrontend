@@ -27,6 +27,10 @@ function normalizeRole(value) {
   return '';
 }
 
+export function roleLabel(value) {
+  return normalizeRole(value) === 'clinic_manager' ? 'Clinic Manager' : 'Regional Admin';
+}
+
 function regionObjectFromName(name, previous = null) {
   const label = String(name || '').trim();
   if (!label) return previous;
@@ -79,29 +83,32 @@ export function SessionProvider({ children }) {
       /* Backend profile is unavailable during offline startup. */
     }
 
+    const sameUserCache = local.uid === firebaseUser.uid;
+    const authoritativeRole =
+      normalizeRole(claims.role) ||
+      normalizeRole(backendUser?.role) ||
+      normalizeRole(remote?.role) ||
+      'admin';
     const display =
-      local.name ||
+      (sameUserCache && local.name) ||
       remote?.displayName ||
       remote?.name ||
       firebaseUser.displayName ||
       (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Admin');
 
-    const nextRegion = local.region || remote?.region || '';
+    const nextRegion = authoritativeRole === 'clinic_manager'
+      ? backendUser.region || remote?.region || ''
+      : (sameUserCache && local.region) || remote?.region || '';
 
     setUser({
       uid: firebaseUser.uid,
       name: display,
-      email: local.email || firebaseUser.email || '',
-      role:
-        normalizeRole(claims.role) ||
-        normalizeRole(backendUser?.role) ||
-        normalizeRole(remote?.role) ||
-        normalizeRole(local.role) ||
-        'admin',
+      email: firebaseUser.email || backendUser?.email || remote?.email || '',
+      role: authoritativeRole,
       branchId: claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId || null,
       clinicId: claims.clinicId || claims.branchId || backendUser?.clinicId || backendUser?.branchId || null,
       region: backendUser?.region || nextRegion,
-      photoUrl: local.photoUrl || remote?.photoUrl || firebaseUser.photoURL || null,
+      photoUrl: (sameUserCache && local.photoUrl) || remote?.photoUrl || firebaseUser.photoURL || null,
     });
 
     if (nextRegion) {
@@ -176,9 +183,8 @@ export function SessionProvider({ children }) {
       await AsyncStorage.setItem(
         PROFILE_STORAGE_KEY,
         JSON.stringify({
+          uid: nextUser?.uid || '',
           name: nextUser?.name || '',
-          email: nextUser?.email || '',
-          role: nextUser?.role || 'Regional Admin',
           region: nextUser?.region || '',
           photoUrl: nextUser?.photoUrl || null,
         })

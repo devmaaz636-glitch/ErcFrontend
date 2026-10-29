@@ -21,7 +21,8 @@ import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
-import { useSession } from '../context/SessionContext';
+import { roleLabel, useSession } from '../context/SessionContext';
+import { useClinicData } from '../context/ClinicDataContext';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { notifyProfileUpdated } from '../lib/notifyEvents';
 import { colors } from '../theme';
@@ -52,7 +53,7 @@ const EMAIL_LOCKED_MESSAGE =
 const POPUP_DURATION_MS = 10000;
 
 /* ---------- Text field ---------- */
-function Field({ label, value, onChangeText, placeholder, keyboardType, showClear, onClear }) {
+function Field({ label, value, onChangeText, placeholder, keyboardType, showClear, onClear, editable = true }) {
   return (
     <View style={{ marginBottom: s(16) }}>
       <Text style={{ fontSize: fs(14), fontWeight: '700', color: INK, marginBottom: s(8) }}>
@@ -74,10 +75,11 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, showClea
           placeholder={placeholder}
           placeholderTextColor="#B0A89F"
           keyboardType={keyboardType}
+          editable={editable}
           autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
           autoCorrect={false}
           allowFontScaling={false}
-          style={{ flex: 1, fontSize: fs(14), color: INK, paddingVertical: 0 }}
+          style={{ flex: 1, fontSize: fs(14), color: editable ? INK : MUTED, paddingVertical: 0 }}
         />
         {showClear && value ? (
           <Pressable accessibilityRole="button" hitSlop={8} onPress={onClear}>
@@ -299,7 +301,9 @@ export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user: sessionUserRaw, displayRegion, updateUser } = useSession();
+  const { dashboard } = useClinicData();
   const sessionUser = sessionUserRaw ?? {};
+  const isManager = sessionUser.role === 'clinic_manager';
 
   const regions = route.params?.regions?.length ? route.params.regions : REGIONS;
   // Session is source of truth; route params only fill gaps on first open.
@@ -370,13 +374,15 @@ export default function EditProfileScreen() {
         const raw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
         if (!alive) return;
         const stored = raw ? JSON.parse(raw) : {};
+        const sameUserCache = stored.uid === sessionUser.uid;
         const merged = {
           ...DEFAULT_USER,
           ...sessionUser,
-          ...stored,
-          // Email is managed from the web app, so the session value always wins.
-          email: sessionUser.email || stored.email || '',
-          region: stored.region || sessionUser.region || displayRegion || '',
+          name: sameUserCache ? stored.name || sessionUser.name || '' : sessionUser.name || '',
+          email: sessionUser.email || '',
+          role: sessionUser.role,
+          region: sessionUser.region || displayRegion || '',
+          photoUrl: sameUserCache ? stored.photoUrl || sessionUser.photoUrl || null : sessionUser.photoUrl || null,
         };
         setUser(merged);
         setName(merged.name?.split(' ')[0] || merged.name || '');
@@ -421,7 +427,7 @@ export default function EditProfileScreen() {
       Alert.alert('Name required', 'Enter your name.');
       return;
     }
-    if (!nextRegion) {
+    if (!isManager && !nextRegion) {
       Alert.alert('Region required', 'Select your region.');
       return;
     }
@@ -431,7 +437,7 @@ export default function EditProfileScreen() {
       ...user,
       name: nextName.includes(' ') ? nextName : `${nextName} ${lastName}`.trim(),
       email, // never changed from the app
-      region: nextRegion,
+      region: isManager ? user.region : nextRegion,
       photoUrl: photoUri,
     };
 
@@ -603,7 +609,7 @@ export default function EditProfileScreen() {
               <Text style={{ fontSize: fs(16), fontWeight: '700', color: INK, marginTop: s(12) }}>
                 {user.name}
               </Text>
-              <Text style={{ fontSize: fs(11), color: MUTED, marginTop: 2 }}>{user.role}</Text>
+              <Text style={{ fontSize: fs(11), color: MUTED, marginTop: 2 }}>{roleLabel(user.role)}</Text>
             </View>
 
             {/* Fields */}
@@ -621,18 +627,27 @@ export default function EditProfileScreen() {
                 value={email}
                 onPress={showEmailLockedMessage}
               />
-              <DropdownField
-                label="Region"
-                value={region}
-                options={regions}
-                placeholder="Select region"
-                open={regionOpen}
-                onToggle={() => setRegionOpen((v) => !v)}
-                onSelect={(r) => {
-                  setRegion(r);
-                  setRegionOpen(false);
-                }}
-              />
+              {isManager ? (
+                <Field
+                  label="Assigned Branch"
+                  value={dashboard?.clinic?.name || dashboard?.clinic?.city || 'Assigned clinic'}
+                  onChangeText={() => {}}
+                  editable={false}
+                />
+              ) : (
+                <DropdownField
+                  label="Region"
+                  value={region}
+                  options={regions}
+                  placeholder="Select region"
+                  open={regionOpen}
+                  onToggle={() => setRegionOpen((v) => !v)}
+                  onSelect={(r) => {
+                    setRegion(r);
+                    setRegionOpen(false);
+                  }}
+                />
+              )}
             </View>
 
             {/* Save */}

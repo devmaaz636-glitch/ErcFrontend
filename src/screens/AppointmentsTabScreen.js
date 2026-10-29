@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { IconCircleButton, SearchField, StatusBadge, SkeletonRow, SkeletonStatGrid } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
+import { roleLabel } from '../context/SessionContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
@@ -188,7 +189,7 @@ export default function AppointmentsTabScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { displayRegion, user } = useSession();
-  const { appointments, error, refresh, loadedOnce } = useClinicData();
+  const { appointments, dashboard, error, refresh, loadedOnce } = useClinicData();
   const { unreadCount } = useNotifications();
   const [tab, setTab] = useState('upcoming');
   const [query, setQuery] = useState('');
@@ -236,7 +237,9 @@ export default function AppointmentsTabScreen() {
                 Appointments
               </Text>
               <Text style={{ fontSize: fs(9), color: colors.desc, marginTop: 1 }} numberOfLines={1}>
-                {displayRegion || 'Region'} · {user.role || 'Regional Admin'}
+                {user.role === 'clinic_manager'
+                  ? `${dashboard?.clinic?.name || 'Assigned clinic'} · ${roleLabel(user.role)}`
+                  : `${displayRegion || 'Region'} · ${roleLabel(user.role)}`}
               </Text>
             </View>
             <IconCircleButton

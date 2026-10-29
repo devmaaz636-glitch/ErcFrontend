@@ -20,6 +20,8 @@ import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
 import BranchDetailScreen from './src/screens/BranchDetailScreen';
 import ClinicManagersScreen from './src/screens/ClinicManagersScreen';
 import ClinicManagerDetailScreen from './src/screens/ClinicManagerDetailScreen';
+import DoctorDetailScreen from './src/screens/DoctorDetailScreen';
+import DoctorFormScreen from './src/screens/DoctorFormScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
@@ -109,6 +111,16 @@ export default function App() {
                 <Stack.Screen
                   name="ClinicManagerDetail"
                   component={ClinicManagerDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="DoctorDetail"
+                  component={DoctorDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="DoctorForm"
+                  component={DoctorFormScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen

@@ -66,6 +66,33 @@ export async function fetchManagerDoctors() {
   return get('/api/manager/doctors');
 }
 
+export async function fetchManagerDoctor(id) {
+  const data = await get(`/api/manager/doctors/${encodeURIComponent(id)}`);
+  return data.item;
+}
+
+async function mutateDoctor(method, path, body) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.request({ method, url: path, data: body, headers });
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
+export function createManagerDoctor(body) {
+  return mutateDoctor('post', '/api/manager/doctors', body);
+}
+
+export function updateManagerDoctor(id, body) {
+  return mutateDoctor('patch', `/api/manager/doctors/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteManagerDoctor(id) {
+  return mutateDoctor('delete', `/api/manager/doctors/${encodeURIComponent(id)}`);
+}
+
 export async function fetchManagerAppointmentRequest(id) {
   const data = await get(`/api/manager/appointment-requests/${encodeURIComponent(id)}`);
   return data.item;

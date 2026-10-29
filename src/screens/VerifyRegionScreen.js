@@ -55,7 +55,7 @@ function Pencil() {
 
 export default function VerifyRegionScreen() {
   const navigation = useNavigation();
-  const { setRegion: persistRegion } = useSession();
+  const { setRegion: persistRegion, user } = useSession();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [region, setRegion] = useState(REGIONS[0]);
@@ -80,10 +80,10 @@ export default function VerifyRegionScreen() {
       return;
     }
     await persistRegion({ ...region, code: nextCode });
-    let role = '';
+    let role = user.role || '';
     try {
       const tokenResult = await auth.currentUser?.getIdTokenResult(true);
-      role = tokenResult?.claims?.role || '';
+      role = tokenResult?.claims?.role || role;
     } catch {
       /* Session bootstrap will surface an authorization error if claims cannot be read. */
     }

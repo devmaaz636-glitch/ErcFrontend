@@ -3,6 +3,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import ManagerHomeScreen from '../screens/ManagerHomeScreen';
 import AppointmentsTabScreen from '../screens/AppointmentsTabScreen';
 import ManagerPlaceholderScreen from '../screens/ManagerPlaceholderScreen';
+import DoctorsTabScreen from '../screens/DoctorsTabScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
 import { colors } from '../theme';
 
@@ -32,8 +33,7 @@ export default function ManagerTabs() {
       />
       <Tab.Screen
         name="DoctorsTab"
-        component={ManagerPlaceholderScreen}
-        initialParams={{ title: 'Doctors' }}
+        component={DoctorsTabScreen}
       />
       <Tab.Screen
         name="MoreTab"

@@ -5,7 +5,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import UserAvatar from '../components/UserAvatar';
 import { IconCircleButton, PrimaryButton } from '../components/ui';
-import { useSession } from '../context/SessionContext';
+import { roleLabel, useSession } from '../context/SessionContext';
+import { useClinicData } from '../context/ClinicDataContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { signOutUser } from '../lib/auth';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -86,13 +87,22 @@ export default function ProfileTabScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user, displayRegion, clearSession } = useSession();
+  const { dashboard } = useClinicData();
   const { unreadCount } = useNotifications();
+  const isManager = user.role === 'clinic_manager';
+  const assignedBranch = dashboard?.clinic;
+  const displayedRole = roleLabel(user.role);
 
   const info = [
     { label: 'Full Name', value: user.name },
     { label: 'Primary Email', value: user.email },
-    { label: 'Role', value: user.role },
-    { label: 'Assigned Region', value: displayRegion },
+    { label: 'Role', value: displayedRole },
+    isManager
+      ? {
+          label: 'Assigned Branch',
+          value: assignedBranch?.name || assignedBranch?.city || 'Loading assigned branch',
+        }
+      : { label: 'Assigned Region', value: displayRegion },
   ];
 
   function logout() {
@@ -166,7 +176,7 @@ export default function ProfileTabScreen() {
             <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: 12 }}>
               {user.name || '—'}
             </Text>
-            <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>{user.role}</Text>
+            <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>            {displayedRole}</Text>
           </View>
 
           <SectionTitle title="Account Information" />

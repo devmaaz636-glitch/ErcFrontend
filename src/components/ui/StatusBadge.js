@@ -13,6 +13,7 @@ const PRESETS = {
   refunded: { label: 'Refunded', color: colors.danger, bg: colors.dangerBg },
   active: { label: 'Active', color: colors.success, bg: colors.successBg },
   inactive: { label: 'Inactive', color: colors.danger, bg: colors.dangerBg },
+  booked: { label: 'Booked', color: colors.success, bg: colors.successBg },
   invited: { label: 'Invited', color: colors.brand, bg: colors.warningBg },
 };
 
