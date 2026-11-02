@@ -32,6 +32,8 @@ import TreatmentDetailScreen from './src/screens/TreatmentDetailScreen';
 import AddTreatmentScreen from './src/screens/AddTreatmentScreen';
 import ManagerPatientsScreen from './src/screens/ManagerPatientsScreen';
 import ManagerAlertsScreen from './src/screens/ManagerAlertsScreen';
+import InvestigateAlertScreen from './src/screens/InvestigateAlertScreen';
+import AlertRequestDetailScreen from './src/screens/AlertRequestDetailScreen';
 import ProfileTabScreen from './src/screens/ProfileTabScreen';
 
 LogBox.ignoreLogs([
@@ -173,6 +175,16 @@ export default function App() {
                   name="ManagerAlerts"
                   component={ManagerAlertsScreen}
                   options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="InvestigateAlert"
+                  component={InvestigateAlertScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="AlertRequestDetail"
+                  component={AlertRequestDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen
                   name="ManagerProfile"

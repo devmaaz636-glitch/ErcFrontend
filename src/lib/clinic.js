@@ -218,6 +218,11 @@ export async function fetchManagerAlerts() {
   return getManager('/api/manager/alerts');
 }
 
+export async function fetchManagerAlert(id) {
+  const data = await get(`/api/manager/alerts/${encodeURIComponent(id)}`);
+  return data.item;
+}
+
 export async function updateManagerAlert(id, body) {
   const headers = await authHeaders();
   try {

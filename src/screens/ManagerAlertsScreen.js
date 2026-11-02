@@ -341,44 +341,54 @@ export default function ManagerAlertsScreen() {
     return items;
   }, [items, filter]);
 
-  const runAction = useCallback(
-    async (item, action) => {
-      if (!item?.id || busyId) return;
-
-      const optimistic = {
-        ...item,
-        actionNeeded: false,
-        primaryAction: null,
-        resolvedAction: action,
-        status:
-          action === 'investigate' ? 'acknowledged' : action === 'decline' ? 'declined' : 'reviewed',
-      };
-
-      const previous = itemsRef.current;
-      const optimisticList = previous.map((row) => (row.id === item.id ? { ...row, ...optimistic } : row));
-      applyList(optimisticList);
-      setBusyId(item.id);
-      setError('');
-
-      try {
-        const next = await updateManagerAlert(item.id, { action });
-        const confirmed = previous.map((row) =>
-          row.id === next.id ? { ...row, ...next } : row
-        );
-        applyList(confirmed);
-        if (action === 'investigate') {
-          showToast('Alert marked for investigation');
-        } else if (action === 'decline') {
-          showToast('Alert declined');
-        }
-      } catch (err) {
-        applyList(previous);
-        setError(clinicErrorMessage(err) || 'Could not update alert.');
-      } finally {
-        setBusyId(null);
+  const openInvestigate = useCallback(
+    (item) => {
+      if (!item?.id) return;
+      // Booking / refund alerts open the full Investigate → Request Details flow.
+      if (item.investigation || item.type === 'booking' || item.type === 'refund') {
+        navigation.navigate('InvestigateAlert', { alertId: item.id, alert: item });
+        return;
       }
+      // Fallback: mark investigating for other alert types.
+      (async () => {
+        if (busyId) return;
+        setBusyId(item.id);
+        try {
+          const next = await updateManagerAlert(item.id, { action: 'investigate' });
+          applyList(itemsRef.current.map((row) => (row.id === next.id ? { ...row, ...next } : row)));
+          showToast('Alert marked for investigation');
+        } catch (err) {
+          setError(clinicErrorMessage(err) || 'Could not update alert.');
+        } finally {
+          setBusyId(null);
+        }
+      })();
     },
-    [applyList, busyId, showToast]
+    [applyList, busyId, navigation, showToast]
+  );
+
+  const openDeclineFlow = useCallback(
+    (item) => {
+      if (!item?.id) return;
+      if (item.requestDetail || item.type === 'booking' || item.type === 'refund') {
+        navigation.navigate('AlertRequestDetail', { alertId: item.id, alert: item });
+        return;
+      }
+      (async () => {
+        if (busyId) return;
+        setBusyId(item.id);
+        try {
+          const next = await updateManagerAlert(item.id, { action: 'decline' });
+          applyList(itemsRef.current.map((row) => (row.id === next.id ? { ...row, ...next } : row)));
+          showToast('Alert declined');
+        } catch (err) {
+          setError(clinicErrorMessage(err) || 'Could not update alert.');
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    },
+    [applyList, busyId, navigation, showToast]
   );
 
   const openAppointmentRequestReview = useCallback(
@@ -533,8 +543,8 @@ export default function ManagerAlertsScreen() {
                 key={item.id}
                 item={item}
                 busyId={busyId}
-                onInvestigate={(alert) => runAction(alert, 'investigate')}
-                onDecline={(alert) => runAction(alert, 'decline')}
+                onInvestigate={openInvestigate}
+                onDecline={openDeclineFlow}
                 onReview={openAppointmentRequestReview}
               />
             ))
