@@ -210,6 +210,28 @@ export async function fetchManagerDoctors() {
   return getManager('/api/manager/doctors');
 }
 
+export async function fetchManagerPatients() {
+  return getManager('/api/manager/patients');
+}
+
+export async function fetchManagerAlerts() {
+  return getManager('/api/manager/alerts');
+}
+
+export async function updateManagerAlert(id, body) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.patch(
+      `/api/manager/alerts/${encodeURIComponent(id)}`,
+      body,
+      { headers }
+    );
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
 export async function readManagerHomeCache(uid) {
   if (!uid) return null;
   try {

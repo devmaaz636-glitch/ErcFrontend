@@ -29,6 +29,9 @@ import NotificationPreferencesScreen from './src/screens/NotificationPreferences
 import AppointmentRequestDetailScreen from './src/screens/AppointmentRequestDetailScreen';
 import TreatmentDetailScreen from './src/screens/TreatmentDetailScreen';
 import AddTreatmentScreen from './src/screens/AddTreatmentScreen';
+import ManagerPatientsScreen from './src/screens/ManagerPatientsScreen';
+import ManagerAlertsScreen from './src/screens/ManagerAlertsScreen';
+import ProfileTabScreen from './src/screens/ProfileTabScreen';
 
 LogBox.ignoreLogs([
   'Splashscreen.setOptions',
@@ -154,6 +157,21 @@ export default function App() {
                   name="AddTreatment"
                   component={AddTreatmentScreen}
                   options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="ManagerPatients"
+                  component={ManagerPatientsScreen}
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="ManagerAlerts"
+                  component={ManagerAlertsScreen}
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="ManagerProfile"
+                  component={ProfileTabScreen}
+                  options={{ animation: 'slide_from_bottom' }}
                 />
               </Stack.Navigator>
             </NavigationContainer>

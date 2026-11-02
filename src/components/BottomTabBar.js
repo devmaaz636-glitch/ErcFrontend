@@ -98,7 +98,7 @@ function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout }) {
  * Floating tab bar with a spring-sliding brand pill + fade tab scenes.
  * Wired as React Navigation `tabBar` for MainTabs.
  */
-export default function BottomTabBar({ state, navigation }) {
+export default function BottomTabBar({ state, navigation, moreOpen = false, onMorePress }) {
   const insets = useSafeAreaInsets();
   const [layouts, setLayouts] = useState({});
 
@@ -106,8 +106,10 @@ export default function BottomTabBar({ state, navigation }) {
   const pillW = useSharedValue(44);
   const pillOpacity = useSharedValue(0);
 
-  const activeKey = state.routes[state.index]?.key;
-  const activeLayout = layouts[activeKey];
+  const moreRoute = state.routes.find((route) => route.name === 'MoreTab');
+  const activeRoute = moreOpen && moreRoute ? moreRoute : state.routes[state.index];
+  const activeKey = activeRoute?.key;
+  const activeLayout = activeKey ? layouts[activeKey] : null;
 
   useEffect(() => {
     if (!activeLayout) return;
@@ -158,15 +160,20 @@ export default function BottomTabBar({ state, navigation }) {
         <Animated.View style={pillStyle} />
 
         {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
+          const isMore = route.name === 'MoreTab';
+          const isFocused = isMore ? moreOpen : !moreOpen && state.index === index;
 
           const onPress = () => {
+            if (isMore) {
+              if (typeof onMorePress === 'function') onMorePress();
+              return;
+            }
             const event = navigation.emit({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
-            if (!isFocused && !event.defaultPrevented) {
+            if (!event.defaultPrevented) {
               navigation.navigate(route.name);
             }
           };

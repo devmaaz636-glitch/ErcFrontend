@@ -1,15 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
 import { NotificationBellButton, SearchField } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
-import { managerDashboard as theme, spacing } from '../theme';
+import { colors, managerDashboard as theme, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
 const treatmentImage = require('../../assets/brachtabimage.png');
@@ -219,11 +219,13 @@ function DoctorCard({ doctor, onPress }) {
 
 export default function ManagerHomeScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const topPad = useTopPadding(10);
   const { user } = useSession();
   const { dashboard, error, refresh } = useClinicData();
   const [query, setQuery] = useState('');
   const [pulling, setPulling] = useState(false);
+  const [reviewHint, setReviewHint] = useState(false);
 
   const stats = dashboard?.stats || [];
   const requests = dashboard?.appointmentRequests || [];
@@ -231,6 +233,14 @@ export default function ManagerHomeScreen() {
   const doctors = dashboard?.doctors || [];
   const greetingName = user.name || user.email?.split('@')[0] || 'Manager';
   const clinicName = dashboard?.clinic?.name || 'Assigned clinic';
+
+  useEffect(() => {
+    if (!route.params?.fromAlertReview) return undefined;
+    setReviewHint(true);
+    navigation.setParams?.({ fromAlertReview: undefined });
+    const timer = setTimeout(() => setReviewHint(false), 5000);
+    return () => clearTimeout(timer);
+  }, [route.params?.fromAlertReview, route.params?.refreshedAt, navigation]);
 
   const filteredTreatments = useMemo(() => {
     const text = query.trim().toLowerCase();
@@ -308,6 +318,33 @@ export default function ManagerHomeScreen() {
               <StatCard key={item.id} item={item} />
             ))}
           </View>
+
+          {reviewHint ? (
+            <View
+              style={{
+                marginBottom: s(12),
+                backgroundColor: colors.brandSoft,
+                borderRadius: s(12),
+                paddingVertical: s(10),
+                paddingHorizontal: s(12),
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="information-circle-outline" size={s(16)} color={theme.colors.primary} />
+              <Text
+                style={{
+                  flex: 1,
+                  marginLeft: s(8),
+                  color: theme.colors.text,
+                  fontSize: fs(10),
+                  lineHeight: fs(14),
+                }}
+              >
+                Review module is under development. Use Appointment Requests below to continue.
+              </Text>
+            </View>
+          ) : null}
 
           <SectionHeader title="Appointment Requests" onPress={() => navigation.navigate('AppointmentsTab')} />
           {requests.length ? (

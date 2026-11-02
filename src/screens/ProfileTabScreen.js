@@ -248,9 +248,23 @@ export default function ProfileTabScreen() {
               name="chevron-back"
               color={colors.brand}
               accessibilityLabel="Go back"
-              onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                  return;
+                }
+                navigateToTab(navigation, TAB_ROUTES.Home);
+              }}
             />
-            <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600', color: colors.ink }}>
+            <Text
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                fontSize: 15,
+                fontWeight: '600',
+                color: colors.ink,
+              }}
+            >
               Profile
             </Text>
             {user.role === 'admin' || user.role === 'Regional Admin' ? (
