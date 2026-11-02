@@ -105,7 +105,7 @@ function RequestCard({ request, onReview }) {
           marginTop: s(11),
         }}
       >
-        <Text style={{ color: '#fff', fontSize: fs(8, 8), fontWeight: '500' }}>Approve Request</Text>
+        <Text style={{ color: '#fff', fontSize: fs(8, 8), fontWeight: '500' }}>Review Request</Text>
       </Pressable>
     </View>
   );
@@ -393,7 +393,12 @@ export default function ManagerHomeScreen() {
               <DoctorCard
                 key={doctor.id}
                 doctor={doctor}
-                onPress={() => navigation.navigate('DoctorsTab')}
+                onPress={() =>
+                  navigation.navigate('DoctorConsultation', {
+                    doctorId: doctor.id,
+                    doctor,
+                  })
+                }
               />
             ))
           ) : (
