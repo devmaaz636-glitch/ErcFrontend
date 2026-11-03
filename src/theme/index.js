@@ -8,6 +8,7 @@
  */
 export { colors, default as colorTokens } from './colors';
 export { spacing, radius } from './spacing';
+export { BRAND_BG, brandButtonBg, brandButtonText, brandPressableStyle } from './brandButton';
 export { typography } from './typography';
 export { shadows } from './shadows';
 export { managerDashboard } from './managerDashboard';

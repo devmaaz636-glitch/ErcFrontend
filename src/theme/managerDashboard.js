@@ -9,7 +9,7 @@ export const managerDashboard = {
     primary: colors.brand,
     primaryLight: colors.brandLight,
     primarySoft: colors.brandSoft,
-    brandButton: '#DFA16C',
+    brandButton: '#BF824F',
     text: colors.ink,
     secondaryText: colors.desc,
     tertiaryText: colors.muted,

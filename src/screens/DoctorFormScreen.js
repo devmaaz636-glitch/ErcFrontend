@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   KeyboardAvoidingView,
+  PixelRatio,
   Platform,
   Pressable,
   ScrollView,
@@ -12,29 +14,40 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Text from '../components/AppText';
 import SelectScheduleModal, {
+  WEEK_DAYS,
   createDefaultWeeklySchedule,
   summarizeWeeklySchedule,
 } from '../components/SelectScheduleModal';
 import { useClinicData } from '../context/ClinicDataContext';
 import { createManagerDoctor, updateManagerDoctor } from '../lib/clinic';
-import { scale as s, fs, useTopPadding } from '../utils/responsive';
+import { useTopPadding } from '../utils/responsive';
 
-/** Exact palette from Add New Doctor mock */
+/**
+ * The mock is 189 units wide. Every size below is measured in those units and
+ * scaled to the real screen width, so spacing keeps the same proportions on
+ * every device (width is capped so tablets don't blow up).
+ */
+const W = Math.min(Dimensions.get('window').width, 430);
+const u = (n) => PixelRatio.roundToNearestPixel((W / 189) * n);
+
+/** Palette matched to the Add New Doctor mock */
 const C = {
   bg: '#FFF8F1',
   white: '#FFFFFF',
   ink: '#2B2420',
-  label: '#3A322C',
+  label: '#2B2420',
   placeholder: '#B7AFA7',
   muted: '#8D8680',
-  brand: '#C8966A',
-  imageBg: '#EDEDED',
-  imageIcon: '#A9A9A9',
+  brand: '#BF824F', // exact brand color
+  brandLight: '#D3A57A', // gradient start for Save
+  imageBg: '#E9E9E9',
+  imageIcon: '#8F8F8F',
   danger: '#E5484D',
   circleBg: '#FFFFFF',
 };
@@ -65,7 +78,7 @@ function CircleBtn({ name, onPress, color = C.ink, accessibilityLabel }) {
       hitSlop={8}
       style={({ pressed }) => [styles.circleBtn, pressed && { opacity: 0.7 }]}
     >
-      <Ionicons name={name} size={s(18)} color={color} />
+      <Ionicons name={name} size={u(7)} color={color} />
     </Pressable>
   );
 }
@@ -103,6 +116,12 @@ export default function DoctorFormScreen() {
 
   const availabilitySummary = useMemo(
     () => summarizeWeeklySchedule(weeklySchedule),
+    [weeklySchedule]
+  );
+
+  // Days currently enabled, in week order, used to render the live schedule list
+  const enabledDays = useMemo(
+    () => WEEK_DAYS.filter((day) => weeklySchedule?.[day.key]?.enabled),
     [weeklySchedule]
   );
 
@@ -214,9 +233,9 @@ export default function DoctorFormScreen() {
               <Image source={{ uri: photo }} style={styles.imagePreview} resizeMode="cover" />
             ) : (
               <View style={styles.imageIconWrap}>
-                <Ionicons name="image-outline" size={s(40)} color={C.imageIcon} />
+                <Ionicons name="image-outline" size={u(24)} color={C.imageIcon} />
                 <View style={styles.imagePlus}>
-                  <Ionicons name="add" size={s(11)} color={C.imageIcon} />
+                  <Ionicons name="add" size={u(5)} color={C.imageIcon} />
                 </View>
               </View>
             )}
@@ -245,47 +264,81 @@ export default function DoctorFormScreen() {
             accessibilityRole="button"
             accessibilityLabel="Select schedule"
             onPress={() => setScheduleOpen(true)}
-            style={({ pressed }) => [styles.scheduleBtn, pressed && { opacity: 0.88 }]}
+            style={({ pressed }) => [styles.scheduleWrap, pressed && { opacity: 0.88 }]}
           >
-            <Text style={styles.scheduleBtnText}>Select Schedule</Text>
+            <LinearGradient
+              colors={[C.brandLight, C.brand]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.scheduleBtn}
+            >
+              <Text style={styles.scheduleBtnText}>Select Schedule</Text>
+            </LinearGradient>
           </Pressable>
         </View>
-        {availabilitySummary ? (
-          <Text style={styles.availabilitySummary} numberOfLines={1}>
-            {availabilitySummary}
-          </Text>
+        {enabledDays.length ? (
+          <View style={styles.scheduleList}>
+            {enabledDays.map((day) => (
+              <View key={day.key} style={styles.scheduleItem}>
+                <Text style={styles.scheduleDay}>{day.label.slice(0, 3)}</Text>
+                <Text style={styles.scheduleTime}>
+                  {weeklySchedule[day.key].start} – {weeklySchedule[day.key].end}
+                </Text>
+              </View>
+            ))}
+          </View>
         ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.spacer} />
 
-        <Pressable
-          accessibilityRole="button"
-          disabled={busy}
-          onPress={save}
-          style={({ pressed }) => [styles.saveBtn, (busy || pressed) && { opacity: 0.9 }]}
-        >
-          {busy ? (
-            <ActivityIndicator color={C.white} />
-          ) : (
-            <Text style={styles.saveText}>Save</Text>
-          )}
-        </Pressable>
+        <View style={styles.actions}>
+          {/* Save button with gradient */}
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={save}
+            style={({ pressed }) => [styles.saveWrap, (busy || pressed) && { opacity: 0.9 }]}
+          >
+            <LinearGradient
+              colors={[C.brandLight, C.brand]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.saveBtn}
+            >
+              {busy ? (
+                <ActivityIndicator color={C.white} />
+              ) : (
+                <Text style={styles.saveText}>Save</Text>
+              )}
+            </LinearGradient>
+          </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.8 }]}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
+          {/* Fixed gap between Save and Cancel */}
+          <View style={styles.buttonGap} />
+
+          {/* Cancel button: same width and centering as Save */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.goBack()}
+            style={({ pressed }) => [styles.cancelWrap, pressed && { opacity: 0.8 }]}
+          >
+            <View style={styles.cancelBtn}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <SelectScheduleModal
         visible={scheduleOpen}
         initialSchedule={weeklySchedule}
         onClose={() => setScheduleOpen(false)}
+        onChange={(next) => {
+          setWeeklySchedule(next); // live: reflects on this screen as the user selects
+          setError('');
+        }}
         onSave={(next) => {
           setWeeklySchedule(next);
           setScheduleOpen(false);
@@ -297,23 +350,14 @@ export default function DoctorFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: s(20),
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: s(6),
-  },
+  screen: { flex: 1, backgroundColor: C.bg },
+  content: { flexGrow: 1, paddingHorizontal: u(12) }, // inputs sit 12 units from each edge
+
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: u(13) },
   circleBtn: {
-    width: s(38),
-    height: s(38),
-    borderRadius: s(19),
+    width: u(13),
+    height: u(13),
+    borderRadius: u(6.5),
     backgroundColor: C.circleBg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -321,115 +365,130 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: 'left',
-    marginLeft: s(12),
-    marginRight: s(10),
+    marginLeft: u(9),
+    marginRight: u(8),
     color: C.ink,
-    fontSize: fs(15),
+    fontSize: u(6.3),
     fontWeight: '500',
   },
-  field: {
-    marginTop: s(14),
-  },
-  label: {
-    color: C.label,
-    fontSize: fs(13),
-    fontWeight: '600',
-  },
+
+  field: { marginTop: u(7) },
+  label: { color: C.label, fontSize: u(6.2), fontWeight: '600' },
   input: {
-    marginTop: s(8),
-    height: s(40),
-    borderRadius: s(8),
+    marginTop: u(3.5),
+    height: u(20),
+    borderRadius: u(3),
     backgroundColor: C.white,
-    paddingHorizontal: s(14),
+    paddingHorizontal: u(5),
     paddingVertical: 0,
     color: C.ink,
-    fontSize: fs(12),
+    fontSize: u(5),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
+
   imageBox: {
-    marginTop: s(8),
-    height: s(150),
-    borderRadius: s(8),
+    marginTop: u(3.5),
+    height: u(86),
+    borderRadius: u(3),
     backgroundColor: C.imageBg,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-  },
+  imagePreview: { width: '100%', height: '100%' },
   imageIconWrap: {
-    width: s(48),
-    height: s(44),
+    width: u(26),
+    height: u(26),
     alignItems: 'center',
     justifyContent: 'center',
   },
   imagePlus: {
     position: 'absolute',
-    top: -3,
-    right: -8,
-    width: 15,
-    height: 15,
-    borderRadius: 8,
+    top: u(-1),
+    right: u(-1),
+    width: u(8),
+    height: u(8),
+    borderRadius: u(4),
     borderWidth: 1.5,
     borderColor: C.imageIcon,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: C.imageBg,
   },
+
   availabilityRow: {
-    marginTop: s(16),
+    marginTop: u(8),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  availabilitySummary: {
-    marginTop: s(6),
-    fontSize: fs(11),
-    color: C.muted,
+  scheduleList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: u(4),
+  },
+  scheduleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.white,
+    borderRadius: u(3),
+    paddingHorizontal: u(4),
+    paddingVertical: u(2),
+    marginRight: u(4),
+    marginBottom: u(3),
+  },
+  scheduleDay: { color: C.brand, fontSize: u(4), fontWeight: '700', marginRight: u(2) },
+  scheduleTime: { color: C.ink, fontSize: u(3.8) },
+  scheduleWrap: {
+    borderRadius: u(3),
+    overflow: 'hidden',
   },
   scheduleBtn: {
     backgroundColor: C.brand,
-    borderRadius: s(8),
-    paddingHorizontal: s(12),
-    paddingVertical: s(6),
-  },
-  scheduleBtnText: {
-    color: C.white,
-    fontSize: fs(10),
-    fontWeight: '600',
-  },
-  error: {
-    marginTop: s(12),
-    textAlign: 'center',
-    color: C.danger,
-    fontSize: fs(12),
-  },
-  // Fixed gap so Save/Cancel sit right under the availability row, as in the mock
-  spacer: {
-    height: s(20),
-  },
-  saveBtn: {
-    height: s(46),
-    borderRadius: s(23),
-    backgroundColor: C.brand,
+    borderRadius: u(3),
+    paddingHorizontal: u(7),
+    paddingVertical: u(3.2),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  saveText: {
-    color: C.white,
-    fontSize: fs(14),
-    fontWeight: '600',
+  scheduleBtnText: { color: C.white, fontSize: u(3.4), fontWeight: '600', textAlign: 'center' },
+
+  error: { marginTop: u(4), textAlign: 'center', color: C.danger, fontSize: u(4.5) },
+  spacer: { height: u(9) }, // availability row -> Save
+
+  // Save/Cancel are 3 units wider on each side than the inputs (9 vs 12 units from the edge)
+  actions: { alignSelf: 'stretch', marginHorizontal: -u(3) },
+
+  saveWrap: {
+    alignSelf: 'stretch',
+    borderRadius: u(8),
+    shadowColor: C.brand,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveBtn: {
+    alignSelf: 'stretch',
+    height: u(16),
+    borderRadius: u(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveText: { color: C.white, fontSize: u(5.2), fontWeight: '600', textAlign: 'center' },
+
+  buttonGap: { height: u(6) }, // Save -> Cancel
+  cancelWrap: {
+    alignSelf: 'stretch',
   },
   cancelBtn: {
-    marginTop: s(10),
-    height: s(46),
-    borderRadius: s(23),
+    alignSelf: 'stretch',
+    height: u(16),
+    borderRadius: u(8),
     backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -439,9 +498,5 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  cancelText: {
-    color: C.ink,
-    fontSize: fs(13),
-    fontWeight: '500',
-  },
+  cancelText: { color: C.ink, fontSize: u(5), fontWeight: '500', textAlign: 'center' },
 });

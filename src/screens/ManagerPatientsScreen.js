@@ -9,7 +9,7 @@ import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { clinicErrorMessage, fetchManagerPatients } from '../lib/clinic';
-import { colors, spacing, managerDashboard as theme } from '../theme';
+import { BRAND_BG, colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 const patientImage = require('../../assets/userprofile.png');
@@ -26,7 +26,7 @@ function CategoryChip({ label, active, onPress }) {
         height: s(32),
         paddingHorizontal: s(14),
         borderRadius: 999,
-        backgroundColor: active ? theme.colors.brandButton || colors.brand : 'transparent',
+        backgroundColor: active ? BRAND_BG : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: s(8),
@@ -146,16 +146,16 @@ export default function ManagerPatientsScreen() {
               accessibilityLabel="Go back"
               onPress={() => navigation.goBack()}
             />
-            <View style={{ flex: 1 }} />
-            <NotificationBellButton color={colors.brand} />
+            <View style={{ flex: 1, marginLeft: s(12) }}>
+              <Text style={{ fontSize: fs(18), fontWeight: '700', color: theme.colors.text }}>
+                Patients
+              </Text>
+              <Text style={{ marginTop: 2, fontSize: fs(11), color: theme.colors.secondaryText }}>
+                Manage your branch's Patients
+              </Text>
+            </View>
+            <NotificationBellButton color={BRAND_BG} />
           </View>
-
-          <Text style={{ marginTop: s(16), fontSize: fs(22), fontWeight: '700', color: theme.colors.text }}>
-            Patients
-          </Text>
-          <Text style={{ marginTop: 4, fontSize: fs(11), color: theme.colors.secondaryText }}>
-            Manage your branch's Patients
-          </Text>
 
           <View style={{ marginTop: s(16) }}>
             <SearchField value={query} onChangeText={setQuery} showButton />
@@ -211,7 +211,12 @@ export default function ManagerPatientsScreen() {
               <PatientRow
                 key={item.id}
                 item={item}
-                onPress={() => {}}
+                onPress={() =>
+                  navigation.navigate('ManagerPatientDetail', {
+                    patientId: item.id,
+                    patient: item,
+                  })
+                }
               />
             ))
           )}

@@ -6,11 +6,15 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Text from './AppText';
 import { colors, radius, spacing } from '../theme';
 import { scale as s, fs } from '../utils/responsive';
+
+const BRAND = '#BF824F';
+const BRAND_LIGHT = '#D3A57A';
 
 export const WEEK_DAYS = [
   { key: 'monday', label: 'Monday' },
@@ -105,25 +109,47 @@ function TimeField({ label, value, onPress }) {
   );
 }
 
-export default function SelectScheduleModal({ visible, initialSchedule, onClose, onSave }) {
+/**
+ * Props:
+ *  - visible, onClose
+ *  - initialSchedule: weekly schedule object
+ *  - onChange(next): fires on EVERY selection (day toggle or time pick) so the
+ *    parent screen can show the schedule live while the modal is open
+ *  - onSave(next): fires when the Save button is pressed
+ */
+export default function SelectScheduleModal({
+  visible,
+  initialSchedule,
+  onClose,
+  onChange,
+  onSave,
+}) {
   const insets = useSafeAreaInsets();
   const [schedule, setSchedule] = useState(() => normalizeSchedule(initialSchedule));
   const [picker, setPicker] = useState(null);
 
+  // Reset only when the modal opens. Depending on initialSchedule here would
+  // close the time picker every time the parent echoes a live change back.
   useEffect(() => {
     if (visible) {
       setSchedule(normalizeSchedule(initialSchedule));
       setPicker(null);
     }
-  }, [visible, initialSchedule]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const pickerOptions = useMemo(() => TIME_OPTIONS, []);
 
+  function update(next) {
+    setSchedule(next);
+    onChange?.(next); // reflect into the doctor screen immediately
+  }
+
   function toggleDay(key) {
-    setSchedule((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], enabled: !prev[key].enabled },
-    }));
+    update({
+      ...schedule,
+      [key]: { ...schedule[key], enabled: !schedule[key].enabled },
+    });
   }
 
   function openPicker(dayKey, field) {
@@ -132,13 +158,13 @@ export default function SelectScheduleModal({ visible, initialSchedule, onClose,
 
   function pickTime(time) {
     if (!picker) return;
-    setSchedule((prev) => ({
-      ...prev,
+    update({
+      ...schedule,
       [picker.dayKey]: {
-        ...prev[picker.dayKey],
+        ...schedule[picker.dayKey],
         [picker.field]: time,
       },
-    }));
+    });
     setPicker(null);
   }
 
@@ -207,16 +233,24 @@ export default function SelectScheduleModal({ visible, initialSchedule, onClose,
             })}
           </ScrollView>
 
+          {/* Save: brand gradient, matches the Save button on the doctor screen */}
           <Pressable
             accessibilityRole="button"
             disabled={!canSave}
             onPress={handleSave}
             style={({ pressed }) => [
-              styles.saveBtn,
+              styles.saveWrap,
               (!canSave || pressed) && { opacity: canSave ? 0.85 : 0.45 },
             ]}
           >
-            <Text style={styles.saveText}>Save</Text>
+            <LinearGradient
+              colors={[BRAND_LIGHT, BRAND]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.saveBtn}
+            >
+              <Text style={styles.saveText}>Save</Text>
+            </LinearGradient>
           </Pressable>
         </View>
       </View>
@@ -295,8 +329,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   checkboxOn: {
-    backgroundColor: colors.inkDeep,
-    borderColor: colors.inkDeep,
+    backgroundColor: BRAND,
+    borderColor: BRAND,
   },
   dayLabel: {
     fontSize: fs(15),
@@ -337,19 +371,29 @@ const styles = StyleSheet.create({
     fontSize: fs(13),
     color: colors.ink,
   },
-  saveBtn: {
-    height: 50,
+  saveWrap: {
+    alignSelf: 'stretch',
     borderRadius: radius.round,
-    backgroundColor: '#C8966A',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 8,
     marginBottom: 4,
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  saveBtn: {
+    alignSelf: 'stretch',
+    height: 50,
+    borderRadius: radius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveText: {
     color: colors.white,
     fontSize: fs(15),
     fontWeight: '700',
+    textAlign: 'center',
   },
   pickerOverlay: {
     flex: 1,

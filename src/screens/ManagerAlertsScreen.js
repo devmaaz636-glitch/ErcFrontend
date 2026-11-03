@@ -14,7 +14,7 @@ import {
   fetchManagerAppointmentRequests,
   updateManagerAlert,
 } from '../lib/clinic';
-import { colors, spacing, managerDashboard as theme } from '../theme';
+import { BRAND_BG, brandButtonBg, brandButtonText, colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 function computeStats(list) {
@@ -52,23 +52,26 @@ function FilterChip({ label, active, onPress }) {
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={{
-        height: s(34),
-        paddingHorizontal: s(14),
-        borderRadius: 999,
-        backgroundColor: active ? theme.colors.brandButton || colors.brand : theme.colors.card,
-        borderWidth: active ? 0 : 1,
-        borderColor: theme.colors.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: s(8),
-      }}
+      style={[
+        {
+          height: s(34),
+          paddingHorizontal: s(14),
+          borderRadius: 999,
+          backgroundColor: active ? BRAND_BG : theme.colors.card,
+          borderWidth: active ? 0 : 1,
+          borderColor: theme.colors.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: s(8),
+        },
+        active ? brandButtonBg : null,
+      ]}
     >
       <Text
         style={{
           fontSize: fs(11),
           fontWeight: '600',
-          color: active ? '#fff' : theme.colors.text,
+          color: active ? brandButtonText.color : theme.colors.text,
         }}
       >
         {label}
@@ -92,7 +95,7 @@ function statusTone(status) {
     return { bg: colors.successBg, color: colors.success };
   }
   if (status === 'unread' || status === 'action') {
-    return { bg: colors.brandSoft, color: colors.brand };
+    return { bg: colors.brandSoft, color: BRAND_BG };
   }
   return { bg: '#F3EFEA', color: theme.colors.secondaryText };
 }
@@ -139,7 +142,7 @@ function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
             marginRight: s(10),
           }}
         >
-          <Ionicons name={icon} size={s(16)} color={theme.colors.brandButton || colors.brand} />
+          <Ionicons name={icon} size={s(16)} color={BRAND_BG} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -207,20 +210,22 @@ function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
           accessibilityRole="button"
           disabled={busy}
           onPress={() => onReview(item)}
-          style={{
-            marginTop: s(12),
-            height: s(38),
-            borderRadius: 999,
-            backgroundColor: theme.colors.brandButton || colors.brand,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: busy ? 0.7 : 1,
-          }}
+          style={[
+            {
+              marginTop: s(12),
+              height: s(38),
+              borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: busy ? 0.7 : 1,
+            },
+            brandButtonBg,
+          ]}
         >
           {busy ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={{ color: '#fff', fontSize: fs(11), fontWeight: '600' }}>
+            <Text style={[{ fontSize: fs(11), fontWeight: '600' }, brandButtonText]}>
               {item.primaryAction} {'>'}
             </Text>
           )}
@@ -233,21 +238,23 @@ function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
             accessibilityRole="button"
             disabled={busy}
             onPress={() => onInvestigate(item)}
-            style={{
-              flex: 1,
-              height: s(36),
-              borderRadius: 999,
-              backgroundColor: theme.colors.brandButton || colors.brand,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: s(8),
-              opacity: busy ? 0.7 : 1,
-            }}
+            style={[
+              {
+                flex: 1,
+                height: s(36),
+                borderRadius: 999,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: s(8),
+                opacity: busy ? 0.7 : 1,
+              },
+              brandButtonBg,
+            ]}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={{ color: '#fff', fontSize: fs(11), fontWeight: '600' }}>Investigate</Text>
+              <Text style={[{ fontSize: fs(11), fontWeight: '600' }, brandButtonText]}>Investigate</Text>
             )}
           </Pressable>
           <Pressable
@@ -468,7 +475,7 @@ export default function ManagerAlertsScreen() {
                 {subtitle}
               </Text>
             </View>
-            <NotificationBellButton color={colors.brand} />
+            <NotificationBellButton color={BRAND_BG} />
           </View>
 
           <View style={{ flexDirection: 'row', marginTop: s(18), marginHorizontal: -s(4) }}>

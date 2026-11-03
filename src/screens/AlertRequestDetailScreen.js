@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -16,11 +17,11 @@ import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { clinicErrorMessage, fetchManagerAlert, updateManagerAlert } from '../lib/clinic';
-import { colors, spacing } from '../theme';
+import { BRAND_BG, brandButtonBg, brandButtonText, colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const BRAND = '#CE9668';
-const BRAND_DARK = '#9B7759';
+const BRAND = BRAND_BG;
+const BRAND_DARK = BRAND_BG;
 const BG = '#FFF8F1';
 const PENDING_BG = '#FFE8D6';
 const PENDING_FG = '#E0894A';
@@ -43,6 +44,8 @@ export default function AlertRequestDetailScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(14);
+  const { width } = useWindowDimensions();
+  const contentWidth = Math.min(width - s(40), spacing.maxContent);
   const alertId = route.params?.alertId;
   const passed = route.params?.alert;
 
@@ -198,18 +201,22 @@ export default function AlertRequestDetailScreen() {
           paddingTop: topPad,
           paddingHorizontal: spacing.screen,
           paddingBottom: Math.max(insets.bottom, 16) + s(24),
+          alignItems: 'center',
         }}
       >
+        <View style={{ width: '100%', maxWidth: contentWidth }}>
         <View style={styles.header}>
           <IconCircleButton
             name="chevron-back"
             accessibilityLabel="Go back"
             onPress={() => navigation.goBack()}
           />
-          <Text style={styles.headerTitle}>
-            {isRefund ? 'Refund Request Details' : 'Booking Re Schedule'}
-          </Text>
-          <NotificationBellButton color={BRAND} />
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {isRefund ? 'Refund Request Details' : 'Booking Re Schedule'}
+            </Text>
+          </View>
+          <NotificationBellButton color={BRAND_BG} />
         </View>
 
         {error && !reasonOpen ? <Text style={styles.error}>{error}</Text> : null}
@@ -295,13 +302,14 @@ export default function AlertRequestDetailScreen() {
               onPress={approve}
               style={({ pressed }) => [
                 styles.approveBtn,
+                brandButtonBg,
                 (busy || pressed) && { opacity: 0.88 },
               ]}
             >
               {busy && !reasonOpen ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.approveText}>Approve Reschedule</Text>
+                <Text style={[styles.approveText, brandButtonText]}>Approve Reschedule</Text>
               )}
             </Pressable>
 
@@ -324,6 +332,7 @@ export default function AlertRequestDetailScreen() {
             </Text>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       {/* Decline reason modal */}
@@ -383,12 +392,16 @@ export default function AlertRequestDetailScreen() {
             <Pressable
               onPress={sendDecline}
               disabled={busy}
-              style={({ pressed }) => [styles.sendBtn, (busy || pressed) && { opacity: 0.88 }]}
+              style={({ pressed }) => [
+                styles.sendBtn,
+                brandButtonBg,
+                (busy || pressed) && { opacity: 0.88 },
+              ]}
             >
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.sendText}>Sent To Patient</Text>
+                <Text style={[styles.sendText, brandButtonText]}>Sent To Patient</Text>
               )}
             </Pressable>
           </View>
@@ -430,8 +443,8 @@ export default function AlertRequestDetailScreen() {
             </View>
             <Text style={styles.successTitle}>Booking Re-Schedule</Text>
             <Text style={styles.successSub}>The Changes Save Successfully</Text>
-            <Pressable onPress={backToAlerts} style={styles.successBtn}>
-              <Text style={styles.successBtnText}>Back To Alerts</Text>
+            <Pressable onPress={backToAlerts} style={[styles.successBtn, brandButtonBg]}>
+              <Text style={[styles.successBtnText, brandButtonText]}>Back To Alerts</Text>
             </Pressable>
           </View>
         </View>
@@ -451,8 +464,8 @@ export default function AlertRequestDetailScreen() {
             <Text style={styles.successSub}>
               The approval decision has been recorded successfully.
             </Text>
-            <Pressable onPress={backToAppointments} style={styles.successBtn}>
-              <Text style={styles.successBtnText}>Back To Appointments</Text>
+            <Pressable onPress={backToAppointments} style={[styles.successBtn, brandButtonBg]}>
+              <Text style={[styles.successBtnText, brandButtonText]}>Back To Appointments</Text>
             </Pressable>
           </View>
         </View>
@@ -469,13 +482,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: s(14),
   },
-  headerTitle: {
+  headerLeft: {
     flex: 1,
-    textAlign: 'center',
-    marginHorizontal: s(8),
-    fontSize: fs(15),
+    marginLeft: s(12),
+    marginRight: s(8),
+  },
+  headerTitle: {
+    fontSize: fs(16),
     fontWeight: '700',
     color: colors.inkDeep,
+    textAlign: 'left',
   },
   error: {
     color: colors.danger,

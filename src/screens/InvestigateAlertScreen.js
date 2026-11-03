@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,12 +15,12 @@ import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { clinicErrorMessage, fetchManagerAlert, updateManagerAlert } from '../lib/clinic';
+import { BRAND_BG, brandButtonBg, brandButtonText, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-/** Exact Investigate Alert mock palette */
 const C = {
   bg: '#FFF8F1',
-  brand: '#CE9668',
+  brand: BRAND_BG,
   white: '#FFFFFF',
   ink: '#2B2420',
   muted: '#8D8680',
@@ -27,6 +34,8 @@ export default function InvestigateAlertScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(14);
+  const { width } = useWindowDimensions();
+  const contentWidth = Math.min(width - s(40), spacing.maxContent);
   const alertId = route.params?.alertId;
   const passed = route.params?.alert;
 
@@ -110,22 +119,26 @@ export default function InvestigateAlertScreen() {
           paddingTop: topPad,
           paddingHorizontal: s(20),
           paddingBottom: Math.max(insets.bottom, 18) + s(16),
+          alignItems: 'center',
         }}
       >
+        <View style={{ width: '100%', maxWidth: contentWidth }}>
         <View style={styles.header}>
           <IconCircleButton
             name="chevron-back"
             accessibilityLabel="Go back"
             onPress={() => navigation.goBack()}
           />
-          <Text style={styles.headerTitle}>Investigate Alert</Text>
-          <NotificationBellButton color={C.brand} />
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Investigate Alert</Text>
+          </View>
+          <NotificationBellButton color={BRAND_BG} />
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {/* Hero — tan card */}
-        <View style={styles.hero}>
+        <View style={[styles.hero, brandButtonBg]}>
           <View style={styles.heroTop}>
             <View style={styles.heroTitleRow}>
               <Ionicons name="warning-outline" size={s(18)} color={C.white} />
@@ -179,9 +192,9 @@ export default function InvestigateAlertScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={openDetails}
-            style={({ pressed }) => [styles.viewDetailsBtn, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [styles.viewDetailsBtn, brandButtonBg, pressed && { opacity: 0.9 }]}
           >
-            <Text style={styles.viewDetailsText}>View Details {'>'}</Text>
+            <Text style={[styles.viewDetailsText, brandButtonText]}>View Details {'>'}</Text>
           </Pressable>
         </View>
 
@@ -199,10 +212,11 @@ export default function InvestigateAlertScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={goHome}
-          style={({ pressed }) => [styles.homeBtn, pressed && { opacity: 0.9 }]}
+          style={({ pressed }) => [styles.homeBtn, brandButtonBg, pressed && { opacity: 0.9 }]}
         >
-          <Text style={styles.homeBtnText}>Back To Home</Text>
+          <Text style={[styles.homeBtnText, brandButtonText]}>Back To Home</Text>
         </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -242,13 +256,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: s(16),
   },
-  headerTitle: {
+  headerLeft: {
     flex: 1,
-    textAlign: 'center',
-    marginHorizontal: s(8),
+    marginLeft: s(12),
+    marginRight: s(8),
+  },
+  headerTitle: {
     fontSize: fs(17),
     fontWeight: '700',
     color: C.ink,
+    textAlign: 'left',
   },
   error: {
     color: C.danger,
@@ -257,7 +274,7 @@ const styles = StyleSheet.create({
     marginBottom: s(10),
   },
   hero: {
-    backgroundColor: C.brand,
+    backgroundColor: BRAND_BG,
     borderRadius: s(18),
     padding: s(16),
     marginBottom: s(14),
@@ -365,12 +382,12 @@ const styles = StyleSheet.create({
   viewDetailsBtn: {
     height: s(48),
     borderRadius: 999,
-    backgroundColor: C.brand,
+    backgroundColor: BRAND_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewDetailsText: {
-    color: C.white,
+    color: '#FFFFFF',
     fontSize: fs(14),
     fontWeight: '600',
   },
@@ -396,12 +413,12 @@ const styles = StyleSheet.create({
     marginTop: s(16),
     height: s(52),
     borderRadius: 999,
-    backgroundColor: C.brand,
+    backgroundColor: BRAND_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
   homeBtnText: {
-    color: C.white,
+    color: '#FFFFFF',
     fontSize: fs(15),
     fontWeight: '700',
   },

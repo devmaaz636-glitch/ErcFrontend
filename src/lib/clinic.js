@@ -214,6 +214,12 @@ export async function fetchManagerPatients() {
   return getManager('/api/manager/patients');
 }
 
+export async function fetchManagerPatient(id, { region } = {}) {
+  const query = region ? `?region=${encodeURIComponent(region)}` : '';
+  const data = await get(`/api/manager/patients/${encodeURIComponent(id)}${query}`);
+  return data.item;
+}
+
 export async function fetchManagerAlerts() {
   return getManager('/api/manager/alerts');
 }

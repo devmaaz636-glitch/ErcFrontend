@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { useClinicData } from '../context/ClinicDataContext';
 import { fetchManagerAppointmentRequest, updateManagerAppointmentRequest } from '../lib/clinic';
-import { managerDashboard as theme } from '../theme';
+import { BRAND_BG, brandButtonBg, brandButtonText, managerDashboard as theme } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
 const patientImage = require('../../assets/userprofile.png');
@@ -271,9 +271,20 @@ export default function AppointmentRequestDetailScreen() {
                   <Pressable
                     disabled={saving}
                     onPress={() => review('approve')}
-                    style={{ height: s(34), borderRadius: s(18), backgroundColor: theme.colors.brandButton || theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: s(23) }}
+                    style={[
+                      {
+                        height: s(34),
+                        borderRadius: s(18),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: s(23),
+                      },
+                      brandButtonBg,
+                    ]}
                   >
-                    <Text style={{ color: '#fff', fontSize: fs(10), fontWeight: '500' }}>{saving ? 'Updating…' : 'Approve Request'}</Text>
+                    <Text style={[{ fontSize: fs(10), fontWeight: '500' }, brandButtonText]}>
+                      {saving ? 'Updating…' : 'Approve Request'}
+                    </Text>
                   </Pressable>
                   <Pressable
                     disabled={saving}
@@ -316,9 +327,18 @@ export default function AppointmentRequestDetailScreen() {
                   <Pressable
                     disabled={saving}
                     onPress={() => setReasonModal(true)}
-                    style={{ height: s(32), borderRadius: s(17), backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: s(12) }}
+                    style={[
+                      {
+                        height: s(32),
+                        borderRadius: s(17),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: s(12),
+                      },
+                      brandButtonBg,
+                    ]}
                   >
-                    <Text style={{ color: '#fff', fontSize: fs(10) }}>Write Reason Of Reschedule</Text>
+                    <Text style={[{ fontSize: fs(10) }, brandButtonText]}>Write Reason Of Reschedule</Text>
                   </Pressable>
                 </Card>
               ) : null}
@@ -342,8 +362,8 @@ export default function AppointmentRequestDetailScreen() {
                 </View>
                 <Text style={modalStyles.title}>{outcome === 'approved' ? 'Request Approved' : 'Your Message Delivered'}</Text>
                 <Text style={modalStyles.subtitle}>The Approval Decision has been Recorded Successfully</Text>
-                <Pressable onPress={closeOutcome} style={modalStyles.primaryButton}>
-                  <Text style={modalStyles.primaryButtonText}>Back To Appointments</Text>
+                <Pressable onPress={closeOutcome} style={[modalStyles.primaryButton, brandButtonBg]}>
+                  <Text style={[modalStyles.primaryButtonText, brandButtonText]}>Back To Appointments</Text>
                 </Pressable>
               </>
             ) : (
@@ -378,9 +398,15 @@ export default function AppointmentRequestDetailScreen() {
                     requestedTime: time,
                     note: reason.trim(),
                   })}
-                  style={[modalStyles.primaryButton, (!reason.trim() || saving) && { opacity: 0.55 }]}
+                  style={[
+                    modalStyles.primaryButton,
+                    brandButtonBg,
+                    (!reason.trim() || saving) && { opacity: 0.55 },
+                  ]}
                 >
-                  <Text style={modalStyles.primaryButtonText}>{saving ? 'Sending…' : 'Sent To Patient'}</Text>
+                  <Text style={[modalStyles.primaryButtonText, brandButtonText]}>
+                    {saving ? 'Sending…' : 'Sent To Patient'}
+                  </Text>
                 </Pressable>
               </>
             )}
@@ -440,7 +466,7 @@ const modalStyles = {
     width: '82%',
     height: s(30),
     borderRadius: s(16),
-    backgroundColor: '#DFA16C',
+    backgroundColor: BRAND_BG,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: s(18),

@@ -9,10 +9,10 @@ import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../compon
 import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
 import { notifyBookingUpdate } from '../lib/notifyEvents';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
-import { colors } from '../theme';
+import { BRAND_BG, brandButtonBg, brandButtonText, colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const BROWN = colors.brand;
+const BROWN = BRAND_BG;
 const GREEN = colors.success;
 const RED = colors.danger;
 const INK = colors.ink;
@@ -194,6 +194,8 @@ export default function AppointmentDetailScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const appointmentId = route.params?.appointmentId || route.params?.appointment?.id;
+  const returnTo = route.params?.returnTo;
+  const fromPatients = returnTo === 'patients';
   const [appointment, setAppointment] = useState(route.params?.appointment || null);
   const [loading, setLoading] = useState(!route.params?.appointment);
   const [error, setError] = useState('');
@@ -205,6 +207,7 @@ export default function AppointmentDetailScreen() {
       setLoading(true);
       const seeded = route.params?.appointment;
       if (seeded?.id || seeded?.code) {
+        setAppointment(seeded);
         notifyBookingUpdate({
           onceKey: seeded.id || seeded.code,
           code: seeded.code,
@@ -214,10 +217,18 @@ export default function AppointmentDetailScreen() {
         }).catch(() => {});
       }
 
+      // Patient-flow demo appointments may not exist in /appointments — keep seed.
+      if (fromPatients && seeded?.id) {
+        setLoading(false);
+        return () => {
+          active = false;
+        };
+      }
+
       fetchAppointment(appointmentId)
         .then((item) => {
           if (active) {
-            setAppointment(item);
+            setAppointment(seeded ? { ...seeded, ...item } : item);
             setError('');
             notifyBookingUpdate({
               onceKey: item.id || item.code,
@@ -229,7 +240,7 @@ export default function AppointmentDetailScreen() {
           }
         })
         .catch((err) => {
-          if (active && !route.params?.appointment) {
+          if (active && !seeded) {
             setError(clinicErrorMessage(err));
           }
         })
@@ -239,8 +250,16 @@ export default function AppointmentDetailScreen() {
       return () => {
         active = false;
       };
-    }, [appointmentId, route.params?.appointment])
+    }, [appointmentId, fromPatients, route.params?.appointment])
   );
+
+  function goBackPrimary() {
+    if (fromPatients) {
+      navigation.navigate('ManagerPatients');
+      return;
+    }
+    navigateToTab(navigation, TAB_ROUTES.Appointments);
+  }
 
   const detail = buildDetail(appointment || {});
 
@@ -386,19 +405,30 @@ export default function AppointmentDetailScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigateToTab(navigation, TAB_ROUTES.Appointments)}
+            onPress={goBackPrimary}
             style={{
-              height: s(52),
-              borderRadius: 999,
-              backgroundColor: BROWN,
-              alignItems: 'center',
-              justifyContent: 'center',
               marginTop: s(22),
+              borderRadius: 999,
+              overflow: 'hidden',
             }}
           >
-            <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>
-              Back To Appointments
-            </Text>
+            <View
+              style={[
+                {
+                  height: s(52),
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: BRAND_BG,
+                },
+                brandButtonBg,
+                { backgroundColor: BRAND_BG },
+              ]}
+            >
+              <Text style={[{ fontSize: fs(15), fontWeight: '700' }, brandButtonText]}>
+                {fromPatients ? 'Back To Patients' : 'Back To Appointments'}
+              </Text>
+            </View>
           </Pressable>
         </View>
       </ScrollView>
