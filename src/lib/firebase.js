@@ -24,9 +24,7 @@ function createAuth() {
   try {
     return initializeAuth(app, {
       persistence:
-        Platform.OS === 'web'
-          ? browserLocalPersistence
-          : inMemoryPersistence,
+        Platform.OS === 'web' ? browserLocalPersistence : inMemoryPersistence,
     });
   } catch {
     return getAuth(app);

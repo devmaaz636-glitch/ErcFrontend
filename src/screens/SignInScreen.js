@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmAdminHomeCache, warmManagerHomeCache } from '../lib/clinic';
+import { DEMO_PASSWORD, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
 import { saveSignedInUser } from '../lib/users';
 
@@ -150,19 +151,16 @@ export default function SignInScreen() {
       await signInWithEmail(nextEmail, password);
       persistRememberedEmail().catch(() => {});
       if (auth.currentUser) {
+        // Firestore profile write must never block sign-in.
         saveSignedInUser(auth.currentUser).catch(() => {});
         // Warm home cache during Region Verify so Get Started is instant (admin + manager).
         auth.currentUser
-          .getIdTokenResult(false)
+          .getIdTokenResult(true)
           .then((tokenResult) => {
             const claims = tokenResult?.claims || {};
             if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
-              // Force claim refresh after role seed so branch scope is current.
-              return auth.currentUser
-                .getIdToken(true)
-                .then(() => warmManagerHomeCache(auth.currentUser.uid));
+              return warmManagerHomeCache(auth.currentUser.uid);
             }
-            // Default / admin: warm regional dashboard for zero-blink MainTabs home.
             if (isAdminRole(claims.role) || !isClinicManagerRole(claims.role)) {
               return warmAdminHomeCache(auth.currentUser.uid);
             }
@@ -172,7 +170,11 @@ export default function SignInScreen() {
       }
       navigation.replace('RegionVerify');
     } catch (signInError) {
-      setError(authErrorMessage(signInError));
+      let message = authErrorMessage(signInError, nextEmail);
+      if (isDemoManagerEmail(nextEmail) && password !== DEMO_PASSWORD) {
+        message = `Demo managers password is ${DEMO_PASSWORD}`;
+      }
+      setError(message);
     } finally {
       signingIn.current = false;
     }
