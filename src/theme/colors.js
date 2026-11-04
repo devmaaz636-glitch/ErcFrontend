@@ -23,6 +23,8 @@ export const colors = {
   // Text
   ink: '#1F1B16',
   inkDeep: '#1A1614',
+  /** Primary UI headings / menu labels (More drawer, section titles). */
+  heading: '#353535',
   muted: '#8D8680',
   mutedBrand: '#BF824F',
   desc: '#666666',

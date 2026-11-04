@@ -16,6 +16,7 @@ module.exports = {
         card: '#F7F3EE',
         background: '#FFF8F1',
         ink: '#1A1614',
+        heading: '#353535',
         muted: '#8D8680',
         field: '#F3EFEA',
         peach: '#E4A56B',

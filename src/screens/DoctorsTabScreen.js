@@ -80,7 +80,15 @@ export default function DoctorsTabScreen() {
                 marginRight: s(8),
               }}
             >
-              <Text style={{ color: category === item ? colors.white : colors.desc, fontSize: fs(8, 8) }}>{item}</Text>
+              <Text
+                style={{
+                  color: category === item ? colors.white : colors.desc,
+                  fontSize: fs(11),
+                  fontWeight: '600',
+                }}
+              >
+                {item}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>

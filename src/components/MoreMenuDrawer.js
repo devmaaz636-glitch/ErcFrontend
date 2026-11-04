@@ -3,6 +3,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Text as RNText,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -16,7 +17,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Text from './AppText';
+import { colors } from '../theme';
+import { scale as s, fs } from '../utils/responsive';
 
 export const MORE_MENU_ITEMS = [
   { key: 'alerts', label: 'Alerts', route: 'ManagerAlerts', icon: 'notifications-outline' },
@@ -24,17 +26,17 @@ export const MORE_MENU_ITEMS = [
   { key: 'profile', label: 'Profile', route: 'ManagerProfile', icon: 'person-outline' },
 ];
 
-const ACCENT = '#C17F45';
-const ACCENT_SOFT = '#FBF1E6';
-const INK = '#1A1614';
-const MUTED = '#8D8680';
-const DIVIDER = '#EFE8E1';
-const CHEVRON = '#C9C1B8';
+const HEADING = colors.heading || '#353535';
+const BRAND = colors.brand || '#BF824F';
+const DIVIDER = '#EEEEEE';
+const ICON_BG = '#F5F5F5';
+const ICON_SOFT = colors.brandSoft || '#FBEFE3';
+const CHEVRON = '#8A8A8A';
 
 export default function MoreMenuDrawer({ visible, onClose, onSelect }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const drawerWidth = Math.min(Math.max(width * 0.62, 260), 310);
+  const drawerWidth = Math.min(Math.max(width * 0.68, 240), 300);
   const closingRef = useRef(false);
   const afterCloseRef = useRef(null);
   const progress = useSharedValue(0);
@@ -92,7 +94,7 @@ export default function MoreMenuDrawer({ visible, onClose, onSelect }) {
   }
 
   const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, 1]),
+    opacity: interpolate(progress.value, [0, 1], [0, 0.35]),
   }));
 
   const panelStyle = useAnimatedStyle(() => ({
@@ -117,13 +119,13 @@ export default function MoreMenuDrawer({ visible, onClose, onSelect }) {
             style={[
               styles.panel,
               {
-                paddingTop: Math.max(insets.top, 18) + 12,
-                paddingBottom: Math.max(insets.bottom, 18),
+                paddingTop: Math.max(insets.top, 14) + s(6),
+                paddingBottom: Math.max(insets.bottom, 14),
               },
             ]}
           >
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>More</Text>
+              <RNText style={styles.headerTitle}>More</RNText>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close more menu"
@@ -131,25 +133,63 @@ export default function MoreMenuDrawer({ visible, onClose, onSelect }) {
                 hitSlop={12}
                 style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.55 }]}
               >
-                <Ionicons name="close" size={16} color={MUTED} />
+                <Ionicons name="close" size={s(16)} color={HEADING} />
               </Pressable>
             </View>
 
-            {MORE_MENU_ITEMS.map((item) => (
-              <Pressable
-                key={item.key}
-                accessibilityRole="button"
-                accessibilityLabel={item.label}
-                onPress={() => handleSelect(item.route)}
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              >
-                <View style={styles.iconWrap}>
-                  <Ionicons name={item.icon} size={18} color={ACCENT} />
-                </View>
-                <Text style={styles.rowLabel}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color={CHEVRON} />
-              </Pressable>
-            ))}
+            <View style={styles.list}>
+              {MORE_MENU_ITEMS.map((item) => (
+                <Pressable
+                  key={item.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  onPress={() => handleSelect(item.route)}
+                  style={({ pressed }) => ({
+                    marginBottom: 10,
+                    borderRadius: 12,
+                    backgroundColor: '#F4F4F4',
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      minHeight: 54,
+                      paddingHorizontal: 12,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        backgroundColor: ICON_SOFT,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 12,
+                      }}
+                    >
+                      <Ionicons name={item.icon} size={18} color={BRAND} />
+                    </View>
+                    <RNText
+                      numberOfLines={1}
+                      style={{
+                        flex: 1,
+                        fontSize: 15,
+                        lineHeight: 20,
+                        fontWeight: '600',
+                        color: HEADING,
+                        includeFontPadding: false,
+                      }}
+                    >
+                      {item.label}
+                    </RNText>
+                    <Ionicons name="chevron-forward" size={16} color={CHEVRON} />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
           </View>
         </Animated.View>
       </View>
@@ -167,7 +207,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(26, 22, 20, 0.35)',
+    backgroundColor: '#1A1614',
   },
   panelShell: {
     height: '100%',
@@ -175,57 +215,36 @@ const styles = StyleSheet.create({
   panel: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
-    paddingHorizontal: 18,
+    borderTopLeftRadius: s(20),
+    borderBottomLeftRadius: s(20),
+    paddingHorizontal: s(20),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 14,
-    marginBottom: 2,
+    paddingBottom: s(14),
+    marginBottom: s(6),
     borderBottomWidth: 1,
     borderBottomColor: DIVIDER,
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: fs(18),
+    lineHeight: fs(24),
     fontWeight: '700',
-    color: INK,
+    color: HEADING,
+    letterSpacing: 0.2,
+    includeFontPadding: false,
   },
   closeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F3EFEA',
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: ICON_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: DIVIDER,
-  },
-  rowPressed: {
-    backgroundColor: '#FAF7F3',
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  rowLabel: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '500',
-    color: INK,
+  list: {
+    marginTop: s(12),
   },
 });

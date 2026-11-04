@@ -46,20 +46,20 @@ function CategoryChip({ label, active, onPress }) {
       accessibilityState={{ selected: active }}
       onPress={onPress}
       style={{
-        height: s(34),
-        paddingHorizontal: s(16),
-        borderRadius: 999,
-        backgroundColor: active ? BUTTON_BG : 'transparent',
+        backgroundColor: active ? colors.brand : colors.brandSoft,
+        borderRadius: s(12),
+        paddingHorizontal: s(12),
+        paddingVertical: s(7),
+        marginRight: s(8),
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: s(8),
       }}
     >
       <Text
         style={{
           fontSize: fs(11),
           fontWeight: '600',
-          color: active ? colors.white : colors.ink,
+          color: active ? colors.white : colors.desc,
         }}
       >
         {label}
