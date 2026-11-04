@@ -11,8 +11,10 @@ import {
   fetchManagerAppointments,
   fetchManagerAppointmentRequests,
   fetchManagerDashboard,
+  hasManagerHomeReady,
   hasRealAdminDashboard,
   isAdminShellPayload,
+  isManagerDashboardPayload,
   managerClinicCacheKey,
   managerHomeShell,
   peekAdminHomePayload,
@@ -231,13 +233,69 @@ export function ClinicDataProvider({ children }) {
 
   const applyManagerData = useCallback(
     (nextData, { markFresh = false } = {}) => {
-      setData(nextData);
-      dataRef.current = nextData;
+      // Never replace a painted live manager home with another seed shell.
+      if (nextData?._shell && hasManagerHomeReady(dataRef.current) && !dataRef.current?._shell) {
+        return;
+      }
+      if (!isManagerDashboardPayload(nextData) && hasManagerHomeReady(dataRef.current)) {
+        return;
+      }
+
+      const prev = dataRef.current;
+      const incomingShell = Boolean(nextData?._shell);
+
+      // Live API wins section-by-section; seed fills gaps so home never flashes empty.
+      const merged = incomingShell
+        ? nextData
+        : {
+            ...nextData,
+            dashboard: nextData.dashboard
+              ? {
+                  ...prev.dashboard,
+                  ...nextData.dashboard,
+                  clinic: nextData.dashboard.clinic || prev.dashboard?.clinic || null,
+                  stats: nextData.dashboard.stats?.length
+                    ? nextData.dashboard.stats
+                    : prev.dashboard?.stats || [],
+                  appointmentRequests: nextData.dashboard.appointmentRequests?.length
+                    ? nextData.dashboard.appointmentRequests
+                    : prev.dashboard?.appointmentRequests || [],
+                  treatments: nextData.dashboard.treatments?.length
+                    ? nextData.dashboard.treatments
+                    : prev.dashboard?.treatments || [],
+                  doctors: nextData.dashboard.doctors?.length
+                    ? nextData.dashboard.doctors
+                    : prev.dashboard?.doctors || [],
+                  appointments: nextData.dashboard.appointments?.length
+                    ? nextData.dashboard.appointments
+                    : prev.dashboard?.appointments || [],
+                }
+              : prev.dashboard,
+            appointments: {
+              stats: nextData.appointments?.stats?.length
+                ? nextData.appointments.stats
+                : prev.appointments?.stats || [],
+              items: nextData.appointments?.items?.length
+                ? nextData.appointments.items
+                : prev.appointments?.items || [],
+            },
+            appointmentRequests: {
+              items: nextData.appointmentRequests?.items?.length
+                ? nextData.appointmentRequests.items
+                : prev.appointmentRequests?.items || [],
+              counts:
+                nextData.appointmentRequests?.counts || prev.appointmentRequests?.counts || null,
+            },
+            _shell: false,
+          };
+
+      setData(merged);
+      dataRef.current = merged;
       loadedOnceRef.current = true;
       setLoadedOnce(true);
       setError('');
       if (markFresh) lastFetchAtRef.current = Date.now();
-      persistManagerCache(user.uid, nextData);
+      persistManagerCache(user.uid, merged);
     },
     [persistManagerCache, user.uid]
   );
@@ -328,19 +386,64 @@ export function ClinicDataProvider({ children }) {
     return adminPayload(cached);
   }, []);
 
-  // Clinic-manager only: hydrate from disk ASAP (no EMPTY flash).
+  // Clinic-manager: disk → memory → shell ASAP (mirror admin — never paint empty).
   useEffect(() => {
     if (!ready || !user.uid || !(isManager || managerModeRef.current)) return undefined;
     let alive = true;
-    readManagerCache(user.uid).then((cached) => {
-      if (!alive || !cached) return;
-      if (dataRef.current?.dashboard) return;
-      applyManagerData(cached, { markFresh: false });
-    });
+    (async () => {
+      if (hasManagerHomeReady(dataRef.current)) return;
+      try {
+        const cached = await readManagerCache(user.uid);
+        if (!alive) return;
+        if (cached?.dashboard && isManagerDashboardPayload(cached)) {
+          applyManagerData(cached, { markFresh: false });
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!alive || hasManagerHomeReady(dataRef.current)) return;
+      const mem = peekManagerHomePayload();
+      if (mem?.dashboard && isManagerDashboardPayload(mem)) {
+        applyManagerData(
+          managerPayload(
+            mem.dashboard,
+            mem.appointments,
+            mem.appointmentRequests,
+            mem.appointmentRequests
+          ),
+          { markFresh: false }
+        );
+        return;
+      }
+      if (!alive || hasManagerHomeReady(dataRef.current)) return;
+      const shell = managerHomeShell(user.branchId || user.clinicId, user.region);
+      applyManagerData(
+        {
+          ...managerPayload(
+            shell.dashboard,
+            shell.appointments,
+            shell.appointmentRequests,
+            shell.appointmentRequests
+          ),
+          _shell: true,
+        },
+        { markFresh: false }
+      );
+    })();
     return () => {
       alive = false;
     };
-  }, [ready, user.uid, isManager, readManagerCache, applyManagerData]);
+  }, [
+    ready,
+    user.uid,
+    user.branchId,
+    user.clinicId,
+    user.region,
+    isManager,
+    readManagerCache,
+    applyManagerData,
+  ]);
 
   // Regional admin: hydrate from disk / memory / shell ASAP (never paint empty skeleton).
   useEffect(() => {
@@ -530,18 +633,33 @@ export function ClinicDataProvider({ children }) {
    * Instant clinic-manager home for Get Started:
    * seed/memory first (sync), disk upgrade, network in background.
    * Never awaits the network — ManagerTabs opens immediately.
+   * Ignores admin-shaped dashboards left over from Verify Region warm races.
    */
   const ensureManagerHomeReady = useCallback(async () => {
     managerModeRef.current = true;
+    adminModeRef.current = false;
+    const branchId = user.branchId || user.clinicId || null;
+    const region = user.region || null;
 
-    if (dataRef.current?.dashboard) {
+    // Always prefer a shell that matches this manager's clinic when current data is empty
+    // or still pointing at another branch (e.g. stale Riyadh seed for a new manager).
+    const currentClinicId = dataRef.current?.dashboard?.clinic?.id || null;
+    const clinicMismatch =
+      branchId && currentClinicId && currentClinicId !== branchId && dataRef.current?._shell;
+
+    if (hasManagerHomeReady(dataRef.current) && !clinicMismatch) {
       refresh({ silent: true, force: false }).catch(() => {});
       return true;
     }
 
-    // Sync paint first so a 250ms Get Started race never lands on empty tabs.
+    // Sync paint first so Get Started never lands on empty / wrong-clinic tabs.
     const mem = peekManagerHomePayload();
-    if (mem?.dashboard) {
+    const memClinicId = mem?.dashboard?.clinic?.id || null;
+    if (
+      mem?.dashboard &&
+      isManagerDashboardPayload(mem) &&
+      (!branchId || !memClinicId || memClinicId === branchId)
+    ) {
       applyManagerData(
         managerPayload(
           mem.dashboard,
@@ -552,7 +670,7 @@ export function ClinicDataProvider({ children }) {
         { markFresh: false }
       );
     } else {
-      const shell = managerHomeShell();
+      const shell = managerHomeShell(branchId, region);
       applyManagerData(
         {
           ...managerPayload(
@@ -570,29 +688,46 @@ export function ClinicDataProvider({ children }) {
     // Disk upgrade (fast) — does not block navigation if slow.
     readManagerCache(user.uid)
       .then((cached) => {
-        if (cached?.dashboard) applyManagerData(cached, { markFresh: false });
+        if (!cached?.dashboard || !isManagerDashboardPayload(cached)) return;
+        const cachedClinicId = cached.dashboard?.clinic?.id || null;
+        if (branchId && cachedClinicId && cachedClinicId !== branchId) return;
+        applyManagerData(cached, { markFresh: false });
       })
       .catch(() => {});
 
-    // Network upgrade — fire and forget.
-    warmManagerHomeCache(user.uid)
+    // Network upgrade — fire and forget (never blocks ManagerTabs).
+    warmManagerHomeCache(user.uid, { branchId, region })
       .then((warmed) => {
-        if (!warmed?.dashboard) return;
+        if (!warmed?.dashboard || !isManagerDashboardPayload(warmed)) return;
+        if (warmed._shell && hasManagerHomeReady(dataRef.current) && !dataRef.current?._shell) {
+          return;
+        }
         applyManagerData(
-          managerPayload(
-            warmed.dashboard,
-            warmed.appointments,
-            warmed.appointmentRequests,
-            warmed.appointmentRequests
-          ),
-          { markFresh: true }
+          {
+            ...managerPayload(
+              warmed.dashboard,
+              warmed.appointments,
+              warmed.appointmentRequests,
+              warmed.appointmentRequests
+            ),
+            _shell: Boolean(warmed._shell),
+          },
+          { markFresh: !warmed._shell }
         );
       })
       .catch(() => {});
     refresh({ silent: true, force: true }).catch(() => {});
 
     return true;
-  }, [user.uid, readManagerCache, applyManagerData, refresh]);
+  }, [
+    user.uid,
+    user.branchId,
+    user.clinicId,
+    user.region,
+    readManagerCache,
+    applyManagerData,
+    refresh,
+  ]);
 
   /**
    * Instant admin home for Verify Region / MainTabs:
@@ -660,9 +795,50 @@ export function ClinicDataProvider({ children }) {
       return undefined;
     }
 
+    // Manager: paint shell BEFORE network so Home never shows empty placeholders.
+    if ((isManager || managerModeRef.current) && !hasManagerHomeReady(dataRef.current)) {
+      const mem = peekManagerHomePayload();
+      if (mem?.dashboard && isManagerDashboardPayload(mem)) {
+        applyManagerData(
+          managerPayload(
+            mem.dashboard,
+            mem.appointments,
+            mem.appointmentRequests,
+            mem.appointmentRequests
+          ),
+          { markFresh: false }
+        );
+      } else {
+        const shell = managerHomeShell(user.branchId || user.clinicId, user.region);
+        applyManagerData(
+          {
+            ...managerPayload(
+              shell.dashboard,
+              shell.appointments,
+              shell.appointmentRequests,
+              shell.appointmentRequests
+            ),
+            _shell: true,
+          },
+          { markFresh: false }
+        );
+      }
+    }
+
     refresh({ silent: true, force: true }).catch(() => {});
     return undefined;
-  }, [ready, sessionKey, user.uid, isManager, isAdmin, refresh]);
+  }, [
+    ready,
+    sessionKey,
+    user.uid,
+    user.branchId,
+    user.clinicId,
+    user.region,
+    isManager,
+    isAdmin,
+    refresh,
+    applyManagerData,
+  ]);
 
   /** Optimistic / real-time patch after approve · reject · reschedule. */
   const applyAppointmentRequestUpdate = useCallback(

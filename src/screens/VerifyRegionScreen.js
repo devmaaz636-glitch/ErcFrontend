@@ -93,8 +93,13 @@ export default function VerifyRegionScreen() {
   const photoHeight = Math.max(width * (434 / 430), height * 0.5);
 
   // Warm home while user is still on this screen (admin + clinic manager).
+  // Prefer manager whenever branchId/claims look like a clinic manager — never warm admin for them.
   useEffect(() => {
-    if (user?.role === 'clinic_manager') {
+    const managerLikely =
+      isClinicManagerRole(user?.role) ||
+      Boolean(user?.branchId || user?.clinicId) ||
+      isManagerAccount;
+    if (managerLikely) {
       ensureManagerHomeReady().catch(() => {});
       return undefined;
     }
@@ -102,7 +107,14 @@ export default function VerifyRegionScreen() {
       ensureAdminHomeReady().catch(() => {});
     }
     return undefined;
-  }, [user?.role, ensureManagerHomeReady, ensureAdminHomeReady]);
+  }, [
+    user?.role,
+    user?.branchId,
+    user?.clinicId,
+    isManagerAccount,
+    ensureManagerHomeReady,
+    ensureAdminHomeReady,
+  ]);
 
   // Keep clinic managers pinned to their assigned branch region (claims + session).
   useEffect(() => {
@@ -153,14 +165,18 @@ export default function VerifyRegionScreen() {
     try {
       let role = user?.role || '';
       let branchId = user?.branchId || user?.clinicId || null;
-      try {
-        // Force-refresh so newly seeded manager claims (role + branchId) apply.
-        const tokenResult = await auth.currentUser?.getIdTokenResult(true);
-        const claims = tokenResult?.claims || {};
-        role = claims.role || role;
-        branchId = claims.branchId || claims.clinicId || branchId;
-      } catch {
-        /* Session bootstrap will surface an authorization error if claims cannot be read. */
+      // Skip forced token refresh when manager claims are already on the session (instant Get Started).
+      const claimsAlreadyReady =
+        isClinicManagerRole(role) && Boolean(branchId);
+      if (!claimsAlreadyReady) {
+        try {
+          const tokenResult = await auth.currentUser?.getIdTokenResult(true);
+          const claims = tokenResult?.claims || {};
+          role = claims.role || role;
+          branchId = claims.branchId || claims.clinicId || branchId;
+        } catch {
+          /* Session bootstrap will surface an authorization error if claims cannot be read. */
+        }
       }
 
       const isManagerFlow = isClinicManagerRole(role) || branchId;
@@ -178,26 +194,16 @@ export default function VerifyRegionScreen() {
       }
 
       await persistRegion({ ...effectiveRegion, code: effectiveCode });
-      updateUser({ region: effectiveRegion.short || effectiveRegion.name }).catch(() => {});
-
-      // Prime home from cache/seed only — never wait on network before tabs open.
-      const prime = isManagerFlow
-        ? ensureManagerHomeReady().catch(() => true)
-        : ensureAdminHomeReady().catch(() => true);
-
-      // Cap any disk hydrate at ~250ms so Get Started always feels instant.
-      await Promise.race([
-        prime,
-        new Promise((resolve) => setTimeout(() => resolve(true), 250)),
-      ]);
 
       if (isManagerFlow) {
+        // Apply manager role + shell BEFORE navigate so Home never paints empty placeholders.
         updateUser({
           role: 'clinic_manager',
           branchId: branchId || null,
           clinicId: branchId || null,
           region: effectiveRegion.short || effectiveRegion.name,
         }).catch(() => {});
+        await ensureManagerHomeReady().catch(() => true);
         if (switchMode) {
           navigation.goBack();
         } else {
@@ -205,6 +211,10 @@ export default function VerifyRegionScreen() {
         }
         return;
       }
+
+      updateUser({ region: effectiveRegion.short || effectiveRegion.name }).catch(() => {});
+      // Admin: prime shell quickly, never wait on network.
+      ensureAdminHomeReady().catch(() => {});
 
       if (switchMode) {
         navigation.goBack();

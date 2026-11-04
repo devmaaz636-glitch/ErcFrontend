@@ -15,7 +15,7 @@ import { auth } from './firebase';
 
 export function managerClinicCacheKey(uid) {
   // Bump version when seed/dashboard shape changes so managers never keep stale empty homes.
-  return `@erc/manager-clinic-cache:v6:${uid}`;
+  return `@erc/manager-clinic-cache:v9:${uid}`;
 }
 
 export function adminClinicCacheKey(uid) {
@@ -35,18 +35,34 @@ export function peekManagerHomePayload() {
 }
 
 export function rememberManagerHomePayload(payload) {
-  if (!payload?.dashboard || payload?._shell) return;
+  if (!payload?.dashboard) return;
+  // Keep shell in memory too so cold Get Started never waits on disk/network.
   lastManagerHomePayloadMem = payload;
 }
 
-/** Instant full manager design so Get Started never waits on network. */
-export function managerHomeShell() {
+/** Instant full manager design so Get Started never waits on network (any branch). */
+export function managerHomeShell(branchId, regionHint) {
   return {
     _shell: true,
-    dashboard: createManagerSeedDashboard(),
-    appointments: createManagerSeedAppointments(),
-    appointmentRequests: createManagerSeedRequests(),
+    dashboard: createManagerSeedDashboard(branchId, regionHint),
+    appointments: createManagerSeedAppointments(branchId, regionHint),
+    appointmentRequests: createManagerSeedRequests(branchId, regionHint),
   };
+}
+
+/** True when payload is clinic-manager shaped (has clinic / treatments), not admin home. */
+export function isManagerDashboardPayload(payload) {
+  const dash = payload?.dashboard || payload;
+  if (!dash || typeof dash !== 'object') return false;
+  if (dash.clinic?.id || dash.clinic?.name) return true;
+  if (Array.isArray(dash.treatments)) return true;
+  // Admin dashboards carry managerPreview / branch leaderboard — not manager home.
+  if (Array.isArray(dash.managerPreview) || Array.isArray(dash.branches)) return false;
+  return Boolean(dash.stats?.length && (dash.doctors?.length || dash.appointmentRequests?.length));
+}
+
+export function hasManagerHomeReady(payload) {
+  return isManagerDashboardPayload(payload);
 }
 
 /** Instant full admin design seed so Home/tabs never paint empty while network catches up. */
@@ -269,103 +285,77 @@ async function writeManagerHomeCache(uid, payload) {
   }
 }
 
+function softRefreshManagerHome(uid, baseline) {
+  fetchManagerDashboard()
+    .then(async (dashboard) => {
+      if (!dashboard) return;
+      const next = {
+        dashboard,
+        appointments: baseline?.appointments || { stats: [], items: [] },
+        appointmentRequests: baseline?.appointmentRequests || {
+          items: dashboard.appointmentRequests || [],
+          counts: null,
+        },
+      };
+      await writeManagerHomeCache(uid, next);
+      const [appointments, requests] = await Promise.all([
+        fetchManagerAppointments().catch(() => null),
+        fetchManagerAppointmentRequests().catch(() => null),
+      ]);
+      await writeManagerHomeCache(uid, {
+        dashboard: {
+          ...dashboard,
+          appointmentRequests: Array.isArray(requests?.items)
+            ? requests.items.filter((item) => item.status === 'pending')
+            : dashboard.appointmentRequests || [],
+        },
+        appointments: appointments
+          ? { stats: appointments.stats || [], items: appointments.items || [] }
+          : next.appointments,
+        appointmentRequests: requests
+          ? { items: requests.items || [], counts: requests.counts || null }
+          : next.appointmentRequests,
+      });
+    })
+    .catch(() => {});
+}
+
 /**
  * Warm disk cache as soon as a clinic manager signs in.
- * Returns any disk/memory cache immediately — network upgrades in the background.
+ * Always returns shell/cache immediately — network upgrades in the background.
+ * Pass branchId/region so new managers get the correct clinic shell instantly.
  */
-export function warmManagerHomeCache(uid) {
+export function warmManagerHomeCache(uid, { branchId = null, region = null } = {}) {
   if (!uid) return Promise.resolve(null);
   if (warmPromises.has(uid)) return warmPromises.get(uid);
 
   const job = (async () => {
     try {
       const existing = await readManagerHomeCache(uid);
-      if (existing?.dashboard) {
+      if (existing?.dashboard && isManagerDashboardPayload(existing)) {
         rememberManagerHomePayload(existing);
-        // Soft network refresh while callers already navigate with cache.
-        fetchManagerDashboard()
-          .then(async (dashboard) => {
-            if (!dashboard) return;
-            const next = {
-              dashboard,
-              appointments: existing.appointments || { stats: [], items: [] },
-              appointmentRequests: existing.appointmentRequests || {
-                items: dashboard.appointmentRequests || [],
-                counts: null,
-              },
-            };
-            await writeManagerHomeCache(uid, next);
-            const [appointments, requests] = await Promise.all([
-              fetchManagerAppointments().catch(() => null),
-              fetchManagerAppointmentRequests().catch(() => null),
-            ]);
-            await writeManagerHomeCache(uid, {
-              dashboard: {
-                ...dashboard,
-                appointmentRequests: Array.isArray(requests?.items)
-                  ? requests.items.filter((item) => item.status === 'pending')
-                  : dashboard.appointmentRequests || [],
-              },
-              appointments: appointments
-                ? { stats: appointments.stats || [], items: appointments.items || [] }
-                : next.appointments,
-              appointmentRequests: requests
-                ? { items: requests.items || [], counts: requests.counts || null }
-                : next.appointmentRequests,
-            });
-          })
-          .catch(() => {});
+        softRefreshManagerHome(uid, existing);
         return existing;
       }
 
       const mem = peekManagerHomePayload();
-      if (mem?.dashboard) {
-        /* serve memory while fetching */
+      if (mem?.dashboard && isManagerDashboardPayload(mem)) {
+        softRefreshManagerHome(uid, mem);
+        return mem;
       }
 
-      const dashboard = await fetchManagerDashboard();
-      if (!dashboard) return existing || mem;
-      const payload = {
-        dashboard,
-        appointments: existing?.appointments || mem?.appointments || { stats: [], items: [] },
-        appointmentRequests: existing?.appointmentRequests || mem?.appointmentRequests || {
-          items: dashboard.appointmentRequests || [],
-          counts: null,
-        },
-      };
-      await writeManagerHomeCache(uid, payload);
-
-      Promise.all([
-        fetchManagerAppointments().catch(() => null),
-        fetchManagerAppointmentRequests().catch(() => null),
-      ])
-        .then(async ([appointments, requests]) => {
-          await writeManagerHomeCache(uid, {
-            dashboard: {
-              ...dashboard,
-              appointmentRequests: Array.isArray(requests?.items)
-                ? requests.items.filter((item) => item.status === 'pending')
-                : dashboard.appointmentRequests || [],
-            },
-            appointments: appointments
-              ? {
-                  stats: appointments.stats || [],
-                  items: appointments.items || [],
-                }
-              : payload.appointments,
-            appointmentRequests: requests
-              ? {
-                  items: requests.items || [],
-                  counts: requests.counts || null,
-                }
-              : payload.appointmentRequests,
-          });
-        })
-        .catch(() => {});
-
-      return payload;
+      // Cold start: paint branch-scoped shell NOW, then upgrade network in background.
+      const shell = managerHomeShell(branchId, region);
+      rememberManagerHomePayload(shell);
+      softRefreshManagerHome(uid, shell);
+      return shell;
     } catch {
-      return (await readManagerHomeCache(uid)) || peekManagerHomePayload();
+      const fallback =
+        (await readManagerHomeCache(uid).catch(() => null)) ||
+        peekManagerHomePayload() ||
+        managerHomeShell(branchId, region);
+      rememberManagerHomePayload(fallback);
+      return fallback;
     }
   })();
 

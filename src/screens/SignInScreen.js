@@ -18,7 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmAdminHomeCache, warmManagerHomeCache } from '../lib/clinic';
-import { DEMO_PASSWORD, isDemoManagerEmail } from '../lib/demoAccounts';
+import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
 import { saveSignedInUser } from '../lib/users';
 
@@ -153,26 +153,37 @@ export default function SignInScreen() {
       if (auth.currentUser) {
         // Firestore profile write must never block sign-in.
         saveSignedInUser(auth.currentUser).catch(() => {});
-        // Warm home cache during Region Verify so Get Started is instant (admin + manager).
-        auth.currentUser
-          .getIdTokenResult(true)
-          .then((tokenResult) => {
-            const claims = tokenResult?.claims || {};
-            if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
-              return warmManagerHomeCache(auth.currentUser.uid);
-            }
-            if (isAdminRole(claims.role) || !isClinicManagerRole(claims.role)) {
-              return warmAdminHomeCache(auth.currentUser.uid);
-            }
-            return null;
-          })
-          .catch(() => {});
+        // Warm the correct home cache during Region Verify (demo managers → manager shell NOW).
+        if (isDemoManagerEmail(nextEmail)) {
+          const demo = findDemoManager(nextEmail);
+          warmManagerHomeCache(auth.currentUser.uid, {
+            branchId: demo?.branchId || null,
+            region: demo?.region || null,
+          }).catch(() => {});
+        } else {
+          auth.currentUser
+            .getIdTokenResult(true)
+            .then((tokenResult) => {
+              const claims = tokenResult?.claims || {};
+              if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
+                return warmManagerHomeCache(auth.currentUser.uid, {
+                  branchId: claims.branchId || claims.clinicId || null,
+                  region: claims.region || null,
+                });
+              }
+              if (isAdminRole(claims.role)) {
+                return warmAdminHomeCache(auth.currentUser.uid);
+              }
+              return null;
+            })
+            .catch(() => {});
+        }
       }
       navigation.replace('RegionVerify');
     } catch (signInError) {
       let message = authErrorMessage(signInError, nextEmail);
-      if (isDemoManagerEmail(nextEmail) && password !== DEMO_PASSWORD) {
-        message = `Demo managers password is ${DEMO_PASSWORD}`;
+      if (isDemoManagerEmail(nextEmail) && password !== demoPasswordFor(nextEmail)) {
+        message = `Use password ${demoPasswordFor(nextEmail)} for this clinic manager.`;
       }
       setError(message);
     } finally {

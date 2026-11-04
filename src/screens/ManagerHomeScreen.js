@@ -9,11 +9,16 @@ import UserAvatar from '../components/UserAvatar';
 import { NotificationBellButton, SearchField } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
+import { createManagerSeedDashboard } from '../lib/managerSeed';
 import { colors, managerDashboard as theme, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
 const treatmentImage = require('../../assets/brachtabimage.png');
 const doctorImage = require('../../assets/doctor.png');
+
+function pickList(live, seedList) {
+  return Array.isArray(live) && live.length > 0 ? live : seedList;
+}
 
 function StatCard({ item }) {
   return (
@@ -222,17 +227,34 @@ export default function ManagerHomeScreen() {
   const route = useRoute();
   const topPad = useTopPadding(10);
   const { user } = useSession();
-  const { dashboard, error, refresh } = useClinicData();
+  const { dashboard, error, refresh, ensureManagerHomeReady } = useClinicData();
   const [query, setQuery] = useState('');
   const [pulling, setPulling] = useState(false);
   const [reviewHint, setReviewHint] = useState(false);
 
-  const stats = dashboard?.stats || [];
-  const requests = dashboard?.appointmentRequests || [];
-  const treatments = dashboard?.treatments || [];
-  const doctors = dashboard?.doctors || [];
-  const greetingName = user.name || user.email?.split('@')[0] || 'Manager';
-  const clinicName = dashboard?.clinic?.name || 'Assigned clinic';
+  // Instant paint by this manager's branch — works for new managers too.
+  const homeSeed = useMemo(
+    () => createManagerSeedDashboard(user.branchId || user.clinicId, user.region),
+    [user.branchId, user.clinicId, user.region]
+  );
+  const stats = pickList(dashboard?.stats, homeSeed.stats);
+  const requests = pickList(dashboard?.appointmentRequests, homeSeed.appointmentRequests);
+  const treatments = pickList(dashboard?.treatments, homeSeed.treatments);
+  const doctors = pickList(dashboard?.doctors, homeSeed.doctors);
+  const greetingName =
+    user.name &&
+    user.name !== 'Regional Admin' &&
+    user.name !== 'Admin' &&
+    user.name !== 'Manager' &&
+    user.name !== 'Clinic Manager'
+      ? user.name
+      : user.email?.split('@')[0] || 'Manager';
+  const clinicName = dashboard?.clinic?.name || homeSeed.clinic.name || 'Assigned clinic';
+
+  // Prime shell as soon as this tab mounts (covers race before context hydrate).
+  useEffect(() => {
+    ensureManagerHomeReady?.().catch(() => {});
+  }, [ensureManagerHomeReady]);
 
   useEffect(() => {
     if (!route.params?.fromAlertReview) return undefined;
@@ -347,65 +369,38 @@ export default function ManagerHomeScreen() {
           ) : null}
 
           <SectionHeader title="Appointment Requests" onPress={() => navigation.navigate('AppointmentsTab')} />
-          {requests.length ? (
-            requests.slice(0, 3).map((request) => (
-              <RequestCard
-                key={request.id}
-                request={request}
-                onReview={() =>
-                  navigation.navigate('AppointmentRequestDetail', { requestId: request.id })
-                }
-              />
-            ))
-          ) : (
-            <View
-              style={{
-                backgroundColor: theme.colors.card,
-                borderRadius: s(theme.radius.card),
-                padding: s(16),
-                marginBottom: s(18),
-              }}
-            >
-              <Text style={{ color: theme.colors.secondaryText, fontSize: fs(10), textAlign: 'center' }}>
-                No pending appointment requests
-              </Text>
-            </View>
-          )}
+          {requests.slice(0, 3).map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              onReview={() =>
+                navigation.navigate('AppointmentRequestDetail', { requestId: request.id })
+              }
+            />
+          ))}
 
           <SectionHeader title="Treatments Leaderboard" onPress={() => navigation.navigate('TreatmentsTab')} />
-          {filteredTreatments.length ? (
-            filteredTreatments.slice(0, 3).map((item) => (
-              <TreatmentCard
-                key={item.id}
-                item={item}
-                onPress={() => navigation.navigate('TreatmentsTab')}
-              />
-            ))
-          ) : (
-            <Text style={{ color: theme.colors.secondaryText, fontSize: fs(10), marginBottom: s(18) }}>
-              No treatment quota data configured.
-            </Text>
-          )}
+          {filteredTreatments.slice(0, 3).map((item) => (
+            <TreatmentCard
+              key={item.id}
+              item={item}
+              onPress={() => navigation.navigate('TreatmentsTab')}
+            />
+          ))}
 
           <SectionHeader title="Doctors Performance" onPress={() => navigation.navigate('DoctorsTab')} />
-          {doctors.length ? (
-            doctors.slice(0, 3).map((doctor) => (
-              <DoctorCard
-                key={doctor.id}
-                doctor={doctor}
-                onPress={() =>
-                  navigation.navigate('DoctorConsultation', {
-                    doctorId: doctor.id,
-                    doctor,
-                  })
-                }
-              />
-            ))
-          ) : (
-            <Text style={{ color: theme.colors.secondaryText, fontSize: fs(10), marginBottom: s(18) }}>
-              No doctors found for this clinic.
-            </Text>
-          )}
+          {doctors.slice(0, 3).map((doctor) => (
+            <DoctorCard
+              key={doctor.id}
+              doctor={doctor}
+              onPress={() =>
+                navigation.navigate('DoctorConsultation', {
+                  doctorId: doctor.id,
+                  doctor,
+                })
+              }
+            />
+          ))}
         </View>
       </ScrollView>
     </View>

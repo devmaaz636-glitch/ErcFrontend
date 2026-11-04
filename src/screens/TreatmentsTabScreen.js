@@ -13,6 +13,8 @@ import {
 } from '../components/ui';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { clinicErrorMessage, fetchManagerTreatments } from '../lib/clinic';
+import { useSession } from '../context/SessionContext';
+import { createManagerSeedTreatmentList } from '../lib/managerSeed';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -191,15 +193,37 @@ export default function TreatmentsTabScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
+  const { user } = useSession();
+  const treatmentSeed = useMemo(
+    () => createManagerSeedTreatmentList(user.branchId || user.clinicId, user.region),
+    [user.branchId, user.clinicId, user.region]
+  );
 
-  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
-  const [departments, setDepartments] = useState(FALLBACK_CATEGORIES.slice(1));
-  const [currency, setCurrency] = useState('AED');
-  const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState(
+    treatmentSeed.categories?.length ? treatmentSeed.categories : FALLBACK_CATEGORIES
+  );
+  const [departments, setDepartments] = useState(
+    treatmentSeed.departments?.length
+      ? treatmentSeed.departments
+      : FALLBACK_CATEGORIES.slice(1)
+  );
+  const [currency, setCurrency] = useState(treatmentSeed.currency || 'AED');
+  const [items, setItems] = useState(treatmentSeed.items || []);
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(Boolean(treatmentSeed.items?.length));
+
+  useEffect(() => {
+    setCategories(treatmentSeed.categories?.length ? treatmentSeed.categories : FALLBACK_CATEGORIES);
+    setDepartments(
+      treatmentSeed.departments?.length
+        ? treatmentSeed.departments
+        : FALLBACK_CATEGORIES.slice(1)
+    );
+    setCurrency(treatmentSeed.currency || 'AED');
+    setItems((prev) => (prev?.length ? prev : treatmentSeed.items || []));
+  }, [treatmentSeed]);
 
   const load = useCallback(async () => {
     try {
@@ -218,7 +242,14 @@ export default function TreatmentsTabScreen() {
     } catch (err) {
       setCategories((prev) => (prev?.length ? prev : FALLBACK_CATEGORIES));
       setLoadedOnce(true);
-      setError((prev) => prev || clinicErrorMessage(err));
+      // Keep seed/list visible — only surface error when the list is still empty.
+      setError((prev) => prev);
+      setItems((prev) => {
+        if (!prev.length) {
+          setError(clinicErrorMessage(err));
+        }
+        return prev;
+      });
       return null;
     }
   }, []);

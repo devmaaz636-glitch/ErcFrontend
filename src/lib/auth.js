@@ -7,7 +7,7 @@ import {
   updatePassword,
 } from 'firebase/auth';
 import { api } from './api';
-import { DEMO_PASSWORD, isDemoManagerEmail } from './demoAccounts';
+import { demoPasswordFor, isDemoManagerEmail } from './demoAccounts';
 import { auth } from './firebase';
 import {
   confirmNewPassword,
@@ -104,7 +104,7 @@ export function authErrorMessage(error, email = '') {
     const apiMessage = error.response.data.message || error.response.data.error;
     if (error.response?.status === 401 || error.response?.data?.error === 'INVALID_CREDENTIALS') {
       return demoEmail
-        ? `Email or password is incorrect. Use password ${DEMO_PASSWORD}.`
+        ? `Email or password is incorrect. Use password ${demoPasswordFor(email)}.`
         : 'Email or password is incorrect.';
     }
     return typeof apiMessage === 'string' ? apiMessage : resetMessage;
@@ -118,7 +118,7 @@ export function authErrorMessage(error, email = '') {
 
   if (isRateLimitedError(error)) {
     return demoEmail
-      ? `Firebase locked password login. Use password ${DEMO_PASSWORD} — demo managers sign in through the API (no wait).`
+      ? `Firebase locked password login. Use password ${demoPasswordFor(email)} — managers sign in through the API (no wait).`
       : 'Too many attempts. Wait a minute, then try again.';
   }
 
@@ -131,7 +131,7 @@ export function authErrorMessage(error, email = '') {
     case 'auth/wrong-password':
     case 'auth/user-not-found':
       return demoEmail
-        ? `Email or password is incorrect. Use password ${DEMO_PASSWORD}.`
+        ? `Email or password is incorrect. Use password ${demoPasswordFor(email)}.`
         : 'Email or password is incorrect.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
