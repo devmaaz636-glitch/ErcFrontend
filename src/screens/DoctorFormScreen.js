@@ -336,7 +336,7 @@ export default function DoctorFormScreen() {
         initialSchedule={weeklySchedule}
         onClose={() => setScheduleOpen(false)}
         onChange={(next) => {
-          setWeeklySchedule(next); // live: reflects on this screen as the user selects
+          setWeeklySchedule(next);
           setError('');
         }}
         onSave={(next) => {

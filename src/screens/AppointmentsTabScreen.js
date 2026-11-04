@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import { formatAppointmentWhen } from '../components/BookingCalendar';
 import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwitcher';
 import {
   IconCircleButton,
@@ -222,8 +223,8 @@ function AppointmentCard({ item, onPress }) {
   const patient = item.patient || 'Appointment';
   const code = item.code || 'Appointment details';
   const treatment = item.treatment || 'Clinic visit';
-  const time = item.time || 'Time not available';
   const doctor = item.doctor || 'Doctor not assigned';
+  const when = formatAppointmentWhen(item);
 
   return (
     <Pressable
@@ -253,8 +254,21 @@ function AppointmentCard({ item, onPress }) {
           <Text style={{ flex: 1, fontSize: fs(10), color: colors.ink }} numberOfLines={1}>
             {treatment}
           </Text>
-          <Ionicons name="time-outline" size={s(11)} color={colors.desc} />
-          <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 4 }}>{time}</Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: s(8) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: s(4) }}>
+            <Ionicons name="calendar-outline" size={s(11)} color={colors.brand} />
+            <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 4 }}>{when.day}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: s(4) }}>
+            <Ionicons name="today-outline" size={s(11)} color={colors.brand} />
+            <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 4 }}>{when.date}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: s(4) }}>
+            <Ionicons name="time-outline" size={s(11)} color={colors.brand} />
+            <Text style={{ fontSize: fs(9), color: colors.desc, marginLeft: 4 }}>{when.time}</Text>
+          </View>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(6) }}>
@@ -271,7 +285,7 @@ function AppointmentCard({ item, onPress }) {
 function ManagerRequestCard({ item, onReview }) {
   const status = normalizeRequestStatus(item.status);
   const st = REQUEST_STATUS[status] || REQUEST_STATUS.pending;
-  const when = formatRequestWhen(item);
+  const when = formatAppointmentWhen(item);
   return (
     <View
       style={{
@@ -307,13 +321,30 @@ function ManagerRequestCard({ item, onReview }) {
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(10) }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: s(10) }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: 4 }}>
+          <Ionicons name="calendar-outline" size={s(11)} color={colors.brand} />
+          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
+            {when.day}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: 4 }}>
+          <Ionicons name="today-outline" size={s(11)} color={colors.brand} />
+          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
+            {when.date}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <Ionicons name="time-outline" size={s(11)} color={colors.brand} />
+          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
+            {when.time}
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(6) }}>
         <Text style={{ flex: 1, color: managerTheme.colors.secondaryText, fontSize: fs(9) }} numberOfLines={1}>
           {item.doctor || 'Doctor'}
-        </Text>
-        <Ionicons name="time-outline" size={s(11)} color={managerTheme.colors.secondaryText} />
-        <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
-          {when}
         </Text>
       </View>
 

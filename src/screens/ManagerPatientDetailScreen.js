@@ -16,6 +16,7 @@ import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { formatAppointmentWhen } from '../components/BookingCalendar';
 import { clinicErrorMessage, fetchManagerPatient } from '../lib/clinic';
 import {
   localizeAppointmentForRegion,
@@ -67,6 +68,7 @@ function InfoRow({ icon, label, value }) {
 
 function AppointmentCard({ item, currency = 'AED', onPress }) {
   const upcoming = String(item.status || '').toLowerCase() === 'upcoming';
+  const when = formatAppointmentWhen(item);
   return (
     <View style={styles.aptCard}>
       <View style={styles.aptTop}>
@@ -100,6 +102,28 @@ function AppointmentCard({ item, currency = 'AED', onPress }) {
           </Text>
         </View>
       </View>
+
+      <View style={styles.whenRow}>
+        <View style={styles.whenItem}>
+          <Ionicons name="calendar-outline" size={s(13)} color={BRAND_BG} />
+          <Text style={styles.whenText} numberOfLines={1}>
+            {when.day}
+          </Text>
+        </View>
+        <View style={styles.whenItem}>
+          <Ionicons name="today-outline" size={s(13)} color={BRAND_BG} />
+          <Text style={styles.whenText} numberOfLines={1}>
+            {when.date}
+          </Text>
+        </View>
+        <View style={styles.whenItem}>
+          <Ionicons name="time-outline" size={s(13)} color={BRAND_BG} />
+          <Text style={styles.whenText} numberOfLines={1}>
+            {when.time}
+          </Text>
+        </View>
+      </View>
+
       <Pressable
         accessibilityRole="button"
         onPress={onPress}
@@ -496,6 +520,27 @@ const styles = StyleSheet.create({
     lineHeight: fs(15),
     textAlign: 'left',
     alignSelf: 'stretch',
+  },
+  whenRow: {
+    marginTop: s(12),
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  whenItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8EFE6',
+    borderRadius: 999,
+    paddingHorizontal: s(10),
+    paddingVertical: s(6),
+    marginRight: s(4),
+    marginBottom: s(4),
+  },
+  whenText: {
+    marginLeft: s(5),
+    fontSize: fs(10),
+    fontWeight: '600',
+    color: C.ink,
   },
   badge: {
     borderRadius: 999,

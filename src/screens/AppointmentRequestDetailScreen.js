@@ -5,8 +5,17 @@ import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import BookingCalendar, {
+  formatAppointmentWhen,
+  toDateKey,
+} from '../components/BookingCalendar';
 import { useClinicData } from '../context/ClinicDataContext';
-import { fetchManagerAppointmentRequest, updateManagerAppointmentRequest } from '../lib/clinic';
+import { useSession } from '../context/SessionContext';
+import {
+  fetchClinicAppointmentRequest,
+  fetchManagerAppointmentRequest,
+  updateManagerAppointmentRequest,
+} from '../lib/clinic';
 import { BRAND_BG, brandButtonBg, brandButtonText, managerDashboard as theme } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
@@ -97,33 +106,50 @@ export default function AppointmentRequestDetailScreen() {
   const route = useRoute();
   const topPad = useTopPadding(10);
   const requestId = route.params?.requestId;
+  const seededRequest = route.params?.request || null;
   const { applyAppointmentRequestUpdate, refresh } = useClinicData();
-  const [request, setRequest] = useState(null);
+  const { user } = useSession();
+  const isManager =
+    user?.role === 'clinic_manager' ||
+    user?.role === 'clinicmanager' ||
+    user?.role === 'manager';
+  const [request, setRequest] = useState(seededRequest);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
   const [reasonModal, setReasonModal] = useState(false);
   const [outcome, setOutcome] = useState(null);
   const [reason, setReason] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [date, setDate] = useState(seededRequest?.requestedDate || '');
+  const [time, setTime] = useState(seededRequest?.requestedTime || '');
 
   useEffect(() => {
     let active = true;
-    fetchManagerAppointmentRequest(requestId)
+    const load = isManager
+      ? fetchManagerAppointmentRequest(requestId)
+      : fetchClinicAppointmentRequest(requestId);
+    load
       .then((item) => {
-        if (!active) return;
+        if (!active || !item) return;
         setRequest(item);
         setDate(item.requestedDate || '');
         setTime(item.requestedTime || '');
+        setError('');
       })
       .catch((err) => {
-        if (active) setError(err.message || 'Could not load appointment request.');
+        if (!active) return;
+        if (seededRequest) {
+          setRequest(seededRequest);
+          setDate(seededRequest.requestedDate || '');
+          setTime(seededRequest.requestedTime || '');
+          return;
+        }
+        setError(err.message || 'Could not load appointment request.');
       });
     return () => {
       active = false;
     };
-  }, [requestId]);
+  }, [requestId, isManager, seededRequest]);
 
   const statusLabel = useMemo(() => {
     const status = String(request?.status || 'pending');
@@ -153,7 +179,7 @@ export default function AppointmentRequestDetailScreen() {
     }
   }
 
-  const canReview = request?.status === 'pending';
+  const canReview = isManager && request?.status === 'pending';
 
   function closeOutcome() {
     setOutcome(null);
@@ -253,10 +279,30 @@ export default function AppointmentRequestDetailScreen() {
 
               <Section title="Appointment Schedule" style={{ marginTop: s(24) }}>
                 <Card>
-                  <InfoRow icon="calendar-outline" label="Requested Date" value={formatDate(request.requestedDate)} />
+                  <InfoRow
+                    icon="calendar-outline"
+                    label="Day"
+                    value={formatAppointmentWhen(request).day}
+                  />
+                  <InfoRow
+                    icon="today-outline"
+                    label="Requested Date"
+                    value={formatDate(request.requestedDate)}
+                  />
                   <InfoRow icon="time-outline" label="Requested Time" value={request.requestedTime || '—'} />
                   <InfoRow icon="business-outline" label="Branch" value={request.branch || 'Assigned branch'} last />
                 </Card>
+                <View style={{ marginTop: s(12) }}>
+                  <BookingCalendar
+                    title={rescheduling ? 'Choose booking date' : 'Booking calendar'}
+                    selectedDate={toDateKey(date || request.requestedDate || new Date())}
+                    minDate={rescheduling ? toDateKey(new Date()) : undefined}
+                    onSelect={(next) => {
+                      if (!rescheduling) return;
+                      setDate(next);
+                    }}
+                  />
+                </View>
               </Section>
 
               <Section title="Payment Information" style={{ marginTop: s(24) }}>
@@ -290,7 +336,8 @@ export default function AppointmentRequestDetailScreen() {
                     disabled={saving}
                     onPress={() => {
                       setRescheduling(true);
-                      setReasonModal(true);
+                      setDate(request.requestedDate || toDateKey(new Date()));
+                      setTime(request.requestedTime || '');
                     }}
                     style={{ height: s(34), borderRadius: s(18), backgroundColor: theme.colors.card, alignItems: 'center', justifyContent: 'center', marginTop: s(10) }}
                   >
@@ -322,10 +369,24 @@ export default function AppointmentRequestDetailScreen() {
                       <Ionicons name="close" size={s(14)} color={theme.colors.secondaryText} />
                     </Pressable>
                   </View>
-                  <TextInput value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={theme.colors.tertiaryText} style={{ color: theme.colors.text, borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingVertical: s(8), fontSize: fs(10) }} />
-                  <TextInput value={time} onChangeText={setTime} placeholder="e.g. 02:30 PM - 03:30 PM" placeholderTextColor={theme.colors.tertiaryText} style={{ color: theme.colors.text, borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingVertical: s(8), fontSize: fs(10) }} />
+                  <Text style={{ color: theme.colors.secondaryText, fontSize: fs(9), marginBottom: s(4) }}>
+                    Selected date: {formatDate(date) || 'Pick from calendar above'}
+                  </Text>
+                  <TextInput
+                    value={time}
+                    onChangeText={setTime}
+                    placeholder="e.g. 02:30 PM - 03:30 PM"
+                    placeholderTextColor={theme.colors.tertiaryText}
+                    style={{
+                      color: theme.colors.text,
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.colors.border,
+                      paddingVertical: s(8),
+                      fontSize: fs(10),
+                    }}
+                  />
                   <Pressable
-                    disabled={saving}
+                    disabled={saving || !date}
                     onPress={() => setReasonModal(true)}
                     style={[
                       {
@@ -334,6 +395,7 @@ export default function AppointmentRequestDetailScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginTop: s(12),
+                        opacity: date ? 1 : 0.55,
                       },
                       brandButtonBg,
                     ]}

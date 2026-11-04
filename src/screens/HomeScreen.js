@@ -1,11 +1,13 @@
+import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
+import ClinicManagersModal from '../components/ClinicManagersModal';
 import { RegionGlobeButton, RegionLabelButton } from '../components/RegionSwitcher';
 import UserAvatar from '../components/UserAvatar';
 import {
@@ -171,40 +173,16 @@ function BranchRow({ item, rank }) {
   );
 }
 
-function ScoreRing({ value, size = s(34) }) {
-  const stroke = 3;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const safeValue = Math.min(100, Math.max(0, Number(value) || 0));
-  const offset = c * (1 - safeValue / 100);
-  const svgSize = String(size);
-
+function DoctorRow({ item, onPress }) {
+  const branchName =
+    item.branchName ||
+    item.branch ||
+    (typeof item.clinic === 'string' ? item.clinic : item.clinic?.name) ||
+    '';
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={svgSize} height={svgSize} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#DDF3E2" strokeWidth={stroke} fill="none" />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke={colors.success}
-          strokeWidth={stroke}
-          fill="none"
-          strokeDasharray={`${c} ${c}`}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${size / 2}, ${size / 2}`}
-        />
-      </Svg>
-      <Text style={{ fontSize: fs(8, 8), fontWeight: '700', color: colors.ink }}>{value}%</Text>
-    </View>
-  );
-}
-
-function DoctorRow({ item }) {
-  return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
       style={{
         backgroundColor: colors.card,
         borderRadius: 16,
@@ -226,12 +204,12 @@ function DoctorRow({ item }) {
           {item.name}
         </Text>
         <Text style={{ fontSize: fs(9), color: colors.mutedBrand, marginTop: 3 }} numberOfLines={1}>
-          {item.specialty} • {item.consults} Consults
+          {item.specialty} • {item.consults ?? 0} Consults
+          {branchName ? ` • ${branchName}` : ''}
         </Text>
       </View>
-      <ScoreRing value={item.score} />
       <Ionicons name="chevron-forward" size={s(16)} color={colors.mutedBrand} style={{ marginLeft: s(10) }} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -266,7 +244,11 @@ function ManagerRow({ item, onPress }) {
           {item.name}
         </Text>
         <Text style={{ fontSize: fs(9), color: colors.mutedBrand, marginTop: 3 }} numberOfLines={1}>
-          {item.clinic?.name || 'Clinic'} · {item.appointmentsToday ?? 0} appts today
+          {[item.clinic?.city, item.clinic?.region].filter(Boolean).join(', ') ||
+            item.clinic?.name ||
+            'Clinic'}
+          {' · '}
+          {item.appointmentsToday ?? 0} appts today
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={s(16)} color={colors.mutedBrand} />
@@ -279,16 +261,37 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user } = useSession();
-  const { dashboard, error, refresh } = useClinicData();
+  const { dashboard, managers: managersPayload, error, refresh } = useClinicData();
+  const [managersModal, setManagersModal] = useState({
+    open: false,
+    mode: 'list',
+    manager: null,
+  });
 
   useRefreshOnFocus(refresh);
 
   const stats = dashboard?.stats || [];
   const attention = dashboard?.attention || [];
   const branches = dashboard?.branches || [];
-  const doctors = dashboard?.doctors || [];
+  const doctors = [...(dashboard?.doctors || [])].sort(
+    (a, b) =>
+      Number(b.consults || 0) - Number(a.consults || 0) ||
+      String(a.name || '').localeCompare(String(b.name || ''))
+  );
   const managers = dashboard?.managerPreview || [];
+  const allManagers = useMemo(() => {
+    const items = managersPayload?.items?.length ? managersPayload.items : managers;
+    return items || [];
+  }, [managersPayload?.items, managers]);
   const showHardError = Boolean(error) && stats.length === 0;
+
+  function openManagersList() {
+    setManagersModal({ open: true, mode: 'list', manager: null });
+  }
+
+  function openManagerDetail(item) {
+    setManagersModal({ open: true, mode: 'detail', manager: item });
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -370,27 +373,35 @@ export default function HomeScreen() {
             <BranchRow key={item.id} item={item} rank={i + 1} />
           ))}
 
-          <SectionHeader
-            title="Clinic Managers"
-            onAction={() => navigation.navigate('ClinicManagers')}
-          />
+          <SectionHeader title="Clinic Managers" onAction={openManagersList} />
           {managers.map((item) => (
-            <ManagerRow
-              key={item.id}
-              item={item}
-              onPress={() =>
-                navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
-              }
-            />
+            <ManagerRow key={item.id} item={item} onPress={() => openManagerDetail(item)} />
           ))}
 
           <SectionHeader title="Doctors Performance" />
           {doctors.map((item) => (
-            <DoctorRow key={item.id} item={item} />
+            <DoctorRow
+              key={item.id}
+              item={item}
+              onPress={() =>
+                navigation.navigate('DoctorConsultation', {
+                  doctorId: item.id,
+                  doctor: item,
+                })
+              }
+            />
           ))}
         </View>
       </ScrollView>
 
+      <ClinicManagersModal
+        visible={managersModal.open}
+        mode={managersModal.mode}
+        selectedManager={managersModal.manager}
+        managers={allManagers}
+        stats={managersPayload?.stats || null}
+        onClose={() => setManagersModal({ open: false, mode: 'list', manager: null })}
+      />
     </View>
   );
 }

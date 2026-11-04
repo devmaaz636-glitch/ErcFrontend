@@ -40,6 +40,24 @@ const DEFAULT_DEPARTMENTS = [
   'Intimate Surgery',
 ];
 
+const DURATION_OPTIONS = [
+  { label: '15 To 30 Min', minutes: 30 },
+  { label: '30 To 45 Min', minutes: 45 },
+  { label: '45 To 1 Hour', minutes: 60 },
+];
+
+const SESSION_OPTIONS = ['1 Session', '2 Session', '3 Session'];
+
+function matchDurationOption(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  return (
+    DURATION_OPTIONS.find((item) => item.label.toLowerCase() === raw) ||
+    DURATION_OPTIONS.find((item) => raw.includes(String(item.minutes))) ||
+    null
+  );
+}
+
 function FieldLabel({ children }) {
   return (
     <Text
@@ -62,25 +80,38 @@ function RoundedInput({
   keyboardType = 'default',
   editable = true,
   onPress,
+  showChevron = false,
 }) {
   const input = (
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={theme.colors.tertiaryText}
-      keyboardType={keyboardType}
-      editable={editable && !onPress}
+    <View
       pointerEvents={onPress ? 'none' : 'auto'}
       style={{
         height: s(48),
-        borderRadius: 999,
+        borderRadius: s(14),
         backgroundColor: theme.colors.card,
         paddingHorizontal: s(18),
-        fontSize: fs(12),
-        color: theme.colors.text,
+        flexDirection: 'row',
+        alignItems: 'center',
       }}
-    />
+    >
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.tertiaryText}
+        keyboardType={keyboardType}
+        editable={editable && !onPress}
+        style={{
+          flex: 1,
+          fontSize: fs(12),
+          color: theme.colors.text,
+          paddingVertical: 0,
+        }}
+      />
+      {showChevron || onPress ? (
+        <Ionicons name="chevron-down" size={s(16)} color={theme.colors.tertiaryText} />
+      ) : null}
+    </View>
   );
 
   if (!onPress) return input;
@@ -88,6 +119,50 @@ function RoundedInput({
     <Pressable accessibilityRole="button" onPress={onPress}>
       {input}
     </Pressable>
+  );
+}
+
+function OptionsDropdown({ open, options, value, onSelect }) {
+  if (!open) return null;
+  return (
+    <View
+      style={{
+        marginTop: s(8),
+        backgroundColor: theme.colors.card,
+        borderRadius: s(16),
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+      }}
+    >
+      {options.map((item, index) => {
+        const label = typeof item === 'string' ? item : item.label;
+        const selected = value === label;
+        return (
+          <Pressable
+            key={label}
+            onPress={() => onSelect(item)}
+            style={{
+              paddingHorizontal: s(16),
+              paddingVertical: s(13),
+              backgroundColor: selected ? colors.brandSoft : theme.colors.card,
+              borderTopWidth: index === 0 ? 0 : 1,
+              borderTopColor: theme.colors.border,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: fs(13),
+                fontWeight: selected ? '700' : '500',
+                color: colors.heading || theme.colors.text,
+              }}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -109,15 +184,32 @@ export default function AddTreatmentScreen() {
   const [price, setPrice] = useState(
     seed?.price != null && Number.isFinite(Number(seed.price)) ? String(seed.price) : ''
   );
-  const [duration, setDuration] = useState(seed?.duration || '');
-  const [session, setSession] = useState(seed?.session || seed?.unit || '');
+  const [duration, setDuration] = useState(() => matchDurationOption(seed?.duration)?.label || '');
+  const [durationMin, setDurationMin] = useState(
+    () => matchDurationOption(seed?.duration)?.minutes || seed?.durationMin || null
+  );
+  const [session, setSession] = useState(() => {
+    const raw = seed?.session || seed?.unit || '';
+    const matched = SESSION_OPTIONS.find((item) => item === raw);
+    if (matched) return matched;
+    const count = Number(String(raw).match(/(\d+)/)?.[1] || seed?.sessions || 0);
+    return count >= 1 && count <= 3 ? `${count} Session` : '';
+  });
+  const [durationOpen, setDurationOpen] = useState(false);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const [imageUri, setImageUri] = useState(seed?.imageUri || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const canSave = useMemo(() => {
-    return Boolean(name.trim() && department.trim() && String(price).trim() && String(duration).trim());
-  }, [name, department, price, duration]);
+    return Boolean(
+      name.trim() &&
+        department.trim() &&
+        String(price).trim() &&
+        String(duration).trim() &&
+        String(session).trim()
+    );
+  }, [name, department, price, duration, session]);
 
   async function pickImage() {
     try {
@@ -156,13 +248,20 @@ export default function AddTreatmentScreen() {
       return;
     }
     if (!String(duration).trim()) {
-      setError('Enter treatment duration (e.g. 30 Minutes).');
+      setError('Select treatment duration.');
+      return;
+    }
+    if (!String(session).trim()) {
+      setError('Select treatment session.');
       return;
     }
 
     setSaving(true);
     setError('');
     try {
+      const matchedDuration = matchDurationOption(duration);
+      const minutes = durationMin || matchedDuration?.minutes || 30;
+      const sessionCount = Number(String(session).match(/(\d+)/)?.[1] || 1);
       const payload = {
         name: name.trim(),
         description: description.trim(),
@@ -170,9 +269,10 @@ export default function AddTreatmentScreen() {
         category: department.trim(),
         price: priceNumber,
         duration: String(duration).trim(),
-        session: String(session).trim() || 'Per Session',
-        unit: String(session).trim() || 'Per Session',
-        sessions: Number(String(session).match(/(\d+)/)?.[1] || 12),
+        durationMin: minutes,
+        session: String(session).trim(),
+        unit: String(session).trim(),
+        sessions: sessionCount,
         imageUri: imageUri || null,
       };
       const saved = editing
@@ -283,48 +383,22 @@ export default function AddTreatmentScreen() {
                 value={department}
                 placeholder="Enter here"
                 editable={false}
-                onPress={() => setDepartmentOpen((open) => !open)}
+                showChevron
+                onPress={() => {
+                  setDepartmentOpen((open) => !open);
+                  setDurationOpen(false);
+                  setSessionOpen(false);
+                }}
               />
-              {departmentOpen ? (
-                <View
-                  style={{
-                    marginTop: s(8),
-                    backgroundColor: theme.colors.card,
-                    borderRadius: s(16),
-                    overflow: 'hidden',
-                  }}
-                >
-                  {departments.map((item, index) => {
-                    const selected = department === item;
-                    return (
-                      <Pressable
-                        key={item}
-                        onPress={() => {
-                          setDepartment(item);
-                          setDepartmentOpen(false);
-                        }}
-                        style={{
-                          paddingHorizontal: s(16),
-                          paddingVertical: s(12),
-                          backgroundColor: selected ? colors.brandSoft : theme.colors.card,
-                          borderTopWidth: index === 0 ? 0 : 1,
-                          borderTopColor: theme.colors.border,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: fs(12),
-                            fontWeight: selected ? '700' : '500',
-                            color: theme.colors.text,
-                          }}
-                        >
-                          {item}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null}
+              <OptionsDropdown
+                open={departmentOpen}
+                options={departments}
+                value={department}
+                onSelect={(item) => {
+                  setDepartment(item);
+                  setDepartmentOpen(false);
+                }}
+              />
             </View>
 
             <View style={{ marginTop: s(16) }}>
@@ -392,8 +466,24 @@ export default function AddTreatmentScreen() {
               <FieldLabel>Treatment Duration</FieldLabel>
               <RoundedInput
                 value={duration}
-                onChangeText={setDuration}
-                placeholder="e.g. 30 Minutes"
+                placeholder="Enter here"
+                editable={false}
+                showChevron
+                onPress={() => {
+                  setDurationOpen((open) => !open);
+                  setDepartmentOpen(false);
+                  setSessionOpen(false);
+                }}
+              />
+              <OptionsDropdown
+                open={durationOpen}
+                options={DURATION_OPTIONS}
+                value={duration}
+                onSelect={(item) => {
+                  setDuration(item.label);
+                  setDurationMin(item.minutes);
+                  setDurationOpen(false);
+                }}
               />
             </View>
 
@@ -401,8 +491,23 @@ export default function AddTreatmentScreen() {
               <FieldLabel>Treatment Session</FieldLabel>
               <RoundedInput
                 value={session}
-                onChangeText={setSession}
-                placeholder="e.g. Per Session"
+                placeholder="Enter here"
+                editable={false}
+                showChevron
+                onPress={() => {
+                  setSessionOpen((open) => !open);
+                  setDepartmentOpen(false);
+                  setDurationOpen(false);
+                }}
+              />
+              <OptionsDropdown
+                open={sessionOpen}
+                options={SESSION_OPTIONS}
+                value={session}
+                onSelect={(item) => {
+                  setSession(item);
+                  setSessionOpen(false);
+                }}
               />
             </View>
 

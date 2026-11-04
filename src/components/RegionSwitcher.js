@@ -15,7 +15,21 @@ export const ADMIN_REGIONS = [
   { id: 'pk', name: 'Pakistan', code: '92000', flag: '🇵🇰', short: 'Pakistan' },
 ];
 
-function matchRegion(label) {
+/** Clinic manager branchId → locked region. */
+export const BRANCH_REGION_BY_ID = {
+  'br-riyadh': 'ksa',
+  'br-dubai': 'uae',
+  'br-muscat': 'om',
+  'br-nyc': 'usa',
+  'br-lahore': 'pk',
+};
+
+export function regionForBranchId(branchId) {
+  const regionId = BRANCH_REGION_BY_ID[String(branchId || '').trim()];
+  return regionId ? ADMIN_REGIONS.find((item) => item.id === regionId) || null : null;
+}
+
+export function matchRegion(label) {
   const value = String(label || '').trim().toLowerCase();
   if (!value) return ADMIN_REGIONS[1];
   return (

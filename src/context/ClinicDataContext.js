@@ -69,6 +69,14 @@ function adminPayload({
   branches,
   managers,
 } = {}) {
+  const requestItems = Array.isArray(dashboard?.appointmentRequests)
+    ? dashboard.appointmentRequests
+    : [];
+  const counts = { all: requestItems.length, pending: 0, approved: 0, rescheduled: 0, rejected: 0 };
+  for (const item of requestItems) {
+    const status = String(item.status || 'pending').toLowerCase();
+    if (counts[status] != null) counts[status] += 1;
+  }
   return {
     dashboard: dashboard
       ? {
@@ -77,10 +85,11 @@ function adminPayload({
           branches: dashboard.branches || [],
           doctors: dashboard.doctors || [],
           managerPreview: dashboard.managerPreview || [],
+          appointmentRequests: requestItems,
         }
       : null,
     appointments: appointments || { stats: [], items: [] },
-    appointmentRequests: { items: [], counts: null },
+    appointmentRequests: { items: requestItems, counts },
     branches: branches || { items: [] },
     managers: managers || { stats: null, items: [] },
   };

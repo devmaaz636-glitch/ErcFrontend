@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import BookingCalendar, { formatAppointmentWhen, toDateKey } from '../components/BookingCalendar';
 import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
 import { notifyBookingUpdate } from '../lib/notifyEvents';
@@ -97,6 +98,7 @@ function buildDetail(appointment = {}) {
   const code = appointment.code || `APT-${String(appointment.id || 0).padStart(4, '0')}`;
   const paymentKey = (appointment.paymentStatus || (status === 'canceled' ? 'refunded' : 'paid')).toLowerCase();
 
+  const when = formatAppointmentWhen(appointment);
   return {
     title,
     department,
@@ -104,7 +106,9 @@ function buildDetail(appointment = {}) {
     clinic,
     status,
     statusMeta: STATUS_META[status] || STATUS_META.upcoming,
-    dateLabel: formatDateLabel(appointment.date, appointment.dateLabel || '—'),
+    dayLabel: when.day,
+    dateLabel: formatDateLabel(appointment.date, when.date || appointment.dateLabel || '—'),
+    dateKey: when.dateKey || toDateKey(appointment.date || new Date()),
     timeRange: appointment.timeRange || `${start} - ${end}`,
     patientName: appointment.patient || 'Patient',
     patientId: appointment.patientId || '—',
@@ -345,9 +349,17 @@ export default function AppointmentDetailScreen() {
                 </View>
               }
             />
+            <MetaRow label="Day" value={detail.dayLabel} />
             <MetaRow label="Date" value={detail.dateLabel} />
             <MetaRow label="Time" value={detail.timeRange} last />
           </Card>
+
+          <SectionTitle title="Booking Calendar" />
+          <BookingCalendar
+            title="Appointment Date"
+            selectedDate={detail.dateKey}
+            readOnly
+          />
 
           <SectionTitle title="Appointment Overview" />
           <Card>

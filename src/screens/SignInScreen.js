@@ -157,7 +157,10 @@ export default function SignInScreen() {
           .then((tokenResult) => {
             const claims = tokenResult?.claims || {};
             if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
-              return warmManagerHomeCache(auth.currentUser.uid);
+              // Force claim refresh after role seed so branch scope is current.
+              return auth.currentUser
+                .getIdToken(true)
+                .then(() => warmManagerHomeCache(auth.currentUser.uid));
             }
             // Default / admin: warm regional dashboard for zero-blink MainTabs home.
             if (isAdminRole(claims.role) || !isClinicManagerRole(claims.role)) {

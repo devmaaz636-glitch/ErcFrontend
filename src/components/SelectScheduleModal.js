@@ -110,12 +110,7 @@ function TimeField({ label, value, onPress }) {
 }
 
 /**
- * Props:
- *  - visible, onClose
- *  - initialSchedule: weekly schedule object
- *  - onChange(next): fires on EVERY selection (day toggle or time pick) so the
- *    parent screen can show the schedule live while the modal is open
- *  - onSave(next): fires when the Save button is pressed
+ * Weekly hours only (no calendar). Booking dates use BookingCalendar elsewhere.
  */
 export default function SelectScheduleModal({
   visible,
@@ -128,8 +123,6 @@ export default function SelectScheduleModal({
   const [schedule, setSchedule] = useState(() => normalizeSchedule(initialSchedule));
   const [picker, setPicker] = useState(null);
 
-  // Reset only when the modal opens. Depending on initialSchedule here would
-  // close the time picker every time the parent echoes a live change back.
   useEffect(() => {
     if (visible) {
       setSchedule(normalizeSchedule(initialSchedule));
@@ -142,7 +135,7 @@ export default function SelectScheduleModal({
 
   function update(next) {
     setSchedule(next);
-    onChange?.(next); // reflect into the doctor screen immediately
+    onChange?.(next);
   }
 
   function toggleDay(key) {
@@ -233,7 +226,6 @@ export default function SelectScheduleModal({
             })}
           </ScrollView>
 
-          {/* Save: brand gradient, matches the Save button on the doctor screen */}
           <Pressable
             accessibilityRole="button"
             disabled={!canSave}

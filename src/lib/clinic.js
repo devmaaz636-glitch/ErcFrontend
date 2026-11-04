@@ -19,7 +19,7 @@ export function managerClinicCacheKey(uid) {
 }
 
 export function adminClinicCacheKey(uid) {
-  return `@erc/admin-clinic-cache:v3:${uid}`;
+  return `@erc/admin-clinic-cache:v4:${uid}`;
 }
 
 /** In-memory last-good payloads — survives re-renders; used offline / low net. */
@@ -514,6 +514,16 @@ export function warmAdminHomeCache(uid) {
 
 export async function fetchManagerDoctor(id) {
   const data = await get(`/api/manager/doctors/${encodeURIComponent(id)}`);
+  return data.item;
+}
+
+export async function fetchClinicDoctor(id) {
+  const data = await get(`/api/clinic/doctors/${encodeURIComponent(id)}`);
+  return data.item;
+}
+
+export async function fetchClinicAppointmentRequest(id) {
+  const data = await get(`/api/clinic/appointment-requests/${encodeURIComponent(id)}`);
   return data.item;
 }
 

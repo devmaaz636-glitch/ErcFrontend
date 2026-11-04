@@ -113,9 +113,7 @@ export default function DoctorConsultationScreen() {
 
   const doctorRequests = useMemo(() => {
     if (!doctor) return allRequests;
-    const matched = allRequests.filter((item) => matchesDoctor(item, doctor));
-    // If this doctor has no tagged bookings yet, still show clinic requests so the screen stays useful.
-    return matched.length ? matched : allRequests;
+    return allRequests.filter((item) => matchesDoctor(item, doctor));
   }, [allRequests, doctor]);
 
   const filtered = useMemo(() => {
@@ -243,7 +241,7 @@ const styles = StyleSheet.create({
   },
   headerTitles: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginHorizontal: s(8),
   },
   title: {

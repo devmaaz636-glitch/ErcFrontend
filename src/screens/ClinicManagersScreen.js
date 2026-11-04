@@ -1,11 +1,12 @@
 import { Fragment, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Text from '../components/AppText';
+import ClinicManagersModal from '../components/ClinicManagersModal';
 import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwitcher';
 import {
   IconCircleButton,
@@ -115,6 +116,7 @@ export default function ClinicManagersScreen() {
   const regionLabel = useActiveRegionLabel();
   const { managers, error, refresh } = useClinicData();
   const [query, setQuery] = useState('');
+  const [detailManager, setDetailManager] = useState(null);
 
   useRefreshOnFocus(refresh);
 
@@ -191,19 +193,21 @@ export default function ClinicManagersScreen() {
               </View>
             ) : (
               list.map((item) => (
-                <ManagerCard
-                  key={item.id}
-                  item={item}
-                  onPress={() =>
-                    navigation.navigate('ClinicManagerDetail', { managerId: item.id, manager: item })
-                  }
-                />
+                <ManagerCard key={item.id} item={item} onPress={() => setDetailManager(item)} />
               ))
             )}
           </View>
         </View>
       </ScrollView>
 
+      <ClinicManagersModal
+        visible={Boolean(detailManager)}
+        mode="detail"
+        selectedManager={detailManager}
+        managers={managers.items || []}
+        stats={managers.stats}
+        onClose={() => setDetailManager(null)}
+      />
     </View>
   );
 }

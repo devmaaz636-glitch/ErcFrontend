@@ -16,19 +16,14 @@ import { cssInterop } from 'nativewind';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { ADMIN_REGIONS, matchRegion, regionForBranchId } from '../components/RegionSwitcher';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
 import { colors } from '../theme';
 
 cssInterop(Image, { className: 'style' });
-const REGIONS = [
-  { id: 'usa',  name: 'USA',                  code: '78690', flag: '🇺🇸' },
-  { id: 'uae',  name: 'United Arab Emirates', code: '97100', flag: '🇦🇪' },
-  { id: 'ksa',  name: 'Saudi Arabia',         code: '96600', flag: '🇸🇦' },
-  { id: 'om',   name: 'Oman',                 code: '96800', flag: '🇴🇲' },
-  { id: 'pk',   name: 'Pakistan',             code: '92000', flag: '🇵🇰' },
-];
+const REGIONS = ADMIN_REGIONS;
 
 function isClinicManagerRole(value) {
   const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
@@ -73,14 +68,26 @@ export default function VerifyRegionScreen() {
   const { ensureManagerHomeReady, ensureAdminHomeReady } = useClinicData();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const isManagerAccount =
+    isClinicManagerRole(user?.role) || Boolean(user?.branchId || user?.clinicId);
+  const sessionLockedRegion = isManagerAccount
+    ? regionForBranchId(user?.branchId || user?.clinicId) ||
+      matchRegion(user?.region) ||
+      matchRegion(sessionRegion?.short || sessionRegion?.name)
+    : null;
   const initialRegion =
+    sessionLockedRegion ||
     REGIONS.find((item) => item.name === sessionRegion?.name || item.id === sessionRegion?.id) ||
     REGIONS[0];
   const [region, setRegion] = useState(initialRegion);
-  const [code, setCode] = useState(sessionRegion?.code || initialRegion.code);
+  const [code, setCode] = useState(
+    sessionLockedRegion?.code || sessionRegion?.code || initialRegion.code
+  );
+  const [claimsLockedRegion, setClaimsLockedRegion] = useState(sessionLockedRegion);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
+  const managerLocked = Boolean(claimsLockedRegion || sessionLockedRegion);
 
   const logoSize = Math.min(width * 0.42, 176);
   const photoHeight = Math.max(width * (434 / 430), height * 0.5);
@@ -97,7 +104,37 @@ export default function VerifyRegionScreen() {
     return undefined;
   }, [user?.role, ensureManagerHomeReady, ensureAdminHomeReady]);
 
+  // Keep clinic managers pinned to their assigned branch region (claims + session).
+  useEffect(() => {
+    let active = true;
+    async function lockFromClaims() {
+      let branchId = user?.branchId || user?.clinicId || null;
+      let role = user?.role || '';
+      try {
+        const tokenResult = await auth.currentUser?.getIdTokenResult(true);
+        const claims = tokenResult?.claims || {};
+        role = claims.role || role;
+        branchId = claims.branchId || claims.clinicId || branchId;
+      } catch {
+        /* ignore — session hydrate still applies */
+      }
+      if (!active) return;
+      if (!isClinicManagerRole(role) && !branchId) return;
+      const assigned = regionForBranchId(branchId) || matchRegion(user?.region);
+      if (!assigned) return;
+      setClaimsLockedRegion(assigned);
+      setRegion(assigned);
+      setCode(assigned.code);
+      setOpen(false);
+    }
+    lockFromClaims();
+    return () => {
+      active = false;
+    };
+  }, [isManagerAccount, user?.branchId, user?.clinicId, user?.region, user?.role]);
+
   function selectRegion(next) {
+    if (managerLocked) return;
     setRegion(next);
     setCode(next.code);
     setOpen(false);
@@ -114,14 +151,11 @@ export default function VerifyRegionScreen() {
     setStarting(true);
     setError('');
     try {
-      await persistRegion({ ...region, code: nextCode });
-      updateUser({ region: region.name }).catch(() => {});
-
       let role = user?.role || '';
       let branchId = user?.branchId || user?.clinicId || null;
       try {
-        // Use cached token claims (already refreshed at sign-in) — no multi-second force refresh.
-        const tokenResult = await auth.currentUser?.getIdTokenResult(false);
+        // Force-refresh so newly seeded manager claims (role + branchId) apply.
+        const tokenResult = await auth.currentUser?.getIdTokenResult(true);
         const claims = tokenResult?.claims || {};
         role = claims.role || role;
         branchId = claims.branchId || claims.clinicId || branchId;
@@ -129,8 +163,24 @@ export default function VerifyRegionScreen() {
         /* Session bootstrap will surface an authorization error if claims cannot be read. */
       }
 
-      // Prime home from cache/seed only — never wait on network before tabs open.
       const isManagerFlow = isClinicManagerRole(role) || branchId;
+      const assignedRegion =
+        (isManagerFlow && (regionForBranchId(branchId) || matchRegion(user?.region))) || null;
+      const effectiveRegion = assignedRegion || region;
+      const effectiveCode = assignedRegion?.code || nextCode;
+
+      if (isManagerFlow && assignedRegion && region.id !== assignedRegion.id) {
+        setError(`Your account is assigned to ${assignedRegion.short} only.`);
+        setRegion(assignedRegion);
+        setCode(assignedRegion.code);
+        setStarting(false);
+        return;
+      }
+
+      await persistRegion({ ...effectiveRegion, code: effectiveCode });
+      updateUser({ region: effectiveRegion.short || effectiveRegion.name }).catch(() => {});
+
+      // Prime home from cache/seed only — never wait on network before tabs open.
       const prime = isManagerFlow
         ? ensureManagerHomeReady().catch(() => true)
         : ensureAdminHomeReady().catch(() => true);
@@ -146,7 +196,7 @@ export default function VerifyRegionScreen() {
           role: 'clinic_manager',
           branchId: branchId || null,
           clinicId: branchId || null,
-          region: region.name,
+          region: effectiveRegion.short || effectiveRegion.name,
         }).catch(() => {});
         if (switchMode) {
           navigation.goBack();
@@ -246,9 +296,11 @@ export default function VerifyRegionScreen() {
               {switchMode ? 'Switch Region' : 'Verify Your Region'}
             </Text>
             <Text allowFontScaling={false} className="mt-2 text-[14px] leading-5 text-muted">
-              {switchMode
-                ? 'Choose another region for your regional admin workspace.'
-                : 'Please verify that the region assigned to your account is correct before continuing.'}
+              {managerLocked
+                ? `Your clinic manager account is locked to ${region.short || region.name}. Data from other regions is not available.`
+                : switchMode
+                  ? 'Choose another region for your regional admin workspace.'
+                  : 'Please verify that the region assigned to your account is correct before continuing.'}
             </Text>
 
             <Text allowFontScaling={false} className="mb-2 mt-6 text-[15px] font-semibold text-ink">
@@ -257,8 +309,14 @@ export default function VerifyRegionScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Select region"
-              onPress={() => setOpen((current) => !current)}
+              accessibilityState={{ disabled: managerLocked }}
+              disabled={managerLocked}
+              onPress={() => {
+                if (managerLocked) return;
+                setOpen((current) => !current);
+              }}
               className="h-[54px] flex-row items-center rounded-2xl bg-white px-4"
+              style={{ opacity: managerLocked ? 0.92 : 1 }}
             >
               <Text allowFontScaling={false} className="flex-1 text-[15px] text-ink">
                 {region.name}
@@ -266,10 +324,10 @@ export default function VerifyRegionScreen() {
               <Text allowFontScaling={false} className="mr-2 text-[18px]">
                 {region.flag}
               </Text>
-              <Chevron />
+              {managerLocked ? null : <Chevron />}
             </Pressable>
 
-            {open ? (
+            {open && !managerLocked ? (
               <View className="mt-2 overflow-hidden rounded-2xl bg-white">
                 {REGIONS.map((item) => (
                   <Pressable
@@ -295,12 +353,13 @@ export default function VerifyRegionScreen() {
             <View className="h-[54px] flex-row items-center rounded-2xl bg-white px-4">
               <TextInput
                 value={code}
-                onChangeText={setCode}
+                onChangeText={managerLocked ? undefined : setCode}
+                editable={!managerLocked}
                 keyboardType="number-pad"
                 allowFontScaling={false}
                 className="h-full flex-1 text-[15px] text-ink"
               />
-              <Pencil />
+              {managerLocked ? null : <Pencil />}
             </View>
 
             {error ? (
