@@ -116,10 +116,11 @@ export function RegionLabelButton({ color = colors.brand, compact = false }) {
   const active = useMemo(() => matchRegion(displayRegion), [displayRegion]);
   const label = active?.short || displayRegion || 'Region';
 
-  async function selectRegion(next) {
+  function selectRegion(next) {
     setOpen(false);
     if (!next || active?.id === next.id) return;
-    await setRegion({ ...next, name: next.short });
+    // Sync update — ClinicDataContext scopes home/tabs immediately (no await flash).
+    setRegion({ ...next, name: next.short });
   }
 
   return (
@@ -165,10 +166,11 @@ export function RegionGlobeButton({ color = colors.brand }) {
   const [open, setOpen] = useState(false);
   const active = useMemo(() => matchRegion(displayRegion), [displayRegion]);
 
-  async function selectRegion(next) {
+  function selectRegion(next) {
     setOpen(false);
     if (!next || active?.id === next.id) return;
-    await setRegion({ ...next, name: next.short });
+    // Sync update — ClinicDataContext scopes home/tabs immediately (no await flash).
+    setRegion({ ...next, name: next.short });
   }
 
   return (

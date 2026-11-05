@@ -28,6 +28,12 @@ const TAB_META = {
   ProfileTab: { label: 'Profile', icon: 'person-circle-outline', activeIcon: 'person-circle' },
   TreatmentsTab: { label: 'Treatments', icon: 'sparkles-outline', activeIcon: 'sparkles' },
   DoctorsTab: { label: 'Doctors', icon: 'medkit-outline', activeIcon: 'medkit' },
+  PatientsTab: { label: 'Patients', icon: 'people-outline', activeIcon: 'people' },
+  ScheduleTab: {
+    label: 'Schedule',
+    icon: 'calendar-outline',
+    activeIcon: 'calendar',
+  },
   MoreTab: { label: 'More', icon: 'menu-outline', activeIcon: 'menu' },
 };
 

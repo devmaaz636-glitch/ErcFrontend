@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +22,8 @@ import { signOutUser } from '../lib/auth';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, useTopPadding } from '../utils/responsive';
+
+const doctorProfileImage = require('../../assets/doctorimg.png');
 
 // If the network is slow or down, stop waiting for the server after this long
 // and finish logging out locally.
@@ -166,14 +169,22 @@ export default function ProfileTabScreen() {
   const user = sessionUser ?? {};
   const { dashboard } = useClinicData();
   const isManager = user.role === 'clinic_manager';
+  const isDoctor = user.role === 'doctor';
   const displayedRole = roleLabel(user.role);
 
   const info = [
     { label: 'Full Name', value: user.name },
     { label: 'Primary Email', value: user.email },
     { label: 'Role', value: displayedRole },
-    isManager
-      ? { label: 'Assigned Branch', value: dashboard?.clinic?.name || dashboard?.clinic?.city || 'Loading assigned branch' }
+    isManager || isDoctor
+      ? {
+          label: 'Assigned Branch',
+          value:
+            user.branchName ||
+            dashboard?.clinic?.name ||
+            dashboard?.clinic?.city ||
+            (isDoctor ? 'Dubai Branch' : 'Loading assigned branch'),
+        }
       : { label: 'Assigned Region', value: displayRegion },
   ];
 
@@ -277,11 +288,19 @@ export default function ProfileTabScreen() {
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 18 }}>
-            <UserAvatar uri={user.photoUrl} size={104} />
+            {isDoctor && !user.photoUrl ? (
+              <Image
+                source={doctorProfileImage}
+                contentFit="cover"
+                style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: colors.fieldAlt }}
+              />
+            ) : (
+              <UserAvatar uri={user.photoUrl} size={104} />
+            )}
             <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: 12 }}>
               {user.name || '—'}
             </Text>
-            <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>            {displayedRole}</Text>
+            <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>{displayedRole}</Text>
           </View>
 
           <SectionTitle title="Account Information" />

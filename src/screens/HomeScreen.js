@@ -18,6 +18,7 @@ import {
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { doctorPhotoSource } from '../lib/doctorMedia';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -194,7 +195,7 @@ function DoctorRow({ item, onPress }) {
       }}
     >
       <Image
-        source={require('../../assets/doctor.png')}
+        source={doctorPhotoSource(item, { preferTreatmentAsset: true })}
         contentFit="cover"
         contentPosition="top"
         style={{ width: s(48), height: s(48), borderRadius: s(24), backgroundColor: colors.fieldAlt }}
@@ -260,8 +261,8 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user } = useSession();
-  const { dashboard, managers: managersPayload, error, refresh } = useClinicData();
+  const { user, displayRegion } = useSession();
+  const { dashboard, managers: managersPayload, error, refresh, activeRegion } = useClinicData();
   const [managersModal, setManagersModal] = useState({
     open: false,
     mode: 'list',
@@ -270,13 +271,20 @@ export default function HomeScreen() {
 
   useRefreshOnFocus(refresh);
 
+  // Region key forces a clean section paint on first switch (avoids mixed leftover rows).
+  const regionKey = String(activeRegion || displayRegion || user.region || 'UAE');
+
   const stats = dashboard?.stats || [];
   const attention = dashboard?.attention || [];
   const branches = dashboard?.branches || [];
-  const doctors = [...(dashboard?.doctors || [])].sort(
-    (a, b) =>
-      Number(b.consults || 0) - Number(a.consults || 0) ||
-      String(a.name || '').localeCompare(String(b.name || ''))
+  const doctors = useMemo(
+    () =>
+      [...(dashboard?.doctors || [])].sort(
+        (a, b) =>
+          Number(b.consults || 0) - Number(a.consults || 0) ||
+          String(a.name || '').localeCompare(String(b.name || ''))
+      ),
+    [dashboard?.doctors]
   );
   const managers = dashboard?.managerPreview || [];
   const allManagers = useMemo(() => {
@@ -347,6 +355,7 @@ export default function HomeScreen() {
           ) : null}
 
           <View
+            key={`stats-${regionKey}`}
             style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
@@ -355,13 +364,13 @@ export default function HomeScreen() {
             }}
           >
             {stats.map((item) => (
-              <StatCard key={item.id} item={item} />
+              <StatCard key={`${regionKey}-${item.id}`} item={item} />
             ))}
           </View>
 
           <SectionHeader title="Need Attention" />
           {attention.map((item) => (
-            <AttentionCard key={item.id} item={item} />
+            <AttentionCard key={`${regionKey}-${item.id}`} item={item} />
           ))}
 
           <SectionHeader
@@ -370,18 +379,22 @@ export default function HomeScreen() {
             onAction={() => navigateToTab(navigation, TAB_ROUTES.Branches)}
           />
           {branches.map((item, i) => (
-            <BranchRow key={item.id} item={item} rank={i + 1} />
+            <BranchRow key={`${regionKey}-${item.id}`} item={item} rank={i + 1} />
           ))}
 
           <SectionHeader title="Clinic Managers" onAction={openManagersList} />
           {managers.map((item) => (
-            <ManagerRow key={item.id} item={item} onPress={() => openManagerDetail(item)} />
+            <ManagerRow
+              key={`${regionKey}-${item.id}`}
+              item={item}
+              onPress={() => openManagerDetail(item)}
+            />
           ))}
 
           <SectionHeader title="Doctors Performance" />
           {doctors.map((item) => (
             <DoctorRow
-              key={item.id}
+              key={`${regionKey}-${item.id}`}
               item={item}
               onPress={() =>
                 navigation.navigate('DoctorConsultation', {

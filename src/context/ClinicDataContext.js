@@ -27,6 +27,7 @@ import {
   warmAdminHomeCache,
   warmManagerHomeCache,
 } from '../lib/clinic';
+import { scopeAdminClinicData } from '../lib/adminRegionScope';
 import { useSession } from './SessionContext';
 
 const ClinicDataContext = createContext(null);
@@ -70,6 +71,7 @@ function adminPayload({
   appointments,
   branches,
   managers,
+  _shell = false,
 } = {}) {
   const requestItems = Array.isArray(dashboard?.appointmentRequests)
     ? dashboard.appointmentRequests
@@ -80,6 +82,8 @@ function adminPayload({
     if (counts[status] != null) counts[status] += 1;
   }
   return {
+    // Keep shell flag so cold-start seed is not treated/persisted as final live data.
+    _shell: Boolean(_shell),
     dashboard: dashboard
       ? {
           stats: dashboard.stats || [],
@@ -139,11 +143,13 @@ function managerPayload(dashboard, appointments, appointmentRequests, previousRe
 }
 
 export function ClinicDataProvider({ children }) {
-  const { user, ready } = useSession();
+  const { user, ready, displayRegion } = useSession();
   const isManager = user.role === 'clinic_manager';
   const isAdmin = user.role === 'admin';
   const sessionKey = `${user.uid || 'signed-out'}:${user.role}`;
   const [data, setData] = useState(EMPTY);
+  /** Full multi-region admin payload — region scoping is applied on expose only. */
+  const rawDataRef = useRef(EMPTY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadedOnce, setLoadedOnce] = useState(false);
@@ -161,6 +167,7 @@ export function ClinicDataProvider({ children }) {
 
   useEffect(() => {
     dataRef.current = data;
+    rawDataRef.current = data;
   }, [data]);
 
   useEffect(() => {
@@ -445,15 +452,21 @@ export function ClinicDataProvider({ children }) {
     applyManagerData,
   ]);
 
-  // Regional admin: hydrate from disk / memory / shell ASAP (never paint empty skeleton).
+  // Regional admin: paint FULL shell synchronously first (never headings-only), then upgrade.
   useEffect(() => {
     if (!ready || !user.uid || !(isAdmin || adminModeRef.current) || isManager) return undefined;
+    adminModeRef.current = true;
+
+    // Sync first frame — async cache/network must never leave tabs with only section titles.
+    if (!dataRef.current?.dashboard) {
+      applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
+    }
+
     let alive = true;
     (async () => {
-      if (dataRef.current?.dashboard) return;
       try {
         const cached = await readAdminCache(user.uid);
-        if (!alive || dataRef.current?.dashboard) return;
+        if (!alive) return;
         if (cached?.dashboard) {
           applyAdminData(cached, { markFresh: false });
           return;
@@ -461,13 +474,11 @@ export function ClinicDataProvider({ children }) {
       } catch {
         /* ignore */
       }
-      if (!alive || dataRef.current?.dashboard) return;
+      if (!alive) return;
       const mem = peekAdminHomePayload();
       if (mem?.dashboard) {
         applyAdminData(adminPayload(mem), { markFresh: false });
-        return;
       }
-      applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
     })();
     return () => {
       alive = false;
@@ -738,7 +749,12 @@ export function ClinicDataProvider({ children }) {
     adminModeRef.current = true;
     managerModeRef.current = false;
 
-    if (dataRef.current?.dashboard) {
+    // Always guarantee a full multi-region shell before Verify Region continues.
+    if (!dataRef.current?.dashboard) {
+      applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
+    }
+
+    if (hasRealAdminDashboard(dataRef.current) && !dataRef.current?._shell) {
       refresh({ silent: true, force: false }).catch(() => {});
       return true;
     }
@@ -757,7 +773,6 @@ export function ClinicDataProvider({ children }) {
       /* disk cache optional */
     }
 
-    // Guarantee a paintable dashboard before navigation (no skeleton).
     if (!dataRef.current?.dashboard) {
       applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
     }
@@ -873,9 +888,20 @@ export function ClinicDataProvider({ children }) {
     [applyManagerData]
   );
 
+  // Admin tabs always see one region at a time — same design, region-scoped data, instant switch.
+  // Cold start / first switch: if raw data is still empty, scope a full shell so tabs never
+  // paint headings without cards, images, or descriptions.
+  const viewData = useMemo(() => {
+    if (isManager) return data;
+    if (!(isAdmin || adminModeRef.current)) return data;
+    const region = displayRegion || user.region || 'UAE';
+    const source = data?.dashboard ? data : adminPayload(adminHomeShell());
+    return scopeAdminClinicData(source, region);
+  }, [data, displayRegion, user.region, isManager, isAdmin]);
+
   const value = useMemo(
     () => ({
-      ...data,
+      ...viewData,
       loading,
       error,
       loadedOnce,
@@ -884,9 +910,10 @@ export function ClinicDataProvider({ children }) {
       ensureManagerHomeReady,
       ensureAdminHomeReady,
       applyAppointmentRequestUpdate,
+      activeRegion: displayRegion || user.region || 'UAE',
     }),
     [
-      data,
+      viewData,
       loading,
       error,
       loadedOnce,
@@ -895,6 +922,8 @@ export function ClinicDataProvider({ children }) {
       ensureManagerHomeReady,
       ensureAdminHomeReady,
       applyAppointmentRequestUpdate,
+      displayRegion,
+      user.region,
     ]
   );
 

@@ -32,6 +32,11 @@ function isAdminRole(value) {
   return role === 'admin' || role === 'regional_admin' || role === 'regionaladmin';
 }
 
+function isDoctorRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  return role === 'doctor' || role === 'clinic_doctor' || role === 'physician';
+}
+
 cssInterop(Image, { className: 'style' });
 
 const REMEMBER_KEY = '@erc/remembered-email';
@@ -165,6 +170,9 @@ export default function SignInScreen() {
             .getIdTokenResult(true)
             .then((tokenResult) => {
               const claims = tokenResult?.claims || {};
+              if (isDoctorRole(claims.role) || nextEmail.toLowerCase() === 'ercdoctor@gmail.com') {
+                return null;
+              }
               if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
                 return warmManagerHomeCache(auth.currentUser.uid, {
                   branchId: claims.branchId || claims.clinicId || null,

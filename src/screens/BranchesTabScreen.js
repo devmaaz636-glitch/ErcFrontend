@@ -10,6 +10,7 @@ import Text from '../components/AppText';
 import { RegionGlobeButton } from '../components/RegionSwitcher';
 import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
+import { useActiveRegionLabel } from '../components/RegionSwitcher';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -145,11 +146,13 @@ export default function BranchesTabScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { branches, error, refresh } = useClinicData();
+  const regionLabel = useActiveRegionLabel();
+  const { branches, error, refresh, activeRegion } = useClinicData();
   const [query, setQuery] = useState('');
 
   useRefreshOnFocus(refresh);
 
+  const regionKey = String(activeRegion || regionLabel || 'UAE');
   const items = branches.items || [];
   const total = items.length;
   const active = items.filter((b) => b.status === 'active').length;
@@ -205,7 +208,7 @@ export default function BranchesTabScreen() {
             </Text>
           ) : null}
 
-          <View style={{ flexDirection: 'row', marginTop: s(16) }}>
+          <View key={`branch-stats-${regionKey}`} style={{ flexDirection: 'row', marginTop: s(16) }}>
             <StatCard id="total" label="Total" value={pad2(total)} sub="All Regions" />
             <View style={{ width: s(10) }} />
             <StatCard id="active" label="Active" value={pad2(active)} sub={`${pct(active)}% Of Total`} />

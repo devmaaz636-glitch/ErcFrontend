@@ -24,19 +24,41 @@ function normalizeRole(value) {
   if (role === 'clinic_manager' || role === 'clinicmanager' || role === 'manager') {
     return 'clinic_manager';
   }
+  if (role === 'doctor' || role === 'clinic_doctor' || role === 'physician') return 'doctor';
   return '';
 }
 
 export function roleLabel(value) {
-  return normalizeRole(value) === 'clinic_manager' ? 'Clinic Manager' : 'Regional Admin';
+  const role = normalizeRole(value);
+  if (role === 'clinic_manager') return 'Clinic Manager';
+  if (role === 'doctor') return 'Doctor';
+  return 'Regional Admin';
 }
 
 function regionObjectFromName(name, previous = null) {
   const label = String(name || '').trim();
   if (!label) return previous;
+  const lower = label.toLowerCase();
+  const known = [
+    { id: 'usa', name: 'USA', short: 'USA', code: '78690', flag: '🇺🇸' },
+    { id: 'uae', name: 'UAE', short: 'UAE', code: '97100', flag: '🇦🇪' },
+    { id: 'ksa', name: 'KSA', short: 'KSA', code: '96600', flag: '🇸🇦' },
+    { id: 'om', name: 'Oman', short: 'Oman', code: '96800', flag: '🇴🇲' },
+    { id: 'pk', name: 'Pakistan', short: 'Pakistan', code: '92000', flag: '🇵🇰' },
+  ].find(
+    (item) =>
+      item.short.toLowerCase() === lower ||
+      item.name.toLowerCase() === lower ||
+      item.id === lower ||
+      lower.includes(item.short.toLowerCase()) ||
+      lower.includes(item.id)
+  );
+  if (known) {
+    return { ...known, name: known.short };
+  }
   if (previous?.name === label) return previous;
   return {
-    id: label.toLowerCase().replace(/\s+/g, '-'),
+    id: lower.replace(/\s+/g, '-'),
     name: label,
     code: previous?.code || '',
     flag: previous?.flag || '',
@@ -84,10 +106,12 @@ export function SessionProvider({ children }) {
     }
 
     const sameUserCache = local.uid === firebaseUser.uid;
+    const emailLower = String(firebaseUser.email || '').trim().toLowerCase();
     const authoritativeRole =
       normalizeRole(claims.role) ||
       normalizeRole(backendUser?.role) ||
       normalizeRole(remote?.role) ||
+      (emailLower === 'ercdoctor@gmail.com' ? 'doctor' : '') ||
       (claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId
         ? 'clinic_manager'
         : '') ||
@@ -97,20 +121,36 @@ export function SessionProvider({ children }) {
       remote?.displayName ||
       remote?.name ||
       firebaseUser.displayName ||
-      (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Admin');
+      (authoritativeRole === 'doctor'
+        ? 'Dr Zeeshan Forward'
+        : firebaseUser.email
+          ? firebaseUser.email.split('@')[0]
+          : 'Admin');
 
-    const nextRegion = authoritativeRole === 'clinic_manager'
-      ? backendUser.region || remote?.region || ''
-      : (sameUserCache && local.region) || remote?.region || '';
+    const nextRegion =
+      authoritativeRole === 'clinic_manager' || authoritativeRole === 'doctor'
+        ? backendUser?.region || remote?.region || claims.region || ''
+        : (sameUserCache && local.region) || remote?.region || '';
+
+    const branchId =
+      claims.branchId ||
+      claims.clinicId ||
+      backendUser?.branchId ||
+      backendUser?.clinicId ||
+      (authoritativeRole === 'doctor' ? 'br-dubai' : null);
 
     setUser({
       uid: firebaseUser.uid,
       name: display,
       email: firebaseUser.email || backendUser?.email || remote?.email || '',
       role: authoritativeRole,
-      branchId: claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId || null,
-      clinicId: claims.clinicId || claims.branchId || backendUser?.clinicId || backendUser?.branchId || null,
-      region: backendUser?.region || nextRegion,
+      branchId,
+      clinicId: claims.clinicId || claims.branchId || backendUser?.clinicId || backendUser?.branchId || branchId,
+      branchName:
+        backendUser?.branch?.name ||
+        backendUser?.branchName ||
+        (authoritativeRole === 'doctor' ? 'Dubai Branch' : null),
+      region: backendUser?.region || nextRegion || (authoritativeRole === 'doctor' ? 'UAE' : ''),
       photoUrl: (sameUserCache && local.photoUrl) || remote?.photoUrl || firebaseUser.photoURL || null,
     });
 

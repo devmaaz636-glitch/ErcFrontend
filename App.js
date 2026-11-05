@@ -10,6 +10,7 @@ import { NotificationsProvider } from './src/context/NotificationsContext';
 import { colors } from './src/theme';
 import MainTabs from './src/navigation/MainTabs';
 import ManagerTabs from './src/navigation/ManagerTabs';
+import DoctorTabs from './src/navigation/DoctorTabs';
 import SplashScreen from './src/screens/SplashScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -95,6 +96,11 @@ export default function App() {
                 <Stack.Screen
                   name="ManagerTabs"
                   component={ManagerTabs}
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="DoctorTabs"
+                  component={DoctorTabs}
                   options={{ animation: 'fade', gestureEnabled: false }}
                 />
                 <Stack.Screen

@@ -19,7 +19,7 @@ export function managerClinicCacheKey(uid) {
 }
 
 export function adminClinicCacheKey(uid) {
-  return `@erc/admin-clinic-cache:v4:${uid}`;
+  return `@erc/admin-clinic-cache:v6:${uid}`;
 }
 
 /** In-memory last-good payloads — survives re-renders; used offline / low net. */
@@ -66,13 +66,13 @@ export function hasManagerHomeReady(payload) {
 }
 
 /** Instant full admin design seed so Home/tabs never paint empty while network catches up. */
-export function adminHomeShell() {
+export function adminHomeShell(regionHint) {
   return {
     _shell: true,
-    dashboard: createAdminSeedDashboard(),
-    appointments: createAdminSeedAppointments(),
-    branches: createAdminSeedBranches(),
-    managers: createAdminSeedManagers(),
+    dashboard: createAdminSeedDashboard(regionHint),
+    appointments: createAdminSeedAppointments(regionHint),
+    branches: createAdminSeedBranches(regionHint),
+    managers: createAdminSeedManagers(regionHint),
   };
 }
 
