@@ -15,7 +15,7 @@ import { auth } from './firebase';
 
 export function managerClinicCacheKey(uid) {
   // Bump version when seed/dashboard shape changes so managers never keep stale empty homes.
-  return `@erc/manager-clinic-cache:v9:${uid}`;
+  return `@erc/manager-clinic-cache:v10:${uid}`;
 }
 
 export function adminClinicCacheKey(uid) {

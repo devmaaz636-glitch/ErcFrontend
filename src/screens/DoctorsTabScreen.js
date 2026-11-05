@@ -8,11 +8,26 @@ import Text from '../components/AppText';
 import { IconCircleButton, SearchField, SkeletonRow } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useNotifications } from '../context/NotificationsContext';
+import { doctorPhotoSource } from '../lib/doctorMedia';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-const doctorImage = require('../../assets/doctor.png');
-const categories = ['All', 'Laser Treatment', 'Acne', 'Mummy Makeover', 'Hair Transplant'];
+const categories = [
+  'All',
+  'Plastic Surgery',
+  'Cosmetic Injectables',
+  'Laser Treatments',
+  'Skincare',
+  'Dermatologists',
+  'Hair Transplant',
+  'Dental Treatments',
+  'Weight Loss',
+  'Gynecology',
+  'Regenerative',
+  'Physiotherapist',
+  'Home Healthcare',
+  'Intimate Surgery',
+];
 
 export default function DoctorsTabScreen() {
   const navigation = useNavigation();
@@ -26,10 +41,13 @@ export default function DoctorsTabScreen() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return doctors.filter((doctor) => {
-      const matchesQuery = !q || `${doctor.name} ${doctor.specialty}`.toLowerCase().includes(q);
+      const hay = `${doctor.name || ''} ${doctor.specialty || ''} ${doctor.specialtyCategory || ''}`.toLowerCase();
+      const matchesQuery = !q || hay.includes(q);
+      if (category === 'All') return matchesQuery;
+      const cat = category.toLowerCase();
       const matchesCategory =
-        category === 'All' ||
-        doctor.specialty.toLowerCase().includes(category.replace(' Treatment', '').toLowerCase());
+        String(doctor.specialtyCategory || '').toLowerCase() === cat ||
+        hay.includes(cat.replace(/treatments?/g, '').trim().split(/\s+/)[0] || cat);
       return matchesQuery && matchesCategory;
     });
   }, [category, doctors, query]);
@@ -110,10 +128,13 @@ export default function DoctorsTabScreen() {
           {filtered.map((doctor) => (
             <Pressable
               key={doctor.id}
-              onPress={() => navigation.navigate('DoctorDetail', { doctorId: doctor.id })}
+              onPress={() => navigation.navigate('DoctorDetail', { doctorId: doctor.id, doctor })}
               style={{ width: '48%', backgroundColor: colors.card, borderRadius: s(8), padding: s(10), marginBottom: s(10), alignItems: 'center' }}
             >
-              <Image source={doctor.photo ? { uri: doctor.photo } : doctorImage} style={{ width: s(56), height: s(56), borderRadius: s(28) }} />
+              <Image
+                source={doctorPhotoSource(doctor, { preferTreatmentAsset: true })}
+                style={{ width: s(56), height: s(56), borderRadius: s(28) }}
+              />
               <Text numberOfLines={1} style={{ color: colors.ink, fontSize: fs(9, 8), marginTop: s(8), textAlign: 'center' }}>{doctor.name}</Text>
               <Text numberOfLines={1} style={{ color: colors.desc, fontSize: fs(8, 7), marginTop: 3 }}>{doctor.specialty}</Text>
               <View style={{ width: '100%', backgroundColor: colors.brand, borderRadius: s(12), paddingVertical: s(5), marginTop: s(8), alignItems: 'center' }}>

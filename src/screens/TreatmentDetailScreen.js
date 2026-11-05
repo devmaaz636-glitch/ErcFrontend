@@ -22,11 +22,11 @@ import {
   fetchManagerTreatment,
   updateManagerTreatment,
 } from '../lib/clinic';
+import { doctorPhotoSource, treatmentDoctorImage } from '../lib/doctorMedia';
 import { colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 const treatmentDetailImage = require('../../assets/treatmentdetail.png');
-const treatmentDoctorImage = require('../../assets/treatmentdocotor.png');
 
 const DEFAULT_DEPARTMENTS = [
   'Plastic Surgery',
@@ -44,6 +44,11 @@ const DEFAULT_DEPARTMENTS = [
   'Intimate Surgery',
 ];
 
+function isPlaceholderDoctor(doctor) {
+  const id = String(doctor?.id || '');
+  return id.startsWith('local-doc') || id.startsWith('doc-fallback');
+}
+
 function SectionHeader({ title, onEdit }) {
   return (
     <View
@@ -51,7 +56,7 @@ function SectionHeader({ title, onEdit }) {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: s(12),
+        marginBottom: s(14),
       }}
     >
       <Text style={{ color: theme.colors.text, fontSize: fs(13), fontWeight: '700', flex: 1 }}>
@@ -123,9 +128,12 @@ function InfoTile({ icon, value, label }) {
   );
 }
 
-function DoctorCard({ doctor }) {
+function DoctorCard({ doctor, onViewDetails }) {
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View details for ${doctor.name}`}
+      onPress={onViewDetails}
       style={{
         width: '48.5%',
         backgroundColor: theme.colors.card,
@@ -137,7 +145,7 @@ function DoctorCard({ doctor }) {
       }}
     >
       <Image
-        source={treatmentDoctorImage}
+        source={doctorPhotoSource(doctor, { preferTreatmentAsset: true })}
         contentFit="cover"
         style={{
           width: s(72),
@@ -169,10 +177,7 @@ function DoctorCard({ doctor }) {
       >
         {doctor.specialtyLabel || doctor.specialty || 'Specialist'}
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`View details for ${doctor.name}`}
-        onPress={() => {}}
+      <View
         style={{
           marginTop: s(12),
           height: s(30),
@@ -185,8 +190,8 @@ function DoctorCard({ doctor }) {
         }}
       >
         <Text style={{ color: '#fff', fontSize: fs(9), fontWeight: '600' }}>View Details</Text>
-      </Pressable>
-    </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -521,7 +526,7 @@ function ModalActions({ busy, onCancel, onSave, saveLabel = 'Save' }) {
 export default function TreatmentDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const topPad = useTopPadding(14);
+  const topPad = useTopPadding(24);
   const seed = route.params?.treatment || null;
   const treatmentId = route.params?.treatmentId || seed?.id;
   const departments = route.params?.departments?.length
@@ -590,27 +595,54 @@ export default function TreatmentDetailScreen() {
   const active = String(item?.status || 'active').toLowerCase() === 'active';
   const imageSource = item?.imageUri ? { uri: item.imageUri } : treatmentDetailImage;
   const doctors = useMemo(() => {
-    const list = Array.isArray(item?.doctors) ? [...item.doctors] : [];
-    const specialty = item?.departmentLabel
+    const specialtyFallback = item?.departmentLabel
       ? `${item.departmentLabel} Treatment`
-      : 'Laser Treatment';
-    while (list.length < 2) {
-      const index = list.length + 1;
-      list.push({
-        id: `local-doc-${index}`,
-        name: 'Dr. Ahmed Khan',
-        specialty,
-        specialtyLabel: specialty,
-      });
-    }
-    return list.slice(0, 2).map((doctor, index) => ({
+      : item?.specialty || 'Specialist';
+    const fromItem = Array.isArray(item?.doctors) ? item.doctors : [];
+    const preferredIds = (
+      Array.isArray(item?.doctorIds) && item.doctorIds.length
+        ? item.doctorIds
+        : fromItem.map((doctor) => doctor?.id)
+    )
+      .map((id) => String(id || ''))
+      .filter((id) => id && !id.startsWith('local-doc') && !id.startsWith('doc-fallback'));
+
+    const byId = new Map(
+      (doctorOptions || []).map((doctor) => [String(doctor.id), doctor]),
+    );
+    fromItem.forEach((doctor) => {
+      if (!doctor?.id || isPlaceholderDoctor(doctor)) return;
+      const key = String(doctor.id);
+      if (!byId.has(key)) byId.set(key, doctor);
+      else byId.set(key, { ...doctor, ...byId.get(key) });
+    });
+
+    const ordered = [];
+    const seen = new Set();
+    preferredIds.forEach((id) => {
+      const doctor = byId.get(String(id));
+      if (!doctor || seen.has(String(doctor.id))) return;
+      seen.add(String(doctor.id));
+      ordered.push(doctor);
+    });
+    fromItem.forEach((doctor) => {
+      if (!doctor?.id || isPlaceholderDoctor(doctor) || seen.has(String(doctor.id))) return;
+      seen.add(String(doctor.id));
+      ordered.push(byId.get(String(doctor.id)) || doctor);
+    });
+
+    return ordered.map((doctor) => ({
       ...doctor,
-      id: doctor.id || `local-doc-${index + 1}`,
       specialtyLabel:
-        doctor.specialtyLabel ||
-        (item?.departmentLabel ? `${item.departmentLabel} Treatment` : doctor.specialty),
+        doctor.specialtyLabel || doctor.specialty || specialtyFallback,
+      photo:
+        doctor.photo ||
+        doctor.photoUrl ||
+        doctor.imageUri ||
+        doctor.avatar ||
+        null,
     }));
-  }, [item]);
+  }, [item, doctorOptions]);
 
   const departmentTitle =
     item?.departmentTitle ||
@@ -630,11 +662,10 @@ export default function TreatmentDetailScreen() {
   function openDoctorsEditor() {
     setMenuOpen(false);
     setSectionError('');
-    const currentIds = (item?.doctors || [])
-      .map((doctor) => doctor.id)
-      .filter((id) => id && !String(id).startsWith('local-doc') && !String(id).startsWith('doc-fallback'));
+    const currentIds = (item?.doctorIds?.length ? item.doctorIds : (item?.doctors || []).map((doctor) => doctor.id))
+      .filter((id) => id && !isPlaceholderDoctor({ id }));
     const fallbackIds = (doctorOptions || []).slice(0, 2).map((doctor) => doctor.id);
-    setSelectedDoctorIds((currentIds.length ? currentIds : fallbackIds).slice(0, 2));
+    setSelectedDoctorIds((currentIds.length ? currentIds : fallbackIds).slice(0, 8));
     setDoctorsOpen(true);
   }
 
@@ -646,10 +677,43 @@ export default function TreatmentDetailScreen() {
     setBasicOpen(true);
   }
 
+  function openDoctor(doctor) {
+    if (!doctor?.id || isPlaceholderDoctor(doctor)) return;
+    setMenuOpen(false);
+    const fromOptions = doctorOptions.find(
+      (option) => String(option.id) === String(doctor.id),
+    );
+    // Prefer the full manager doctor record so detail paints instantly
+    const full = {
+      ...doctor,
+      ...(fromOptions || {}),
+      id: doctor.id,
+      name: fromOptions?.name || doctor.name,
+      photo:
+        fromOptions?.photo ||
+        doctor.photo ||
+        doctor.photoUrl ||
+        doctor.imageUri ||
+        null,
+    };
+    navigation.navigate('DoctorDetail', {
+      doctor: full,
+      doctorId: doctor.id,
+      treatment: item
+        ? {
+            id: item.id,
+            name: item.name,
+            departmentLabel: item.departmentLabel || item.department,
+            category: item.category || item.department,
+          }
+        : undefined,
+    });
+  }
+
   function toggleDoctor(id) {
     setSelectedDoctorIds((prev) => {
       if (prev.includes(id)) return prev.filter((value) => value !== id);
-      if (prev.length >= 2) return [prev[1], id];
+      if (prev.length >= 8) return prev;
       return [...prev, id];
     });
   }
@@ -711,7 +775,7 @@ export default function TreatmentDetailScreen() {
         department: item.department || item.category,
         category: item.category || item.department,
         session: item.session || item.unit || 'Per Session',
-        doctorIds: selectedDoctorIds.slice(0, 2),
+        doctorIds: selectedDoctorIds.slice(0, 8),
         imageUri: item.imageUri || null,
       });
       setItem(saved);
@@ -791,7 +855,7 @@ export default function TreatmentDetailScreen() {
 
   const doctorPickerList = doctorOptions.length
     ? doctorOptions
-    : doctors.filter((doctor) => !String(doctor.id).startsWith('local-doc'));
+    : doctors.filter((doctor) => !isPlaceholderDoctor(doctor));
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.page }}>
@@ -815,7 +879,8 @@ export default function TreatmentDetailScreen() {
             <Text
               style={{
                 flex: 1,
-                textAlign: 'center',
+                marginLeft: s(12),
+                textAlign: 'left',
                 fontSize: fs(15),
                 fontWeight: '600',
                 color: theme.colors.text,
@@ -884,7 +949,7 @@ export default function TreatmentDetailScreen() {
               <Pressable onPress={() => menuOpen && setMenuOpen(false)}>
                 <View
                   style={{
-                    marginTop: s(18),
+                    marginTop: s(24),
                     flexDirection: 'row',
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
@@ -932,7 +997,7 @@ export default function TreatmentDetailScreen() {
                     width: '100%',
                     height: s(168),
                     borderRadius: s(16),
-                    marginTop: s(14),
+                    marginTop: s(18),
                     backgroundColor: '#EFE7DF',
                   }}
                 />
@@ -940,7 +1005,7 @@ export default function TreatmentDetailScreen() {
                 {item.description ? (
                   <Text
                     style={{
-                      marginTop: s(12),
+                      marginTop: s(14),
                       color: theme.colors.secondaryText,
                       fontSize: fs(11),
                       lineHeight: fs(16),
@@ -950,7 +1015,7 @@ export default function TreatmentDetailScreen() {
                   </Text>
                 ) : null}
 
-                <View style={{ marginTop: s(18) }}>
+                <View style={{ marginTop: s(24) }}>
                   <SectionHeader title="Treatment Information" onEdit={openInfoEditor} />
                   <View
                     style={{
@@ -982,13 +1047,37 @@ export default function TreatmentDetailScreen() {
                   </View>
                 </View>
 
-                <View style={{ marginTop: s(14) }}>
+                <View style={{ marginTop: s(24) }}>
                   <SectionHeader title="Doctors Providing This Treatment" onEdit={openDoctorsEditor} />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    {doctors.map((doctor) => (
-                      <DoctorCard key={doctor.id} doctor={doctor} />
-                    ))}
-                  </View>
+                  {doctors.length ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        justifyContent: 'space-between',
+                        rowGap: s(12),
+                      }}
+                    >
+                      {doctors.map((doctor) => (
+                        <DoctorCard
+                          key={doctor.id}
+                          doctor={doctor}
+                          onViewDetails={() => openDoctor(doctor)}
+                        />
+                      ))}
+                    </View>
+                  ) : (
+                    <Text
+                      style={{
+                        color: theme.colors.secondaryText,
+                        fontSize: fs(11),
+                        textAlign: 'center',
+                        paddingVertical: s(16),
+                      }}
+                    >
+                      No doctors assigned yet. Tap edit to add doctors.
+                    </Text>
+                  )}
                 </View>
 
                 <Pressable
@@ -1000,7 +1089,7 @@ export default function TreatmentDetailScreen() {
                     backgroundColor: theme.colors.brandButton || colors.brand,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginTop: s(26),
+                    marginTop: s(30),
                   }}
                 >
                   <Text style={{ color: '#fff', fontSize: fs(14), fontWeight: '600' }}>Save Changes</Text>
@@ -1143,7 +1232,7 @@ export default function TreatmentDetailScreen() {
         }
       >
         <Text style={{ color: theme.colors.secondaryText, fontSize: fs(11), marginBottom: s(14) }}>
-          Choose up to 2 doctors who provide this treatment.
+          Choose doctors who provide this treatment (up to 8).
         </Text>
         {(doctorPickerList.length ? doctorPickerList : doctors).map((doctor) => {
           const selected = selectedDoctorIds.includes(doctor.id);
@@ -1164,7 +1253,7 @@ export default function TreatmentDetailScreen() {
               }}
             >
               <Image
-                source={treatmentDoctorImage}
+                source={doctorPhotoSource(doctor, { preferTreatmentAsset: true })}
                 contentFit="cover"
                 style={{
                   width: s(44),
