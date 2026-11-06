@@ -4,14 +4,23 @@ import { colors, radius } from '../../theme';
 import { BRAND_BG } from '../../theme/brandButton';
 import { scale as s, fs } from '../../utils/responsive';
 
+const SIZES = {
+  md: { height: s(48), fontSize: fs(14) },
+  /** Card CTAs (Review Request / Review History, View Patient Record, etc.) */
+  sm: { height: s(34), fontSize: fs(11) },
+};
+
 /** Global primary CTA — always #BF824F fill, white centered label, pill radius. */
 export default function PrimaryButton({
   label,
   onPress,
   disabled,
   loading,
+  size = 'md',
   style,
 }) {
+  const preset = SIZES[size] || SIZES.md;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -19,7 +28,7 @@ export default function PrimaryButton({
       onPress={onPress}
       style={[
         {
-          height: s(48),
+          height: preset.height,
           borderRadius: radius.round,
           alignItems: 'center',
           justifyContent: 'center',
@@ -35,7 +44,7 @@ export default function PrimaryButton({
       ) : (
         <Text
           style={{
-            fontSize: fs(14),
+            fontSize: preset.fontSize,
             fontWeight: '600',
             color: colors.white,
             textAlign: 'center',

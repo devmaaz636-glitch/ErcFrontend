@@ -18,6 +18,7 @@ import {
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
+import { createDoctorAppointmentsSeed } from '../lib/doctorSeed';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing, managerDashboard as managerTheme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -37,6 +38,14 @@ const MANAGER_TABS = [
   { key: 'rescheduled', label: 'Reschedule' },
 ];
 
+/** Doctor appointments — same manager layout; Pending → Upcoming only. */
+const DOCTOR_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rescheduled', label: 'Reschedule' },
+];
+
 const LIST_STATUS = {
   upcoming: { label: 'Confirmed', color: colors.success, bg: colors.successBg },
   completed: { label: 'Completed', color: colors.brand, bg: colors.warningBg },
@@ -45,6 +54,7 @@ const LIST_STATUS = {
 
 const REQUEST_STATUS = {
   pending: { label: 'Pending', color: '#D5B244', bg: '#FFF8DC' },
+  upcoming: { label: 'Upcoming', color: '#6B5CA5', bg: '#EDE8F8' },
   approved: { label: 'Approved', color: colors.success, bg: colors.successBg },
   rescheduled: { label: 'Reschedule', color: colors.brand, bg: colors.warningBg },
   rejected: { label: 'Rejected', color: colors.danger, bg: colors.dangerBg },
@@ -53,6 +63,13 @@ const REQUEST_STATUS = {
 function normalizeRequestStatus(status) {
   const value = String(status || 'pending').toLowerCase();
   if (value === 'reschedule') return 'rescheduled';
+  return value;
+}
+
+/** Doctor filter bucket: pending counts as upcoming. */
+function normalizeDoctorTabStatus(status) {
+  const value = normalizeRequestStatus(status);
+  if (value === 'pending') return 'upcoming';
   return value;
 }
 
@@ -177,14 +194,14 @@ function AdminFilterTabs({ active, onChange }) {
   );
 }
 
-function ManagerFilterTabs({ active, onChange, counts }) {
+function ManagerFilterTabs({ active, onChange, counts, tabs = MANAGER_TABS }) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: s(14), paddingBottom: s(4), gap: s(8) }}
     >
-      {MANAGER_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive = tab.key === active;
         const count = counts?.[tab.key];
         const label =
@@ -283,9 +300,13 @@ function AppointmentCard({ item, onPress }) {
   );
 }
 
-function ManagerRequestCard({ item, onReview }) {
-  const status = normalizeRequestStatus(item.status);
-  const st = REQUEST_STATUS[status] || REQUEST_STATUS.pending;
+function ManagerRequestCard({ item, onReview, isDoctor = false }) {
+  const status = isDoctor
+    ? normalizeDoctorTabStatus(item.status)
+    : normalizeRequestStatus(item.status);
+  const st =
+    REQUEST_STATUS[status] ||
+    (isDoctor ? REQUEST_STATUS.upcoming : REQUEST_STATUS.pending);
   const when = formatAppointmentWhen(item);
   return (
     <View
@@ -306,9 +327,14 @@ function ManagerRequestCard({ item, onReview }) {
           <Text style={{ color: managerTheme.colors.text, fontSize: fs(12), fontWeight: '700' }} numberOfLines={1}>
             {item.patient || 'Patient'}
           </Text>
-          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginTop: 2 }} numberOfLines={1}>
-            {item.treatment || 'Treatment'}
-          </Text>
+          {isDoctor ? null : (
+            <Text
+              style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginTop: 2 }}
+              numberOfLines={1}
+            >
+              {item.treatment || 'Treatment'}
+            </Text>
+          )}
         </View>
         <View
           style={{
@@ -322,47 +348,81 @@ function ManagerRequestCard({ item, onReview }) {
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: s(10) }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: 4 }}>
-          <Ionicons name="calendar-outline" size={s(11)} color={colors.brand} />
-          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
-            {when.day}
+      {isDoctor ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(10) }}>
+          <Text
+            style={{
+              flex: 1,
+              color: managerTheme.colors.text,
+              fontSize: fs(11),
+              fontWeight: '600',
+            }}
+            numberOfLines={1}
+          >
+            {item.treatment || 'Treatment'}
+          </Text>
+          <Ionicons name="time-outline" size={s(12)} color={managerTheme.colors.secondaryText} />
+          <Text
+            style={{
+              color: managerTheme.colors.secondaryText,
+              fontSize: fs(10),
+              marginLeft: 4,
+            }}
+          >
+            {item.requestedTime || item.time || when.time}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: 4 }}>
-          <Ionicons name="today-outline" size={s(11)} color={colors.brand} />
-          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
-            {when.date}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <Ionicons name="time-outline" size={s(11)} color={colors.brand} />
-          <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
-            {when.time}
-          </Text>
-        </View>
-      </View>
+      ) : (
+        <>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: s(10) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: 4 }}>
+              <Ionicons name="calendar-outline" size={s(11)} color={colors.brand} />
+              <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
+                {when.day}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: s(10), marginBottom: 4 }}>
+              <Ionicons name="today-outline" size={s(11)} color={colors.brand} />
+              <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
+                {when.date}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Ionicons name="time-outline" size={s(11)} color={colors.brand} />
+              <Text style={{ color: managerTheme.colors.secondaryText, fontSize: fs(9), marginLeft: 4 }}>
+                {when.time}
+              </Text>
+            </View>
+          </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(6) }}>
-        <Text style={{ flex: 1, color: managerTheme.colors.secondaryText, fontSize: fs(9) }} numberOfLines={1}>
-          {item.doctor || 'Doctor'}
-        </Text>
-      </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(6) }}>
+            <Text
+              style={{ flex: 1, color: managerTheme.colors.secondaryText, fontSize: fs(9) }}
+              numberOfLines={1}
+            >
+              {item.doctor || 'Doctor'}
+            </Text>
+          </View>
+        </>
+      )}
 
       <PrimaryButton
-        label="Review Request"
+        label={isDoctor ? 'Review History' : 'Review Request'}
         onPress={onReview}
+        size="sm"
         style={{ marginTop: s(12), width: '100%' }}
       />
     </View>
   );
 }
 
-function roleLabel(user, isManager) {
+function roleLabel(user, isManager, isDoctor) {
+  if (isDoctor) return 'Doctor';
   if (isManager) return 'Clinic Manager';
   const raw = String(user?.role || 'Regional Admin');
   if (raw === 'admin') return 'Regional Admin';
   if (raw === 'clinic_manager') return 'Clinic Manager';
+  if (raw === 'doctor') return 'Doctor';
   return raw;
 }
 
@@ -374,10 +434,21 @@ export default function AppointmentsTabScreen() {
   const regionLabel = useActiveRegionLabel();
   const { appointments, appointmentRequests, dashboard, error, refresh } = useClinicData();
   const isManager = user.role === 'clinic_manager';
+  const isDoctor = user.role === 'doctor';
+  const useRequestLayout = isManager || isDoctor;
 
   const [adminTab, setAdminTab] = useState('upcoming');
   const [managerTab, setManagerTab] = useState('all');
   const [query, setQuery] = useState('');
+
+  const doctorSeed = useMemo(
+    () =>
+      createDoctorAppointmentsSeed({
+        name: user?.name || 'Dr Zeeshan Forward',
+        branchName: user?.branchName || dashboard?.clinic?.name || 'Dubai Branch',
+      }),
+    [user?.name, user?.branchName, dashboard?.clinic?.name]
+  );
 
   // Managers force a silent sync so All / Pending / Approved / Reschedule stay live.
   const refreshOnFocus = useCallback(
@@ -387,19 +458,51 @@ export default function AppointmentsTabScreen() {
   useRefreshOnFocus(refreshOnFocus);
 
   // Keep admin appointment cards on appointment stats only — never mix home dashboard stats.
-  const stats = isManager
-    ? appointments.stats?.length
-      ? appointments.stats
-      : dashboard?.stats || []
-    : appointments.stats || [];
+  const stats = isDoctor
+    ? doctorSeed.stats
+    : isManager
+      ? appointments.stats?.length
+        ? appointments.stats
+        : dashboard?.stats || []
+      : appointments.stats || [];
 
   const managerItems = useMemo(() => {
+    if (isDoctor) {
+      const live = appointmentRequests?.items?.length
+        ? appointmentRequests.items
+        : dashboard?.appointmentRequests || [];
+      // Prefer live requests that mention this doctor; else seed.
+      const doctorName = String(user?.name || '').trim().toLowerCase();
+      const scoped = doctorName
+        ? live.filter((item) =>
+            String(item.doctor || '')
+              .trim()
+              .toLowerCase()
+              .includes(doctorName)
+          )
+        : live;
+      return scoped.length ? scoped : doctorSeed.items;
+    }
     if (appointmentRequests?.items?.length) return appointmentRequests.items;
     // Fallback only before the full requests endpoint has hydrated.
     return dashboard?.appointmentRequests || [];
-  }, [appointmentRequests?.items, dashboard?.appointmentRequests]);
+  }, [
+    isDoctor,
+    appointmentRequests?.items,
+    dashboard?.appointmentRequests,
+    doctorSeed.items,
+    user?.name,
+  ]);
 
   const managerCounts = useMemo(() => {
+    if (isDoctor) {
+      const counts = { all: managerItems.length, upcoming: 0, approved: 0, rescheduled: 0 };
+      for (const item of managerItems) {
+        const status = normalizeDoctorTabStatus(item.status);
+        if (counts[status] != null) counts[status] += 1;
+      }
+      return counts;
+    }
     if (appointmentRequests?.counts) return appointmentRequests.counts;
     const counts = { all: managerItems.length, pending: 0, approved: 0, rescheduled: 0, rejected: 0 };
     for (const item of managerItems) {
@@ -407,7 +510,7 @@ export default function AppointmentsTabScreen() {
       if (counts[status] != null) counts[status] += 1;
     }
     return counts;
-  }, [appointmentRequests?.counts, managerItems]);
+  }, [isDoctor, appointmentRequests?.counts, managerItems]);
 
   const adminList = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -425,17 +528,19 @@ export default function AppointmentsTabScreen() {
   const managerList = useMemo(() => {
     const q = query.trim().toLowerCase();
     return managerItems.filter((item) => {
-      const status = normalizeRequestStatus(item.status);
+      const status = isDoctor
+        ? normalizeDoctorTabStatus(item.status)
+        : normalizeRequestStatus(item.status);
       const tabOk = managerTab === 'all' || status === managerTab;
       if (!tabOk) return false;
       if (!q) return true;
       const hay = `${item.patient || ''} ${item.doctor || ''} ${item.treatment || ''} ${item.appointmentId || ''} ${item.requestedTime || ''}`;
       return hay.toLowerCase().includes(q);
     });
-  }, [managerItems, managerTab, query]);
+  }, [managerItems, managerTab, query, isDoctor]);
 
-  const subtitle = `${regionLabel || dashboard?.clinic?.region || dashboard?.clinic?.city || 'Region'} · ${roleLabel(user, isManager)}`;
-  const showHardError = Boolean(error) && stats.length === 0;
+  const subtitle = `${regionLabel || dashboard?.clinic?.region || dashboard?.clinic?.city || user?.branchName || 'Region'} · ${roleLabel(user, isManager, isDoctor)}`;
+  const showHardError = Boolean(error) && stats.length === 0 && !isDoctor;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -466,10 +571,10 @@ export default function AppointmentsTabScreen() {
                 {subtitle}
               </Text>
             </View>
-            {/* Two header icons for admin: region + notifications */}
-            {!isManager ? <RegionGlobeButton color={colors.brand} /> : null}
-            {!isManager ? <View style={{ width: s(8) }} /> : null}
-            <NotificationBellButton color={isManager ? colors.mutedBrand : colors.brand} />
+            {/* Region switcher is admin-only; manager/doctor get notifications only. */}
+            {!useRequestLayout ? <RegionGlobeButton color={colors.brand} /> : null}
+            {!useRequestLayout ? <View style={{ width: s(8) }} /> : null}
+            <NotificationBellButton color={useRequestLayout ? colors.mutedBrand : colors.brand} />
           </View>
 
           {showHardError ? (
@@ -491,12 +596,13 @@ export default function AppointmentsTabScreen() {
             ))}
           </View>
 
-          {isManager ? (
+          {useRequestLayout ? (
             <>
               <ManagerFilterTabs
                 active={managerTab}
                 onChange={setManagerTab}
                 counts={managerCounts}
+                tabs={isDoctor ? DOCTOR_TABS : MANAGER_TABS}
               />
               <View style={{ width: '100%', marginTop: s(12) }}>
                 {managerList.length === 0 ? (
@@ -511,8 +617,11 @@ export default function AppointmentsTabScreen() {
                     <ManagerRequestCard
                       key={item.id}
                       item={item}
+                      isDoctor={isDoctor}
                       onReview={() =>
-                        navigation.navigate('AppointmentRequestDetail', { requestId: item.id })
+                        isDoctor
+                          ? navigation.navigate('DoctorReviewHistory', { item })
+                          : navigation.navigate('AppointmentRequestDetail', { requestId: item.id })
                       }
                     />
                   ))

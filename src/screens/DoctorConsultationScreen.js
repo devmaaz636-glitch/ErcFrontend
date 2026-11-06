@@ -77,6 +77,7 @@ function BookingCard({ item, onReview }) {
       <PrimaryButton
         label="Review Request"
         onPress={onReview}
+        size="sm"
         style={{ marginTop: s(12), width: '100%' }}
       />
     </View>

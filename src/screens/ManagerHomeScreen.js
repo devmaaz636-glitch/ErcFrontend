@@ -101,6 +101,7 @@ function RequestCard({ request, onReview }) {
       <PrimaryButton
         label="Review Request"
         onPress={onReview}
+        size="sm"
         style={{ marginTop: s(11), width: '100%' }}
       />
     </View>

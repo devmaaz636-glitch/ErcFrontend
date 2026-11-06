@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from '../components/BottomTabBar';
+import AppointmentsTabScreen from '../screens/AppointmentsTabScreen';
 import DoctorHomeScreen from '../screens/DoctorHomeScreen';
 import DoctorPlaceholderScreen from '../screens/DoctorPlaceholderScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
@@ -7,9 +8,6 @@ import { colors } from '../theme';
 
 const Tab = createBottomTabNavigator();
 
-function AppointmentsPlaceholder(props) {
-  return <DoctorPlaceholderScreen {...props} route={{ ...props.route, params: { title: 'Appointments' } }} />;
-}
 function PatientsPlaceholder(props) {
   return <DoctorPlaceholderScreen {...props} route={{ ...props.route, params: { title: 'Patients' } }} />;
 }
@@ -31,7 +29,7 @@ export default function DoctorTabs() {
       <Tab.Screen name="Home" component={DoctorHomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen
         name="AppointmentsTab"
-        component={AppointmentsPlaceholder}
+        component={AppointmentsTabScreen}
         options={{ title: 'Appointments' }}
       />
       <Tab.Screen name="PatientsTab" component={PatientsPlaceholder} options={{ title: 'Patients' }} />

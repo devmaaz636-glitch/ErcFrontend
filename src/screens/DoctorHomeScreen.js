@@ -46,9 +46,16 @@ function StatusChip({ status }) {
   );
 }
 
-/** Section CTA — same global PrimaryButton used across the app. */
+/** Compact card CTA — global PrimaryButton sm + brand bg. */
 function DoctorActionButton({ label, onPress }) {
-  return <PrimaryButton label={label} onPress={onPress} style={{ marginTop: s(14), width: '100%' }} />;
+  return (
+    <PrimaryButton
+      label={label}
+      onPress={onPress}
+      size="sm"
+      style={{ marginTop: s(12), width: '100%' }}
+    />
+  );
 }
 
 function StatCard({ item }) {
@@ -85,30 +92,30 @@ function NextAppointmentCard({ item, onReview }) {
         marginBottom: s(8),
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
         <Image
           source={patientImage}
           contentFit="cover"
           style={{ width: s(48), height: s(48), borderRadius: s(24), backgroundColor: colors.fieldAlt }}
         />
-        <View style={{ flex: 1, marginLeft: s(12) }}>
+        <View style={{ flex: 1, marginLeft: s(12), marginRight: s(8) }}>
           <Text style={{ color: colors.ink, fontSize: fs(14), fontWeight: '700' }}>{item.patient}</Text>
-          <Text style={{ color: colors.muted, fontSize: fs(9), marginTop: 3 }}>
-            Patient ID: {item.patientId}
-          </Text>
+          {item.patientId ? (
+            <Text style={{ color: colors.muted, fontSize: fs(9), marginTop: 3 }}>
+              Patient ID: {item.patientId}
+            </Text>
+          ) : null}
         </View>
         <StatusChip status={item.status} />
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(14) }}>
-        <Text style={{ flex: 1, color: colors.ink, fontSize: fs(12), fontWeight: '600' }}>
-          {item.treatment}
-        </Text>
-        <Ionicons name="time-outline" size={s(13)} color={colors.muted} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(12) }}>
+        <Text style={{ color: colors.ink, fontSize: fs(12), fontWeight: '600' }}>{item.treatment}</Text>
+        <Ionicons name="time-outline" size={s(12)} color={colors.muted} style={{ marginLeft: s(10) }} />
         <Text style={{ color: colors.muted, fontSize: fs(11), marginLeft: 4 }}>{item.time}</Text>
       </View>
 
-      <DoctorActionButton label="Review Request" onPress={onReview} />
+      <DoctorActionButton label="Review History" onPress={onReview} />
     </View>
   );
 }
@@ -271,7 +278,9 @@ export default function DoctorHomeScreen() {
           />
           <NextAppointmentCard
             item={seed.nextAppointment}
-            onReview={() => navigation.navigate('AppointmentsTab')}
+            onReview={() =>
+              navigation.navigate('DoctorReviewHistory', { item: seed.nextAppointment })
+            }
           />
 
           <View style={{ marginTop: s(8) }}>
