@@ -222,7 +222,8 @@ export default function VerifyRegionScreen() {
         return;
       }
 
-      await persistRegion({ ...effectiveRegion, code: effectiveCode });
+      // Region state is updated synchronously; persistence must not block mobile navigation.
+      persistRegion({ ...effectiveRegion, code: effectiveCode }).catch(() => {});
 
       if (isDoctorFlow) {
         updateUser({

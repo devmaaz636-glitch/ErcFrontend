@@ -158,6 +158,7 @@ export function ClinicDataProvider({ children }) {
   const inFlightRef = useRef(null);
   const lastFetchAtRef = useRef(0);
   const requestGenerationRef = useRef(0);
+  const adminRegionRef = useRef(displayRegion || user.region || 'UAE');
   const dataRef = useRef(data);
   const prevIsManagerRef = useRef(isManager);
   /** Set when Verify Region confirms manager — avoids admin API 403 while session catches up. */
@@ -871,6 +872,26 @@ export function ClinicDataProvider({ children }) {
     applyManagerData,
   ]);
 
+  useEffect(() => {
+    if (!ready || !isAdmin || !displayRegion) return undefined;
+    const previousRegion = adminRegionRef.current;
+    if (previousRegion !== displayRegion) {
+      adminRegionRef.current = displayRegion;
+      requestGenerationRef.current += 1;
+      inFlightRef.current = null;
+      lastFetchAtRef.current = 0;
+      setError('');
+    }
+    const requestedRegion = displayRegion;
+    refresh({ silent: true, force: true })
+      .catch(() => {})
+      .finally(() => {
+        if (adminRegionRef.current === requestedRegion) {
+        }
+      });
+    return undefined;
+  }, [ready, isAdmin, displayRegion, refresh]);
+
   /** Optimistic / real-time patch after approve · reject · reschedule. */
   const applyAppointmentRequestUpdate = useCallback(
     (updated) => {
@@ -911,7 +932,10 @@ export function ClinicDataProvider({ children }) {
     if (isManager) return data;
     if (!(isAdmin || adminModeRef.current)) return data;
     const region = displayRegion || user.region || 'UAE';
-    const source = data?.dashboard ? data : adminPayload(adminHomeShell());
+    const source =
+      data?.dashboard
+        ? data
+        : adminPayload(adminHomeShell(region));
     return scopeAdminClinicData(source, region);
   }, [data, displayRegion, user.region, isManager, isAdmin]);
 
