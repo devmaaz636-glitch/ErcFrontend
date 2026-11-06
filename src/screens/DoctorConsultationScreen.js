@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Text from '../components/AppText';
-import { IconCircleButton, SearchField } from '../components/ui';
+import { IconCircleButton, PrimaryButton, SearchField } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { colors, managerDashboard as theme, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -26,8 +26,6 @@ const BADGE = {
   rescheduled: { label: 'Reschedule', color: colors.brand, bg: colors.warningBg },
   rejected: { label: 'Rejected', color: colors.danger, bg: colors.dangerBg },
 };
-
-const BRAND_BTN = '#D59B6F';
 
 function normalizeStatus(status) {
   const value = String(status || 'pending').toLowerCase();
@@ -76,14 +74,11 @@ function BookingCard({ item, onReview }) {
         <Text style={styles.metaTime}>{time}</Text>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Review request"
+      <PrimaryButton
+        label="Review Request"
         onPress={onReview}
-        style={({ pressed }) => [styles.reviewBtn, pressed && { opacity: 0.88 }]}
-      >
-        <Text style={styles.reviewBtnText}>Review Request</Text>
-      </Pressable>
+        style={{ marginTop: s(12), width: '100%' }}
+      />
     </View>
   );
 }
@@ -167,7 +162,7 @@ export default function DoctorConsultationScreen() {
           </View>
           <IconCircleButton
             name="ellipsis-vertical"
-            color={BRAND_BTN}
+            color={colors.brand}
             accessibilityLabel="More options"
           />
         </View>
@@ -313,7 +308,7 @@ const styles = StyleSheet.create({
     marginRight: s(4),
   },
   filterChipOn: {
-    backgroundColor: BRAND_BTN,
+    backgroundColor: colors.brand,
   },
   filterText: {
     color: colors.desc,
@@ -373,19 +368,6 @@ const styles = StyleSheet.create({
     color: colors.desc,
     fontSize: fs(10),
     marginLeft: 4,
-  },
-  reviewBtn: {
-    height: s(36),
-    borderRadius: 999,
-    backgroundColor: BRAND_BTN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: s(12),
-  },
-  reviewBtnText: {
-    color: '#fff',
-    fontSize: fs(12),
-    fontWeight: '600',
   },
   empty: {
     backgroundColor: colors.card,

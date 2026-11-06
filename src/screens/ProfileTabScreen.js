@@ -98,8 +98,7 @@ function ActionRow({ label, icon, onPress }) {
   );
 }
 
-/* Full-screen loading overlay shown while logging out.
-   Uses a Modal so it also covers the tab bar and blocks every tap. */
+/* Blocks interaction while logout finishes — spinner only, no new UI chrome. */
 function LogoutOverlay({ visible }) {
   return (
     <Modal
@@ -110,48 +109,16 @@ function LogoutOverlay({ visible }) {
       onRequestClose={() => {}}
     >
       <View
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
         style={{
           flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.35)',
+          backgroundColor: 'rgba(0,0,0,0.2)',
           alignItems: 'center',
           justifyContent: 'center',
-          paddingHorizontal: 32,
         }}
       >
-        <View
-          accessibilityRole="alert"
-          accessibilityLiveRegion="polite"
-          style={{
-            width: '100%',
-            maxWidth: 280,
-            backgroundColor: '#fff',
-            borderRadius: 18,
-            paddingVertical: 24,
-            paddingHorizontal: 20,
-            alignItems: 'center',
-            shadowColor: colors.brand,
-            shadowOpacity: 0.2,
-            shadowRadius: 16,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 10,
-          }}
-        >
-          <ActivityIndicator size="large" color={colors.brand} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: 16 }}>
-            Logging out…
-          </Text>
-          <Text
-            style={{
-              fontSize: 11,
-              color: colors.muted,
-              marginTop: 6,
-              textAlign: 'center',
-              lineHeight: 16,
-            }}
-          >
-            Please wait a moment while we sign you out securely.
-          </Text>
-        </View>
+        <ActivityIndicator size="large" color={colors.brand} />
       </View>
     </Modal>
   );
@@ -194,8 +161,7 @@ export default function ProfileTabScreen() {
     setLoggingOut(true);
 
     try {
-      // Wait for the server sign-out, but never longer than the timeout
-      // (slow or no internet should not leave the user stuck).
+      // Wait for Firebase sign-out, but never longer than the timeout.
       await Promise.race([
         signOutUser(),
         new Promise((resolve) => setTimeout(resolve, SIGN_OUT_TIMEOUT_MS)),
@@ -205,8 +171,12 @@ export default function ProfileTabScreen() {
     }
 
     try {
+      // Leave the role shell first so clearing session cannot flash admin/manager UI.
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'SignIn', params: { loggedOut: true } }],
+      });
       await clearSession();
-      navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
     } catch {
       logoutLock.current = false;
       setLoggingOut(false);
@@ -318,7 +288,13 @@ export default function ProfileTabScreen() {
             />
           ))}
 
-          <PrimaryButton label="Logout" onPress={logout} style={{ marginTop: 18, height: 44 }} />
+          <PrimaryButton
+            label="Logout"
+            onPress={logout}
+            loading={loggingOut}
+            disabled={loggingOut}
+            style={{ marginTop: 18, height: 44 }}
+          />
         </View>
       </ScrollView>
 

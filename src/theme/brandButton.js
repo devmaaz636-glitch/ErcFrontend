@@ -11,6 +11,7 @@ export const brandButtonBg = {
 
 export const brandButtonText = {
   color: '#FFFFFF',
+  fontWeight: '600',
 };
 
 export function brandPressableStyle(base, pressed) {

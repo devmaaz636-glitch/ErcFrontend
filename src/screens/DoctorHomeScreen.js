@@ -6,7 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Text from '../components/AppText';
-import { NotificationBellButton, SearchField, SectionHeader } from '../components/ui';
+import {
+  NotificationBellButton,
+  PrimaryButton,
+  SearchField,
+  SectionHeader,
+} from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { createDoctorHomeSeed } from '../lib/doctorSeed';
 import { colors, spacing } from '../theme';
@@ -19,9 +24,11 @@ const STATUS_CHIP = {
   upcoming: { label: 'Upcoming', bg: '#EDE8F8', color: '#6B5CA5' },
   completed: { label: 'Completed', bg: colors.successBg, color: colors.success },
   pending: { label: 'Pending', bg: colors.warningBg, color: colors.brand },
-  due: { label: 'Due', bg: '#FBE8D8', color: '#D97706' },
+  due: { label: 'Due', bg: '#FBE8D8', color: '#E39B4B' },
   canceled: { label: 'Canceled', bg: colors.dangerBg, color: colors.danger },
 };
+
+const CARD_RADIUS = 16;
 
 function StatusChip({ status }) {
   const preset = STATUS_CHIP[String(status || '').toLowerCase()] || STATUS_CHIP.pending;
@@ -31,12 +38,17 @@ function StatusChip({ status }) {
         backgroundColor: preset.bg,
         borderRadius: 999,
         paddingHorizontal: s(10),
-        paddingVertical: s(4),
+        paddingVertical: s(5),
       }}
     >
       <Text style={{ color: preset.color, fontSize: fs(8, 8), fontWeight: '600' }}>{preset.label}</Text>
     </View>
   );
+}
+
+/** Section CTA — same global PrimaryButton used across the app. */
+function DoctorActionButton({ label, onPress }) {
+  return <PrimaryButton label={label} onPress={onPress} style={{ marginTop: s(14), width: '100%' }} />;
 }
 
 function StatCard({ item }) {
@@ -45,7 +57,7 @@ function StatCard({ item }) {
       style={{
         width: '48%',
         minHeight: s(100),
-        borderRadius: 16,
+        borderRadius: CARD_RADIUS,
         padding: s(14),
         marginBottom: s(12),
         backgroundColor: colors.brand,
@@ -68,7 +80,7 @@ function NextAppointmentCard({ item, onReview }) {
     <View
       style={{
         backgroundColor: colors.card,
-        borderRadius: 16,
+        borderRadius: CARD_RADIUS,
         padding: s(14),
         marginBottom: s(8),
       }}
@@ -96,52 +108,50 @@ function NextAppointmentCard({ item, onReview }) {
         <Text style={{ color: colors.muted, fontSize: fs(11), marginLeft: 4 }}>{item.time}</Text>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={onReview}
-        style={{
-          marginTop: s(14),
-          height: s(44),
-          borderRadius: 12,
-          backgroundColor: colors.brandSoft,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }}>Review Request</Text>
-      </Pressable>
+      <DoctorActionButton label="Review Request" onPress={onReview} />
     </View>
   );
 }
 
-function TodayRow({ item }) {
+function TodayAppointmentsCard({ items }) {
   return (
     <View
       style={{
         backgroundColor: colors.card,
-        borderRadius: 14,
-        paddingVertical: s(12),
+        borderRadius: CARD_RADIUS,
         paddingHorizontal: s(12),
-        marginBottom: s(10),
-        flexDirection: 'row',
-        alignItems: 'center',
+        paddingVertical: s(4),
+        overflow: 'hidden',
       }}
     >
-      <Image
-        source={patientImage}
-        contentFit="cover"
-        style={{ width: s(40), height: s(40), borderRadius: s(20), backgroundColor: colors.fieldAlt }}
-      />
-      <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
-        <Text style={{ color: colors.ink, fontSize: fs(12), fontWeight: '700' }}>{item.patient}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ color: colors.muted, fontSize: fs(9) }}>{item.treatment}</Text>
-          <Text style={{ color: colors.muted, fontSize: fs(9) }}>  ·  </Text>
-          <Ionicons name="time-outline" size={s(11)} color={colors.muted} />
-          <Text style={{ color: colors.muted, fontSize: fs(9), marginLeft: 3 }}>{item.time}</Text>
+      {items.map((item, index) => (
+        <View
+          key={item.id}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: s(12),
+            borderTopWidth: index === 0 ? 0 : 1,
+            borderTopColor: '#F1E7DD',
+          }}
+        >
+          <Image
+            source={patientImage}
+            contentFit="cover"
+            style={{ width: s(40), height: s(40), borderRadius: s(20), backgroundColor: colors.fieldAlt }}
+          />
+          <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
+            <Text style={{ color: colors.ink, fontSize: fs(12), fontWeight: '700' }}>{item.patient}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <Text style={{ color: colors.muted, fontSize: fs(9) }}>{item.treatment}</Text>
+              <Text style={{ color: colors.muted, fontSize: fs(9) }}>  ·  </Text>
+              <Ionicons name="time-outline" size={s(11)} color={colors.muted} />
+              <Text style={{ color: colors.muted, fontSize: fs(9), marginLeft: 3 }}>{item.time}</Text>
+            </View>
+          </View>
+          <StatusChip status={item.status} />
         </View>
-      </View>
-      <StatusChip status={item.status} />
+      ))}
     </View>
   );
 }
@@ -152,11 +162,22 @@ function FollowUpCard({ item, onView }) {
     <View
       style={{
         backgroundColor: colors.card,
-        borderRadius: 16,
+        borderRadius: CARD_RADIUS,
         padding: s(14),
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        <Image
+          source={patientImage}
+          contentFit="cover"
+          style={{
+            width: s(44),
+            height: s(44),
+            borderRadius: s(22),
+            backgroundColor: colors.fieldAlt,
+            marginRight: s(10),
+          }}
+        />
         <View style={{ flex: 1, marginRight: s(8) }}>
           <Text style={{ color: colors.ink, fontSize: fs(13), fontWeight: '700' }}>{item.patient}</Text>
           <Text style={{ color: colors.muted, fontSize: fs(10), marginTop: 4 }}>{item.treatment}</Text>
@@ -164,22 +185,7 @@ function FollowUpCard({ item, onView }) {
         </View>
         <StatusChip status={item.status} />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onView}
-        style={{
-          marginTop: s(14),
-          height: s(44),
-          borderRadius: 12,
-          backgroundColor: colors.brandSoft,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }}>
-          View Patient Record
-        </Text>
-      </Pressable>
+      <DoctorActionButton label="View Patient Record" onPress={onView} />
     </View>
   );
 }
@@ -276,9 +282,7 @@ export default function DoctorHomeScreen() {
             <Text style={{ color: colors.muted, fontSize: fs(10), marginTop: -s(6), marginBottom: s(10) }}>
               {seed.todayLabel}
             </Text>
-            {seed.todayAppointments.map((item) => (
-              <TodayRow key={item.id} item={item} />
-            ))}
+            <TodayAppointmentsCard items={seed.todayAppointments} />
           </View>
 
           <SectionHeader title="Follow Up Reminder" onAction={() => navigation.navigate('PatientsTab')} />

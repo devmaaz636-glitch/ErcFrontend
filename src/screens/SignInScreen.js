@@ -15,12 +15,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 import Svg, { Circle, Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmAdminHomeCache, warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
 import { saveSignedInUser } from '../lib/users';
+import { colors } from '../theme';
 
 function isClinicManagerRole(value) {
   const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
@@ -100,6 +101,7 @@ function Field({
 
 export default function SignInScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
@@ -108,6 +110,7 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const signingIn = useRef(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
 
   const logoWidth = Math.min(width * 0.68, 300);
   const logoHeight = logoWidth * (81 / 264);
@@ -127,6 +130,14 @@ export default function SignInScreen() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!route.params?.loggedOut) return undefined;
+    setToast('You logged out successfully');
+    navigation.setParams?.({ loggedOut: undefined });
+    const timer = setTimeout(() => setToast(''), 2200);
+    return () => clearTimeout(timer);
+  }, [route.params?.loggedOut, navigation]);
 
   async function persistRememberedEmail() {
     if (rememberMe) {
@@ -224,6 +235,38 @@ export default function SignInScreen() {
           backgroundColor: 'rgba(140, 84, 40, 0.18)',
         }}
       />
+
+      {toast ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: Math.max(insets.top, 12) + 8,
+            left: 24,
+            right: 24,
+            zIndex: 50,
+            backgroundColor: colors.successBg,
+            borderRadius: 12,
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            allowFontScaling={false}
+            style={{
+              color: colors.success,
+              fontSize: 13,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            {toast}
+          </Text>
+        </View>
+      ) : null}
 
       <KeyboardAvoidingView
         className="flex-1"

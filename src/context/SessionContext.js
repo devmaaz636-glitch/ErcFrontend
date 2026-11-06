@@ -13,7 +13,7 @@ const EMPTY_USER = {
   uid: null,
   name: '',
   email: '',
-  role: 'Regional Admin',
+  role: '',
   region: '',
   photoUrl: null,
 };
@@ -32,7 +32,8 @@ export function roleLabel(value) {
   const role = normalizeRole(value);
   if (role === 'clinic_manager') return 'Clinic Manager';
   if (role === 'doctor') return 'Doctor';
-  return 'Regional Admin';
+  if (role === 'admin') return 'Regional Admin';
+  return '';
 }
 
 function regionObjectFromName(name, previous = null) {
@@ -73,6 +74,7 @@ export function SessionProvider({ children }) {
   const hydrateProfile = useCallback(async (firebaseUser) => {
     if (!firebaseUser) {
       setUser(EMPTY_USER);
+      setRegionState(null);
       return;
     }
 

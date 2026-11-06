@@ -11,6 +11,7 @@ import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwi
 import {
   IconCircleButton,
   NotificationBellButton,
+  PrimaryButton,
   SearchField,
   StatusBadge,
 } from '../components/ui';
@@ -348,20 +349,11 @@ function ManagerRequestCard({ item, onReview }) {
         </Text>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
+      <PrimaryButton
+        label="Review Request"
         onPress={onReview}
-        style={{
-          height: s(34),
-          borderRadius: 999,
-          backgroundColor: managerTheme.colors.brandButton || colors.brand,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: s(12),
-        }}
-      >
-        <Text style={{ color: '#fff', fontSize: fs(11), fontWeight: '600' }}>Review Request</Text>
-      </Pressable>
+        style={{ marginTop: s(12), width: '100%' }}
+      />
     </View>
   );
 }

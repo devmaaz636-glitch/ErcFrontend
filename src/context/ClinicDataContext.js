@@ -175,6 +175,22 @@ export function ClinicDataProvider({ children }) {
     if (isAdmin) adminModeRef.current = true;
   }, [isManager, isAdmin]);
 
+  // Signed-out: drop clinic payloads so logout never briefly paints admin/manager home.
+  useEffect(() => {
+    if (user?.uid) return undefined;
+    adminModeRef.current = false;
+    managerModeRef.current = false;
+    requestGenerationRef.current += 1;
+    inFlightRef.current = null;
+    setData(EMPTY);
+    loadedOnceRef.current = false;
+    setLoadedOnce(false);
+    lastFetchAtRef.current = 0;
+    setError('');
+    setLoading(false);
+    return undefined;
+  }, [user?.uid]);
+
   /**
    * Role flip handling:
    * - Becoming manager/admin: DO NOT wipe to EMPTY (that caused home blink).

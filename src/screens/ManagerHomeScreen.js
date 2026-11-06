@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Text from '../components/AppText';
 import UserAvatar from '../components/UserAvatar';
-import { NotificationBellButton, SearchField } from '../components/ui';
+import { NotificationBellButton, PrimaryButton, SearchField } from '../components/ui';
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { createManagerSeedDashboard } from '../lib/managerSeed';
@@ -98,20 +98,11 @@ function RequestCard({ request, onReview }) {
           {request.requestedTime || 'Time pending'}
         </Text>
       </View>
-      <Pressable
+      <PrimaryButton
+        label="Review Request"
         onPress={onReview}
-        accessibilityRole="button"
-        style={{
-          height: s(22),
-          borderRadius: s(12),
-          backgroundColor: theme.colors.primary,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: s(11),
-        }}
-      >
-        <Text style={{ color: '#fff', fontSize: fs(8, 8), fontWeight: '500' }}>Review Request</Text>
-      </Pressable>
+        style={{ marginTop: s(11), width: '100%' }}
+      />
     </View>
   );
 }

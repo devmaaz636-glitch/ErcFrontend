@@ -114,7 +114,7 @@ export default function VerifyRegionScreen() {
       ensureManagerHomeReady().catch(() => {});
       return undefined;
     }
-    if (user?.role === 'admin' || !user?.role) {
+    if (user?.role === 'admin') {
       ensureAdminHomeReady().catch(() => {});
     }
     return undefined;
