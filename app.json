@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "Enfield Royal Clinics",
+    "owner": "abiha1122",
     "slug": "enfield-royal-clinics",
     "version": "1.0.0",
     "orientation": "portrait",

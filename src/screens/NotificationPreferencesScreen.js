@@ -81,7 +81,7 @@ export default function NotificationPreferencesScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { preferences, error, notice, setChannel, saveAll, resetAll, setNotice, setError, refresh } =
+  const { preferences, error, notice, setChannel, saveAll, resetAll, sendTest, setNotice, setError, refresh } =
     useNotifications();
 
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function NotificationPreferencesScreen() {
           {error ? (
             <Text style={{ color: '#B42318', fontSize: fs(12), marginBottom: s(10) }}>{error}</Text>
           ) : null}
-          {notice && !String(notice).toLowerCase().includes('test') ? (
+          {notice ? (
             <Text style={{ color: '#3F6B4A', fontSize: fs(12), marginBottom: s(10) }}>{notice}</Text>
           ) : null}
 
@@ -175,6 +175,24 @@ export default function NotificationPreferencesScreen() {
             }}
           >
             <Text style={{ fontSize: fs(15), fontWeight: '700', color: '#fff' }}>Save Preferences</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send test notification"
+            onPress={sendTest}
+            style={{
+              height: s(52),
+              borderRadius: 999,
+              backgroundColor: '#fff',
+              borderWidth: 1.5,
+              borderColor: BROWN,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: s(12),
+            }}
+          >
+            <Text style={{ fontSize: fs(15), fontWeight: '700', color: BROWN }}>Send Test Notification</Text>
           </Pressable>
 
           <Pressable

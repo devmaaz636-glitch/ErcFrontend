@@ -8,7 +8,6 @@ import Text from '../components/AppText';
 import BookingCalendar, { formatAppointmentWhen, toDateKey } from '../components/BookingCalendar';
 import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
-import { notifyBookingUpdate } from '../lib/notifyEvents';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { BRAND_BG, brandButtonBg, brandButtonText, colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -212,13 +211,6 @@ export default function AppointmentDetailScreen() {
       const seeded = route.params?.appointment;
       if (seeded?.id || seeded?.code) {
         setAppointment(seeded);
-        notifyBookingUpdate({
-          onceKey: seeded.id || seeded.code,
-          code: seeded.code,
-          title: seeded.treatment || seeded.title,
-          status: seeded.status,
-          clinic: seeded.clinic,
-        }).catch(() => {});
       }
 
       // Patient-flow demo appointments may not exist in /appointments — keep seed.
@@ -234,13 +226,6 @@ export default function AppointmentDetailScreen() {
           if (active) {
             setAppointment(seeded ? { ...seeded, ...item } : item);
             setError('');
-            notifyBookingUpdate({
-              onceKey: item.id || item.code,
-              code: item.code,
-              title: item.treatment || item.title,
-              status: item.status,
-              clinic: item.clinic,
-            }).catch(() => {});
           }
         })
         .catch((err) => {

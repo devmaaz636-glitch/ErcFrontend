@@ -89,7 +89,7 @@ function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout }) {
           />
         </Animated.View>
         {isFocused ? (
-          <Animated.View style={labelStyle}>
+          <Animated.View style={[labelStyle, { marginLeft: 6 }]}>
             <Text numberOfLines={1} style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
               {meta.label}
             </Text>

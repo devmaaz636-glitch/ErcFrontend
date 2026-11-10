@@ -67,7 +67,6 @@ These fire after real user actions (respect channel + alert toggles):
 | --- | --- | --- |
 | Save name / email / region / photo | `profileChanges` | Edit Profile |
 | Change / reset password | `passwordChanges` | Security / Forgot Password |
-| Open an appointment detail | `bookingUpdates` | Appointment Detail (once / session) |
 
 Keep **In-App** and/or **Email** ON in Profile, and leave those alert toggles ON under Notification Preferences.
 

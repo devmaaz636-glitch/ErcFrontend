@@ -44,7 +44,7 @@ function NotificationCard({ item, onPress }) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.title}. ${unread ? 'Unread. ' : ''}Tap to dismiss.`}
+      accessibilityLabel={`${item.title}. ${unread ? 'Unread. Tap to mark as read.' : 'Read.'}`}
       style={{
         backgroundColor: colors.card,
         borderRadius: 14,
@@ -118,7 +118,8 @@ export default function NotificationsScreen() {
   );
 
   // Only unread — tapping a row marks it read and hides it from this list.
-  const visible = useMemo(() => feed.filter((i) => i.read !== true), [feed]);
+  // Recent Activity is a history. Marking a row read must not remove it.
+  const visible = useMemo(() => feed, [feed]);
 
   const showSkeleton = !ready && feed.length === 0;
 
@@ -188,7 +189,7 @@ export default function NotificationsScreen() {
                 }}
               >
                 <Text style={{ fontSize: fs(11), fontWeight: '600', color: colors.brand }}>
-                  Clear all
+                  Mark all read
                 </Text>
               </Pressable>
             ) : null}
