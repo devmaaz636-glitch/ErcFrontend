@@ -5,7 +5,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import Text from '../components/AppText';
 import { RegionGlobeButton } from '../components/RegionSwitcher';
 import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
@@ -18,24 +18,24 @@ import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
-function GradientFill({ id, x2 = '1', y2 = '1', height = '100%' }) {
+function GradientFill({ x2 = 1, y2 = 1 }) {
   return (
-    <Svg width="100%" height={height} style={{ position: 'absolute' }}>
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" x2={x2} y2={y2}>
-          <Stop offset="0" stopColor={colors.brand} />
-          <Stop offset="1" stopColor={colors.brandLight} />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+    <LinearGradient
+      pointerEvents="none"
+      colors={[colors.brand, colors.brandLight]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: Number(x2), y: Number(y2) }}
+      style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+    />
   );
 }
 
 function StatCard({ id, label, value, sub }) {
   return (
-    <View style={{ flex: 1, borderRadius: 14, overflow: 'hidden', minHeight: s(78) }}>
-      <GradientFill id={`stat-${id}`} />
+    <View
+      style={{ flex: 1, borderRadius: 14, overflow: 'hidden', minHeight: s(78), backgroundColor: colors.brand }}
+    >
+      <GradientFill />
       <View style={{ flex: 1, padding: s(10), justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ fontSize: fs(11), fontWeight: '600', color: colors.white }} numberOfLines={1}>
@@ -132,7 +132,7 @@ function BranchCard({ item, onPress }) {
               }}
             >
               <View style={{ width: `${pct}%`, height: 4 }}>
-                <GradientFill id={`bar-${item.id}`} x2="1" y2="0" height="4" />
+                <GradientFill x2={1} y2={0} />
               </View>
             </View>
           </View>

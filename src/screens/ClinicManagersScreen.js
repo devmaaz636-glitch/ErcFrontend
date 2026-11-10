@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import Text from '../components/AppText';
 import ClinicManagersModal from '../components/ClinicManagersModal';
 import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwitcher';
@@ -20,24 +20,24 @@ import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
-function GradientFill({ id }) {
+function GradientFill() {
   return (
-    <Svg width="100%" height="100%" style={{ position: 'absolute' }}>
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={colors.brand} />
-          <Stop offset="1" stopColor={colors.brandLight} />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+    <LinearGradient
+      pointerEvents="none"
+      colors={[colors.brand, colors.brandLight]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+    />
   );
 }
 
 function StatCard({ id, label, value, sub }) {
   return (
-    <View style={{ flex: 1, borderRadius: 14, overflow: 'hidden', minHeight: s(78) }}>
-      <GradientFill id={`mgr-stat-${id}`} />
+    <View
+      style={{ flex: 1, borderRadius: 14, overflow: 'hidden', minHeight: s(78), backgroundColor: colors.brand }}
+    >
+      <GradientFill />
       <View style={{ flex: 1, padding: s(10), justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ fontSize: fs(11), fontWeight: '600', color: colors.white }} numberOfLines={1}>

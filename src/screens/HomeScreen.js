@@ -5,7 +5,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import Text from '../components/AppText';
 import ClinicManagersModal from '../components/ClinicManagersModal';
 import { RegionGlobeButton, RegionLabelButton } from '../components/RegionSwitcher';
@@ -24,7 +24,6 @@ import { colors, spacing } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
 function StatCard({ item }) {
-  const gradId = `grad-${item.id}`;
   return (
     <View
       style={{
@@ -33,17 +32,18 @@ function StatCard({ item }) {
         borderRadius: 16,
         overflow: 'hidden',
         marginBottom: s(12),
+        // A native surface remains visible while the screen is being restored.
+        // react-native-svg gradient fills can be dropped by Android after navigation.
+        backgroundColor: colors.brand,
       }}
     >
-      <Svg width="100%" height="100%" style={{ position: 'absolute' }}>
-        <Defs>
-          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={colors.brand} />
-            <Stop offset="1" stopColor={colors.brandLight} />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradId})`} />
-      </Svg>
+      <LinearGradient
+        pointerEvents="none"
+        colors={[colors.brand, colors.brandLight]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+      />
 
       <View style={{ flex: 1, padding: s(14), justifyContent: 'space-between' }}>
         <Ionicons name={item.icon} size={s(18)} color={colors.white} />
@@ -96,8 +96,6 @@ function AttentionCard({ item }) {
 }
 
 function BranchRow({ item, rank }) {
-  const rankGrad = `rank-${item.id}`;
-  const barGrad = `bar-${item.id}`;
   const rankSize = s(24);
 
   return (
@@ -120,17 +118,16 @@ function BranchRow({ item, rank }) {
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: s(12),
+          backgroundColor: colors.brand,
           }}
         >
-          <Svg width={rankSize} height={rankSize} style={{ position: 'absolute' }}>
-            <Defs>
-              <LinearGradient id={rankGrad} x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={colors.brand} />
-                <Stop offset="1" stopColor={colors.brandLight} />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width={rankSize} height={rankSize} fill={`url(#${rankGrad})`} />
-          </Svg>
+          <LinearGradient
+            pointerEvents="none"
+            colors={[colors.brand, colors.brandLight]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+          />
           <Text style={{ fontSize: fs(11), fontWeight: '700', color: colors.white }}>{rank}</Text>
         </View>
 
@@ -158,17 +155,12 @@ function BranchRow({ item, rank }) {
           overflow: 'hidden',
         }}
       >
-        <View style={{ width: `${(item.progress || 0) * 100}%`, height: 6 }}>
-          <Svg width="100%" height="6">
-            <Defs>
-              <LinearGradient id={barGrad} x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={colors.brand} />
-                <Stop offset="1" stopColor={colors.brandLight} />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="6" fill={`url(#${barGrad})`} />
-          </Svg>
-        </View>
+        <LinearGradient
+          colors={[colors.brand, colors.brandLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ width: `${(item.progress || 0) * 100}%`, height: 6 }}
+        />
       </View>
     </View>
   );
