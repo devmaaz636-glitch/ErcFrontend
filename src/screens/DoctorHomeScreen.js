@@ -295,7 +295,35 @@ export default function DoctorHomeScreen() {
           </View>
 
           <SectionHeader title="Follow Up Reminder" onAction={() => navigation.navigate('PatientsTab')} />
-          <FollowUpCard item={seed.followUp} onView={() => navigation.navigate('PatientsTab')} />
+          <FollowUpCard
+            item={seed.followUp}
+            onView={() =>
+              navigation.navigate('DoctorReviewHistory', {
+                item: {
+                  id: seed.followUp.id,
+                  patient: seed.followUp.patient,
+                  patientId: 'ERC-1025',
+                  appointmentId: 'ERC-1025',
+                  treatment: seed.followUp.treatment,
+                  department: 'Laser',
+                  doctor: seed.doctor.name,
+                  specialty: seed.doctor.specialty,
+                  status: 'upcoming',
+                  requestedDate: '2026-11-06',
+                  requestedTime: '11:00 AM',
+                  time: '11:00 AM',
+                  durationMinutes: 45,
+                  duration: '45 Min',
+                  price: 'AED 850',
+                  branchName: seed.doctor.branchName,
+                  phone: '03******88',
+                  ageGender: '29 Years • Female',
+                  allergy: 'Penicillin',
+                  medication: 'Current Medication',
+                },
+              })
+            }
+          />
         </View>
       </ScrollView>
     </View>
