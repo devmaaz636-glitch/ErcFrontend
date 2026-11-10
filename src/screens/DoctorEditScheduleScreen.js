@@ -17,10 +17,10 @@ import {
 } from '../components/SelectScheduleModal';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
+import { clinicErrorMessage, createDoctorScheduleRequest } from '../lib/clinic';
 import {
   loadDoctorLeaveRequests,
   saveDoctorLeaveRequests,
-  saveDoctorWeeklySchedule,
 } from '../lib/doctorScheduleStorage';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
@@ -102,6 +102,7 @@ export default function DoctorEditScheduleScreen() {
   const [preferDay, setPreferDay] = useState('Monday');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [timeMenuOpen, setTimeMenuOpen] = useState(false);
   const [dayMenuOpen, setDayMenuOpen] = useState(false);
 
@@ -144,14 +145,24 @@ export default function DoctorEditScheduleScreen() {
   async function submitToManager() {
     if (!reason.trim() || saving) return;
     setSaving(true);
+    setSubmitError('');
     try {
-      if (mode === 'hours') {
-        await saveDoctorWeeklySchedule(user?.uid, schedule);
-      } else {
+      const created = await createDoctorScheduleRequest({
+        mode,
+        doctorName: user?.name || user?.displayName || 'Doctor',
+        branchId: user?.branchId || user?.clinicId || 'br-dubai',
+        preferDay,
+        preferTime,
+        reason: reason.trim(),
+        weeklySchedule: mode === 'hours' ? schedule : null,
+      });
+
+      if (mode === 'leave') {
         const existing = await loadDoctorLeaveRequests(user?.uid);
         const next = [
           {
-            id: `leave-${Date.now()}`,
+            id: created?.id || `leave-${Date.now()}`,
+            remoteId: created?.id || null,
             title: 'Leave Request',
             status: 'Pending',
             range: `Preferred ${preferDay} · ${preferTime}`,
@@ -163,8 +174,11 @@ export default function DoctorEditScheduleScreen() {
         ];
         await saveDoctorLeaveRequests(user?.uid, next);
       }
+
       setReasonOpen(false);
       setSuccessOpen(true);
+    } catch (err) {
+      setSubmitError(clinicErrorMessage(err) || 'Could not send request to clinic manager.');
     } finally {
       setSaving(false);
     }
@@ -172,7 +186,7 @@ export default function DoctorEditScheduleScreen() {
 
   function closeSuccess() {
     setSuccessOpen(false);
-    navigation.navigate('DoctorTabs', { screen: 'AppointmentsTab' });
+    navigation.navigate('DoctorTabs', { screen: 'ScheduleTab' });
   }
 
   return (
@@ -436,6 +450,19 @@ export default function DoctorEditScheduleScreen() {
                 marginBottom: s(14),
               }}
             />
+
+            {submitError ? (
+              <Text
+                style={{
+                  color: colors.danger,
+                  fontSize: fs(10),
+                  textAlign: 'center',
+                  marginBottom: s(10),
+                }}
+              >
+                {submitError}
+              </Text>
+            ) : null}
 
             <PrimaryButton
               label={saving ? 'Sending…' : 'Sent To Manager'}

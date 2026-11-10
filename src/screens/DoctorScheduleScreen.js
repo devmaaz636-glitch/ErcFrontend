@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -9,10 +9,14 @@ import {
   createDefaultWeeklySchedule,
 } from '../components/SelectScheduleModal';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
+import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
+import { fetchDoctorScheduleRequests } from '../lib/clinic';
 import {
   loadDoctorLeaveRequests,
   loadDoctorWeeklySchedule,
+  saveDoctorLeaveRequests,
+  saveDoctorWeeklySchedule,
 } from '../lib/doctorScheduleStorage';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
@@ -35,6 +39,19 @@ function buildWeekStrip(anchor = new Date()) {
       date,
     };
   });
+}
+
+function formatStatus(status) {
+  const value = String(status || 'pending').toLowerCase();
+  if (value === 'approved') return 'Approved';
+  if (value === 'declined') return 'Declined';
+  return 'Pending';
+}
+
+function statusToneFromLabel(label) {
+  if (label === 'Approved') return 'working';
+  if (label === 'Declined') return 'off';
+  return 'pending';
 }
 
 function StatusPill({ label, tone = 'pending' }) {
@@ -79,19 +96,131 @@ function HoursRow({ label, value, working, last }) {
   );
 }
 
+function mergeLeaveWithRemote(localLeaves, remoteItems) {
+  const leaveRemote = remoteItems.filter((item) => item.mode === 'leave');
+  const byId = new Map(leaveRemote.map((item) => [item.id, item]));
+  const merged = (localLeaves || []).map((leave) => {
+    const remote = byId.get(leave.remoteId || leave.id);
+    if (!remote) return leave;
+    return {
+      ...leave,
+      remoteId: remote.id,
+      status: formatStatus(remote.status),
+      note:
+        remote.status === 'approved'
+          ? 'Leave approved by clinic manager'
+          : remote.status === 'declined'
+            ? remote.decisionNote || 'Leave declined by clinic manager'
+            : leave.note || remote.reason || 'Leave request awaiting review',
+    };
+  });
+
+  const known = new Set(merged.map((item) => item.remoteId || item.id));
+  leaveRemote.forEach((remote) => {
+    if (known.has(remote.id)) return;
+    merged.unshift({
+      id: remote.id,
+      remoteId: remote.id,
+      title: 'Leave Request',
+      status: formatStatus(remote.status),
+      range: `Preferred ${remote.preferDay || '—'} · ${remote.preferTime || '—'}`,
+      note:
+        remote.status === 'approved'
+          ? 'Leave approved by clinic manager'
+          : remote.status === 'declined'
+            ? remote.decisionNote || 'Leave declined by clinic manager'
+            : remote.reason || 'Leave request awaiting review',
+      preferDay: remote.preferDay,
+      preferTime: remote.preferTime,
+    });
+  });
+
+  return merged;
+}
+
 export default function DoctorScheduleScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user } = useSession();
+  const { subscribeLive } = useNotifications();
   const week = useMemo(() => buildWeekStrip(new Date()), []);
   const [selectedDayKey, setSelectedDayKey] = useState(week[0]?.key);
   const [schedule, setSchedule] = useState(createDefaultWeeklySchedule);
   const [leaves, setLeaves] = useState([]);
+  const [hoursStatus, setHoursStatus] = useState('Pending');
+  const [liveNotice, setLiveNotice] = useState('');
+  const appliedApprovals = useRef(new Set());
+  const focusedRef = useRef(false);
+  const syncRemoteRef = useRef(null);
+  const noticeTimer = useRef(null);
+
+  const syncRemote = useCallback(async () => {
+    if (!user?.uid) return;
+    try {
+      const remote = await fetchDoctorScheduleRequests();
+      const hoursRequests = remote.filter((item) => item.mode !== 'leave');
+      const latestHours = hoursRequests[0] || null;
+      setHoursStatus(formatStatus(latestHours?.status));
+
+      if (
+        latestHours?.status === 'approved' &&
+        latestHours.weeklySchedule &&
+        !appliedApprovals.current.has(latestHours.id)
+      ) {
+        await saveDoctorWeeklySchedule(user.uid, latestHours.weeklySchedule);
+        appliedApprovals.current.add(latestHours.id);
+        setSchedule(latestHours.weeklySchedule);
+      }
+
+      const localLeaves = await loadDoctorLeaveRequests(user.uid);
+      const nextLeaves = mergeLeaveWithRemote(localLeaves, remote);
+      await saveDoctorLeaveRequests(user.uid, nextLeaves);
+      setLeaves(
+        nextLeaves.length
+          ? nextLeaves
+          : [
+              {
+                id: 'leave-seed-1',
+                title: 'Annual Leave',
+                status: 'Pending',
+                range: '12 November – 14 November 2026',
+                note: 'Leave request awaiting review',
+              },
+            ]
+      );
+    } catch {
+      // Keep local schedule/leave visible if API is briefly unavailable.
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    syncRemoteRef.current = syncRemote;
+  }, [syncRemote]);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    return subscribeLive((event) => {
+      if (event?.meta?.kind !== 'doctor_schedule') return;
+      syncRemoteRef.current?.().catch(() => {});
+      const status = String(event?.meta?.status || '').toLowerCase();
+      if (status === 'approved' || status === 'declined' || status === 'pending') {
+        setLiveNotice(event.title || 'Schedule request updated');
+        if (noticeTimer.current) clearTimeout(noticeTimer.current);
+        noticeTimer.current = setTimeout(() => setLiveNotice(''), 2200);
+      }
+    });
+  }, [subscribeLive]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      focusedRef.current = true;
       (async () => {
         const nextSchedule = await loadDoctorWeeklySchedule(user?.uid);
         const nextLeaves = await loadDoctorLeaveRequests(user?.uid);
@@ -110,12 +239,22 @@ export default function DoctorScheduleScreen() {
                 },
               ]
         );
+        await syncRemote();
       })();
       return () => {
         active = false;
+        focusedRef.current = false;
       };
-    }, [user?.uid])
+    }, [syncRemote, user?.uid])
   );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!focusedRef.current) return;
+      syncRemote().catch(() => {});
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [syncRemote]);
 
   const hoursRows = useMemo(
     () =>
@@ -159,6 +298,22 @@ export default function DoctorScheduleScreen() {
             </View>
             <NotificationBellButton color={colors.brand} />
           </View>
+
+          {liveNotice ? (
+            <View
+              style={{
+                marginTop: s(12),
+                backgroundColor: colors.successBg,
+                borderRadius: 12,
+                paddingVertical: s(10),
+                paddingHorizontal: s(12),
+              }}
+            >
+              <Text style={{ color: colors.success, fontSize: fs(11), fontWeight: '600' }}>
+                {liveNotice}
+              </Text>
+            </View>
+          ) : null}
 
           <Text
             style={{
@@ -238,7 +393,7 @@ export default function DoctorScheduleScreen() {
                 Your regular availability
               </Text>
             </View>
-            <StatusPill label="Pending" />
+            <StatusPill label={hoursStatus} tone={statusToneFromLabel(hoursStatus)} />
           </View>
 
           <View
@@ -301,7 +456,10 @@ export default function DoctorScheduleScreen() {
                 <Text style={{ flex: 1, color: colors.ink, fontSize: fs(13), fontWeight: '700' }}>
                   {leave.title}
                 </Text>
-                <StatusPill label={leave.status || 'Pending'} />
+                <StatusPill
+                  label={leave.status || 'Pending'}
+                  tone={statusToneFromLabel(leave.status || 'Pending')}
+                />
               </View>
               <Text style={{ color: colors.ink, fontSize: fs(11), marginTop: s(10) }}>
                 {leave.range}

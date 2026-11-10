@@ -261,6 +261,21 @@ export async function updateManagerAlert(id, body) {
   }
 }
 
+export async function createDoctorScheduleRequest(body) {
+  const headers = await authHeaders();
+  try {
+    const { data } = await api.post('/api/doctor/schedule-requests', body, { headers });
+    return data.item;
+  } catch (error) {
+    throw unwrap(error);
+  }
+}
+
+export async function fetchDoctorScheduleRequests() {
+  const data = await get('/api/doctor/schedule-requests');
+  return Array.isArray(data.items) ? data.items : [];
+}
+
 export async function readManagerHomeCache(uid) {
   if (!uid) return null;
   try {

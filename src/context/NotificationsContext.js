@@ -54,6 +54,28 @@ export function NotificationsProvider({ children }) {
   const prefsRef = useRef(preferences);
   const stopStreamRef = useRef(null);
   const savingRef = useRef(false);
+  const liveListenersRef = useRef(new Set());
+  const [lastLiveEvent, setLastLiveEvent] = useState(null);
+
+  const emitLiveEvent = useCallback((item) => {
+    if (!item) return;
+    setLastLiveEvent(item);
+    liveListenersRef.current.forEach((listener) => {
+      try {
+        listener(item);
+      } catch {
+        /* ignore listener errors */
+      }
+    });
+  }, []);
+
+  const subscribeLive = useCallback((listener) => {
+    if (typeof listener !== 'function') return () => {};
+    liveListenersRef.current.add(listener);
+    return () => {
+      liveListenersRef.current.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     prefsRef.current = preferences;
@@ -149,17 +171,19 @@ export function NotificationsProvider({ children }) {
         }
         if (payload?.type === 'notification' && payload.item) {
           prependItem(payload.item);
+          emitLiveEvent(payload.item);
           return;
         }
         // Raw item from Redis publish (SSE notification wrapper may vary)
         if (payload?.id && payload?.title) {
           prependItem(payload);
+          emitLiveEvent(payload);
         }
       },
       onError: () => setLive(false),
-      pollMs: 6000,
+      pollMs: 2500,
     });
-  }, [applyFeed, prependItem]);
+  }, [applyFeed, emitLiveEvent, prependItem]);
 
   // Auth lifecycle: sync + live stream + push registration.
   useEffect(() => {
@@ -426,6 +450,8 @@ export function NotificationsProvider({ children }) {
     () => ({
       ready,
       live,
+      lastLiveEvent,
+      subscribeLive,
       preferences,
       feed,
       unreadCount,
@@ -446,6 +472,8 @@ export function NotificationsProvider({ children }) {
     [
       ready,
       live,
+      lastLiveEvent,
+      subscribeLive,
       preferences,
       feed,
       unreadCount,

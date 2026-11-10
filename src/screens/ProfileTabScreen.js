@@ -35,6 +35,11 @@ const SETTINGS = [
   { key: 'notification', label: 'Notification Preferences', icon: 'notifications-outline' },
 ];
 
+const MANAGER_SETTINGS = [
+  { key: 'alerts', label: 'Alerts', icon: 'notifications-outline' },
+  ...SETTINGS,
+];
+
 function SectionTitle({ title }) {
   return (
     <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink, marginTop: 22, marginBottom: 10 }}>
@@ -197,6 +202,10 @@ export default function ProfileTabScreen() {
   }
 
   function onSettingPress(key) {
+    if (key === 'alerts') {
+      navigation.navigate('ManagerAlerts');
+      return;
+    }
     if (key === 'edit') {
       navigation.navigate('EditProfile', { user });
       return;
@@ -209,6 +218,8 @@ export default function ProfileTabScreen() {
       navigation.navigate('NotificationPreferences', { user });
     }
   }
+
+  const settingRows = isManager ? MANAGER_SETTINGS : SETTINGS;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -254,7 +265,14 @@ export default function ProfileTabScreen() {
                 <View style={{ width: s(8) }} />
               </>
             ) : null}
-            <NotificationBellButton color={colors.brand} />
+            <NotificationBellButton
+              color={colors.brand}
+              onPress={
+                isManager
+                  ? () => navigation.navigate('ManagerAlerts')
+                  : undefined
+              }
+            />
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 18 }}>
@@ -279,7 +297,7 @@ export default function ProfileTabScreen() {
           ))}
 
           <SectionTitle title="Account Setting" />
-          {SETTINGS.map((row) => (
+          {settingRows.map((row) => (
             <ActionRow
               key={row.key}
               label={row.label}

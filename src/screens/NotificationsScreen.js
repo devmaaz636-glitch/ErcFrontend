@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { useNotifications } from '../context/NotificationsContext';
+import { useSession } from '../context/SessionContext';
 import { colors } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
 
@@ -110,6 +111,7 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { feed, unreadCount, ready, markRead, markAllRead, refresh, live } = useNotifications();
+  const { user } = useSession();
 
   useFocusEffect(
     useCallback(() => {
@@ -242,6 +244,12 @@ export default function NotificationsScreen() {
               item={item}
               onPress={() => {
                 if (item.read !== true) markRead([item.id]);
+                if (
+                  user?.role === 'clinic_manager' &&
+                  (item?.meta?.kind === 'doctor_schedule' || item?.meta?.open === 'ManagerAlerts')
+                ) {
+                  navigation.navigate('ManagerAlerts');
+                }
               }}
             />
           ))}

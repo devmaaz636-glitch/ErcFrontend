@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton } from '../components/ui';
+import { useNotifications } from '../context/NotificationsContext';
 import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import {
@@ -103,11 +104,12 @@ function statusTone(status) {
 function resolvedCopy(item) {
   if (item.resolvedAction === 'investigate') return 'Marked as investigating';
   if (item.resolvedAction === 'decline') return 'Request declined';
+  if (item.resolvedAction === 'approve') return 'Request approved';
   if (item.resolvedAction === 'review') return 'Request reviewed';
   return null;
 }
 
-function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
+function AlertCard({ item, busyId, onInvestigate, onDecline, onApprove, onReview }) {
   const icon =
     item.type === 'refund'
       ? 'refresh-outline'
@@ -115,11 +117,14 @@ function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
         ? 'trending-down-outline'
         : item.type === 'accountRequests'
           ? 'person-add-outline'
-          : 'alert-circle-outline';
+          : item.type === 'doctor_schedule'
+            ? 'calendar-outline'
+            : 'alert-circle-outline';
   const busy = busyId === item.id;
   const tone = statusTone(item.status);
   const resolved = resolvedCopy(item);
   const showActions = item.actionNeeded && !item.resolvedAction;
+  const isDoctorSchedule = item.type === 'doctor_schedule';
 
   return (
     <View
@@ -237,7 +242,7 @@ function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
           <Pressable
             accessibilityRole="button"
             disabled={busy}
-            onPress={() => onInvestigate(item)}
+            onPress={() => (isDoctorSchedule ? onApprove?.(item) : onInvestigate(item))}
             style={[
               {
                 flex: 1,
@@ -254,7 +259,9 @@ function AlertCard({ item, busyId, onInvestigate, onDecline, onReview }) {
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={[{ fontSize: fs(11), fontWeight: '600' }, brandButtonText]}>Investigate</Text>
+              <Text style={[{ fontSize: fs(11), fontWeight: '600' }, brandButtonText]}>
+                {isDoctorSchedule ? 'Approve' : 'Investigate'}
+              </Text>
             )}
           </Pressable>
           <Pressable
@@ -290,6 +297,7 @@ export default function ManagerAlertsScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
   const { displayRegion, user } = useSession();
+  const { subscribeLive } = useNotifications();
   const [stats, setStats] = useState({ all: 0, unread: 0, actionNeeded: 0 });
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('All');
@@ -298,6 +306,7 @@ export default function ManagerAlertsScreen() {
   const [busyId, setBusyId] = useState(null);
   const toastTimer = useRef(null);
   const itemsRef = useRef([]);
+  const loadRef = useRef(null);
 
   const showToast = useCallback((message) => {
     setToast(message);
@@ -337,10 +346,32 @@ export default function ManagerAlertsScreen() {
   }, [applyList]);
 
   useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+
+  useEffect(() => {
     load().catch(() => {});
   }, [load]);
 
   useRefreshOnFocus(load);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      load().catch(() => {});
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  // Instant refresh when a doctor schedule notification arrives over SSE.
+  useEffect(() => {
+    return subscribeLive((event) => {
+      if (event?.meta?.kind !== 'doctor_schedule') return;
+      loadRef.current?.().catch(() => {});
+      if (event?.meta?.status === 'pending') {
+        showToast(event.title || 'New doctor schedule request');
+      }
+    });
+  }, [subscribeLive, showToast]);
 
   const filtered = useMemo(() => {
     if (filter === 'Unread') return items.filter((item) => item.status === 'unread');
@@ -377,7 +408,7 @@ export default function ManagerAlertsScreen() {
   const openDeclineFlow = useCallback(
     (item) => {
       if (!item?.id) return;
-      if (item.requestDetail || item.type === 'booking' || item.type === 'refund') {
+      if (item.type !== 'doctor_schedule' && (item.requestDetail || item.type === 'booking' || item.type === 'refund')) {
         navigation.navigate('AlertRequestDetail', { alertId: item.id, alert: item });
         return;
       }
@@ -387,7 +418,7 @@ export default function ManagerAlertsScreen() {
         try {
           const next = await updateManagerAlert(item.id, { action: 'decline' });
           applyList(itemsRef.current.map((row) => (row.id === next.id ? { ...row, ...next } : row)));
-          showToast('Alert declined');
+          showToast(item.type === 'doctor_schedule' ? 'Doctor request declined' : 'Alert declined');
         } catch (err) {
           setError(clinicErrorMessage(err) || 'Could not update alert.');
         } finally {
@@ -396,6 +427,25 @@ export default function ManagerAlertsScreen() {
       })();
     },
     [applyList, busyId, navigation, showToast]
+  );
+
+  const openApproveFlow = useCallback(
+    (item) => {
+      if (!item?.id || busyId) return;
+      (async () => {
+        setBusyId(item.id);
+        try {
+          const next = await updateManagerAlert(item.id, { action: 'approve' });
+          applyList(itemsRef.current.map((row) => (row.id === next.id ? { ...row, ...next } : row)));
+          showToast('Doctor request approved');
+        } catch (err) {
+          setError(clinicErrorMessage(err) || 'Could not approve request.');
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    },
+    [applyList, busyId, showToast]
   );
 
   const openAppointmentRequestReview = useCallback(
@@ -552,6 +602,7 @@ export default function ManagerAlertsScreen() {
                 busyId={busyId}
                 onInvestigate={openInvestigate}
                 onDecline={openDeclineFlow}
+                onApprove={openApproveFlow}
                 onReview={openAppointmentRequestReview}
               />
             ))
