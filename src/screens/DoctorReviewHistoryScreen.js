@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -6,85 +6,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import MedicalAlertsModal from '../components/MedicalAlertsModal';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
+import { downloadAppointmentPdf } from '../lib/appointmentPdf';
+import { buildDoctorAppointmentDetail } from '../lib/doctorAppointmentDetail';
+import { useSession } from '../context/SessionContext';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
 const patientImage = require('../../assets/patientimage.png');
 const treatmentThumb = require('../../assets/treatmentimage.png');
-
-function formatDate(value) {
-  if (!value) return 'Oct 06, 2026';
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-  });
-}
-
-function endTimeFromStart(time = '02:30 PM', minutes = 60) {
-  const match = String(time).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return time;
-  let hour = Number(match[1]);
-  const mins = Number(match[2]);
-  const period = match[3].toUpperCase();
-  if (period === 'PM' && hour < 12) hour += 12;
-  if (period === 'AM' && hour === 12) hour = 0;
-  const total = hour * 60 + mins + minutes;
-  const endHour24 = Math.floor(total / 60) % 24;
-  const endMin = total % 60;
-  const endPeriod = endHour24 >= 12 ? 'PM' : 'AM';
-  let endHour = endHour24 % 12;
-  if (endHour === 0) endHour = 12;
-  return `${endHour}:${String(endMin).padStart(2, '0')} ${endPeriod}`;
-}
-
-function buildDetail(item = {}) {
-  const patient = item.patient || 'Umair Khan';
-  const treatment = item.treatment || 'Laser Hair Removal';
-  const start = item.requestedTime || item.time || '02:30 PM';
-  const end = item.endTime || endTimeFromStart(start, item.durationMinutes || 60);
-  const dateLabel = formatDate(item.requestedDate || item.date);
-  const code = item.patientId || item.appointmentId || item.code || 'PT-2048';
-
-  return {
-    patient,
-    patientId: code.startsWith('PT-') ? code : `PT-${String(code).replace(/\D/g, '') || '2048'}`,
-    phone: item.phone || '03******34',
-    ageGender: item.ageGender || '28 Years • Female',
-    statusLabel: 'Confirmed',
-    dateLabel,
-    timeRange: `${start} - ${end}`,
-    treatment,
-    allergy: item.allergy || 'Penicillin',
-    medication: item.medication || 'Current Medication',
-    previousVisits: item.previousVisits || [
-      {
-        id: 'pv-1',
-        title: treatment,
-        meta: 'Laser • 30 Minutes',
-        sessions: '6 Session',
-        left: '2 Session Left',
-      },
-      {
-        id: 'pv-2',
-        title: treatment,
-        meta: 'Laser • 30 Minutes',
-        sessions: '6 Session',
-        left: '2 Session Left',
-      },
-      {
-        id: 'pv-3',
-        title: treatment,
-        meta: 'Laser • 30 Minutes',
-        sessions: '6 Session',
-        left: '2 Session Left',
-      },
-    ],
-  };
-}
 
 function SectionHeader({ title, right }) {
   return (
@@ -205,12 +136,64 @@ export default function DoctorReviewHistoryScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
+  const { user } = useSession();
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
-  const detail = useMemo(() => buildDetail(route.params?.item || {}), [route.params?.item]);
+  const sourceItem = route.params?.item;
+  const detail = useMemo(
+    () => buildDoctorAppointmentDetail({ item: sourceItem || {}, user: user || {} }),
+    [sourceItem, user]
+  );
+
+  const allergies = useMemo(
+    () =>
+      detail.allergies || [
+        detail.allergy,
+        detail.allergy,
+        detail.allergy,
+        detail.allergy,
+        detail.allergy,
+      ],
+    [detail.allergies, detail.allergy]
+  );
+  const medications = useMemo(
+    () =>
+      detail.medications ||
+      Array.from({ length: 7 }, () => ({ name: detail.medication, frequency: 'Weekly' })),
+    [detail.medications, detail.medication]
+  );
+
+  function openPreviousVisit(visit) {
+    navigation.navigate('DoctorPreviousVisitDetail', {
+      item: visit,
+      appointment: sourceItem || detail.raw || {},
+    });
+  }
+
+  async function handleDownloadPdf() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadAppointmentPdf(detail, {
+        fileName: `ERC-Appointment-${detail.requestId || detail.patientId}.pdf`,
+      });
+    } catch {
+      /* alert handled in helper */
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
+      <MedicalAlertsModal
+        visible={alertsOpen}
+        onClose={() => setAlertsOpen(false)}
+        allergies={allergies}
+        medications={medications}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -344,11 +327,17 @@ export default function DoctorReviewHistoryScreen() {
                 Important Information To Review Before Consultation.
               </Text>
             </View>
-            <Pressable accessibilityRole="button" onPress={() => {}} hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setAlertsOpen(true)}
+              hitSlop={8}
+            >
               <Text style={{ color: colors.brand, fontSize: fs(11), fontWeight: '600' }}>See All</Text>
             </Pressable>
           </View>
-          <View
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setAlertsOpen(true)}
             style={{
               backgroundColor: colors.card,
               borderRadius: 16,
@@ -391,13 +380,25 @@ export default function DoctorReviewHistoryScreen() {
               </Text>
               <Text style={{ color: colors.desc, fontSize: fs(11) }}>{detail.medication}</Text>
             </View>
-          </View>
+          </Pressable>
 
           {/* Previous Visit Summary */}
           <SectionHeader title="Previous Visit Summary" />
           {detail.previousVisits.map((visit) => (
-            <PreviousVisitCard key={visit.id} item={visit} onView={() => {}} />
+            <PreviousVisitCard
+              key={visit.id}
+              item={visit}
+              onView={() => openPreviousVisit(visit)}
+            />
           ))}
+
+          <PrimaryButton
+            label={downloading ? 'Preparing PDF…' : 'Download Appointment PDF'}
+            onPress={handleDownloadPdf}
+            loading={downloading}
+            size="sm"
+            style={{ marginTop: s(10), width: '100%', alignSelf: 'center' }}
+          />
 
           <PrimaryButton
             label="Back To Appointments"
