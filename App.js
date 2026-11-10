@@ -26,6 +26,7 @@ import DoctorConsultationScreen from './src/screens/DoctorConsultationScreen';
 import DoctorFormScreen from './src/screens/DoctorFormScreen';
 import DoctorReviewHistoryScreen from './src/screens/DoctorReviewHistoryScreen';
 import DoctorPreviousVisitDetailScreen from './src/screens/DoctorPreviousVisitDetailScreen';
+import DoctorEditScheduleScreen from './src/screens/DoctorEditScheduleScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
@@ -153,6 +154,11 @@ export default function App() {
                 <Stack.Screen
                   name="DoctorPreviousVisitDetail"
                   component={DoctorPreviousVisitDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="DoctorEditSchedule"
+                  component={DoctorEditScheduleScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen
