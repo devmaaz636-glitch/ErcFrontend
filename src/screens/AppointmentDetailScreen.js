@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import BookingCalendar, { formatAppointmentWhen, toDateKey } from '../components/BookingCalendar';
 import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
+import { useSession } from '../context/SessionContext';
 import { clinicErrorMessage, fetchAppointment } from '../lib/clinic';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { BRAND_BG, brandButtonBg, brandButtonText, colors } from '../theme';
@@ -195,6 +196,7 @@ export default function AppointmentDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { user } = useSession();
   const topPad = useTopPadding(24);
   const appointmentId = route.params?.appointmentId || route.params?.appointment?.id;
   const returnTo = route.params?.returnTo;
@@ -251,6 +253,7 @@ export default function AppointmentDetailScreen() {
   }
 
   const detail = buildDetail(appointment || {});
+  const isAdmin = user?.role === 'admin';
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -339,12 +342,16 @@ export default function AppointmentDetailScreen() {
             <MetaRow label="Time" value={detail.timeRange} last />
           </Card>
 
-          <SectionTitle title="Booking Calendar" />
-          <BookingCalendar
-            title="Appointment Date"
-            selectedDate={detail.dateKey}
-            readOnly
-          />
+          {!isAdmin ? (
+            <>
+              <SectionTitle title="Booking Calendar" />
+              <BookingCalendar
+                title="Appointment Date"
+                selectedDate={detail.dateKey}
+                readOnly
+              />
+            </>
+          ) : null}
 
           <SectionTitle title="Appointment Overview" />
           <Card>
