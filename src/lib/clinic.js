@@ -97,7 +97,7 @@ export function rememberAdminHomePayload(payload) {
   lastAdminHomePayloadMem = payload;
 }
 
-/** After login we force-refresh once; later manager calls reuse the cached ID token. */
+/** Tracks the current authenticated token lifecycle for manager/admin API calls. */
 let managerTokenPrimed = false;
 
 /** One in-flight warm per uid so Sign-In + Verify Region share the same fetch. */
@@ -115,8 +115,10 @@ async function authHeaders({ forceRefresh = false } = {}) {
     error.code = 'auth/required';
     throw error;
   }
-  const shouldForce = forceRefresh || !managerTokenPrimed;
-  const token = await user.getIdToken(shouldForce);
+  // Sign-in and the role-recovery flow already refresh claims explicitly.
+  // Forcing every first clinic request added another network round trip before
+  // the admin dashboard could load.
+  const token = await user.getIdToken(forceRefresh);
   managerTokenPrimed = true;
   return { Authorization: `Bearer ${token}` };
 }

@@ -22,10 +22,12 @@ export async function getUserProfile(uid) {
   return snapshot.exists() ? snapshot.data() : null;
 }
 
-export async function getAuthenticatedUserProfile() {
+export async function getAuthenticatedUserProfile({ forceRefresh = false } = {}) {
   const firebaseUser = auth.currentUser;
   if (!firebaseUser) throw new Error('Sign in required.');
-  const token = await firebaseUser.getIdToken(true);
+  // A sign-in already refreshes the token. Reusing it here prevents a second
+  // round trip from delaying session bootstrap on every app launch.
+  const token = await firebaseUser.getIdToken(forceRefresh);
   const { data } = await api.get('/api/me', {
     headers: { Authorization: 'Bearer ' + token },
   });

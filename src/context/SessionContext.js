@@ -86,25 +86,26 @@ export function SessionProvider({ children }) {
       /* ignore */
     }
 
-    let claims = {};
-    try {
-      claims = (await firebaseUser.getIdTokenResult(true)).claims || {};
-    } catch {
-      /* Backend profile remains the source of truth when claims are unavailable. */
-    }
+    // These three sources are independent. Loading them serially made a slow
+    // Firestore/API request delay the role and therefore the entire admin UI.
+    const [claimResult, remoteResult, backendResult] = await Promise.allSettled([
+      firebaseUser.getIdTokenResult(false),
+      getUserProfile(firebaseUser.uid),
+      getAuthenticatedUserProfile(),
+    ]);
 
-    let remote = null;
-    try {
-      remote = await getUserProfile(firebaseUser.uid);
-    } catch {
-      /* Firestore optional at boot */
-    }
+    let claims = claimResult.status === 'fulfilled' ? claimResult.value?.claims || {} : {};
+    const remote = remoteResult.status === 'fulfilled' ? remoteResult.value : null;
+    const backendUser = backendResult.status === 'fulfilled' ? backendResult.value : null;
 
-    let backendUser = null;
-    try {
-      backendUser = await getAuthenticatedUserProfile();
-    } catch {
-      /* Backend profile is unavailable during offline startup. */
+    // A cached token can briefly pre-date an administrator role assignment.
+    // Retry the claims once only when none of the sources identifies a role.
+    if (!normalizeRole(claims.role) && !normalizeRole(backendUser?.role) && !normalizeRole(remote?.role)) {
+      try {
+        claims = (await firebaseUser.getIdTokenResult(true)).claims || claims;
+      } catch {
+        /* The next authenticated request will surface a real authorization error. */
+      }
     }
 
     const sameUserCache = local.uid === firebaseUser.uid;
@@ -116,8 +117,7 @@ export function SessionProvider({ children }) {
       (emailLower === 'ercdoctor@gmail.com' ? 'doctor' : '') ||
       (claims.branchId || claims.clinicId || backendUser?.branchId || backendUser?.clinicId
         ? 'clinic_manager'
-        : '') ||
-      'admin';
+        : '');
     const display =
       (sameUserCache && local.name) ||
       remote?.displayName ||

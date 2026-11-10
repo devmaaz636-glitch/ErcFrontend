@@ -24,7 +24,6 @@ import {
   rememberAdminHomePayload,
   rememberManagerHomePayload,
   resetManagerTokenPrime,
-  warmAdminHomeCache,
   warmManagerHomeCache,
 } from '../lib/clinic';
 import { scopeAdminClinicData } from '../lib/adminRegionScope';
@@ -484,7 +483,7 @@ export function ClinicDataProvider({ children }) {
       try {
         const cached = await readAdminCache(user.uid);
         if (!alive) return;
-        if (cached?.dashboard) {
+        if (cached?.dashboard && dataRef.current?._shell) {
           applyAdminData(cached, { markFresh: false });
           return;
         }
@@ -771,8 +770,11 @@ export function ClinicDataProvider({ children }) {
       applyAdminData(adminPayload(adminHomeShell()), { markFresh: false });
     }
 
+    // Start one shared refresh before optional disk-cache work. Tab focus calls
+    // reuse this same in-flight promise instead of launching another request.
+    refresh({ silent: true, force: true }).catch(() => {});
+
     if (hasRealAdminDashboard(dataRef.current) && !dataRef.current?._shell) {
-      refresh({ silent: true, force: false }).catch(() => {});
       return true;
     }
 
@@ -783,7 +785,7 @@ export function ClinicDataProvider({ children }) {
 
     try {
       const cached = await readAdminCache(user.uid);
-      if (cached?.dashboard) {
+      if (cached?.dashboard && dataRef.current?._shell) {
         applyAdminData(cached, { markFresh: false });
       }
     } catch {
@@ -795,14 +797,6 @@ export function ClinicDataProvider({ children }) {
     }
 
     // Network upgrade — fire and forget.
-    warmAdminHomeCache(user.uid)
-      .then((warmed) => {
-        if (!warmed?.dashboard) return;
-        applyAdminData(adminPayload(warmed), { markFresh: true });
-      })
-      .catch(() => {});
-    refresh({ silent: true, force: true }).catch(() => {});
-
     return true;
   }, [user.uid, readAdminCache, applyAdminData, refresh]);
 
@@ -874,23 +868,12 @@ export function ClinicDataProvider({ children }) {
 
   useEffect(() => {
     if (!ready || !isAdmin || !displayRegion) return undefined;
-    const previousRegion = adminRegionRef.current;
-    if (previousRegion !== displayRegion) {
-      adminRegionRef.current = displayRegion;
-      requestGenerationRef.current += 1;
-      inFlightRef.current = null;
-      lastFetchAtRef.current = 0;
-      setError('');
-    }
-    const requestedRegion = displayRegion;
-    refresh({ silent: true, force: true })
-      .catch(() => {})
-      .finally(() => {
-        if (adminRegionRef.current === requestedRegion) {
-        }
-      });
+    // The admin payload includes all regions. This is a synchronous local
+    // scope change, not a reason to cancel/restart the shared API pipeline.
+    adminRegionRef.current = displayRegion;
+    setError('');
     return undefined;
-  }, [ready, isAdmin, displayRegion, refresh]);
+  }, [ready, isAdmin, displayRegion]);
 
   /** Optimistic / real-time patch after approve · reject · reschedule. */
   const applyAppointmentRequestUpdate = useCallback(

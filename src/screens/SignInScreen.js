@@ -17,7 +17,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { authErrorMessage, signInWithEmail } from '../lib/auth';
-import { warmAdminHomeCache, warmManagerHomeCache } from '../lib/clinic';
+import { warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
 import { saveSignedInUser } from '../lib/users';
@@ -190,9 +190,10 @@ export default function SignInScreen() {
                   region: claims.region || null,
                 });
               }
-              if (isAdminRole(claims.role)) {
-                return warmAdminHomeCache(auth.currentUser.uid);
-              }
+              // Admin data is loaded once by ClinicDataProvider after the role
+              // is resolved. Starting another full dashboard pipeline here
+              // competed with Verify Region and caused long blank states.
+              if (isAdminRole(claims.role)) return null;
               return null;
             })
             .catch(() => {});

@@ -35,6 +35,11 @@ function isDoctorRole(value) {
   return role === 'doctor' || role === 'clinic_doctor' || role === 'physician';
 }
 
+function isAdminRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  return role === 'admin' || role === 'regional_admin' || role === 'regionaladmin';
+}
+
 function Chevron() {
   return (
     <Svg width={14} height={14} viewBox="0 0 14 14">
@@ -205,6 +210,16 @@ export default function VerifyRegionScreen() {
           .trim()
           .toLowerCase() === 'ercdoctor@gmail.com';
       const isManagerFlow = !isDoctorFlow && (isClinicManagerRole(role) || Boolean(branchId));
+      const isAdminFlow = !isDoctorFlow && !isManagerFlow && isAdminRole(role);
+
+      // Never infer administrator access for an account without an explicit
+      // claim/profile role. The backend enforces this too; matching it here
+      // prevents an empty admin workspace while rejected requests retry.
+      if (!isDoctorFlow && !isManagerFlow && !isAdminFlow) {
+        setError('This account does not have an assigned app role. Contact Head Office.');
+        setStarting(false);
+        return;
+      }
       const assignedRegion =
         ((isManagerFlow || isDoctorFlow) &&
           (regionForBranchId(branchId || (isDoctorFlow ? 'br-dubai' : null)) ||
@@ -259,7 +274,10 @@ export default function VerifyRegionScreen() {
         return;
       }
 
-      updateUser({ region: effectiveRegion.short || effectiveRegion.name }).catch(() => {});
+      updateUser({
+        role: 'admin',
+        region: effectiveRegion.short || effectiveRegion.name,
+      }).catch(() => {});
       // Admin: prime shell quickly, never wait on network.
       ensureAdminHomeReady().catch(() => {});
 
