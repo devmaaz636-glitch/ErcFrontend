@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import DownloadPdfModal from '../components/DownloadPdfModal';
 import { IconCircleButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { downloadAppointmentPdf } from '../lib/appointmentPdf';
@@ -73,6 +74,7 @@ export default function DoctorPreviousVisitDetailScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { user } = useSession();
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const detail = useMemo(
@@ -85,13 +87,16 @@ export default function DoctorPreviousVisitDetailScreen() {
     [route.params?.appointment, route.params?.item, user]
   );
 
+  const pdfFileName = `ERC-${detail.requestId || detail.patientId}.pdf`;
+
   async function handleDownloadPdf() {
     if (downloading) return;
     setDownloading(true);
     try {
-      await downloadAppointmentPdf(detail, {
-        fileName: `ERC-${detail.requestId}.pdf`,
-      });
+      const result = await downloadAppointmentPdf(detail, { fileName: pdfFileName });
+      if (!result?.canceled) {
+        setDownloadOpen(false);
+      }
     } catch {
       /* alert handled in helper */
     } finally {
@@ -102,6 +107,13 @@ export default function DoctorPreviousVisitDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
+      <DownloadPdfModal
+        visible={downloadOpen}
+        onClose={() => (downloading ? null : setDownloadOpen(false))}
+        onDownload={handleDownloadPdf}
+        loading={downloading}
+        fileName={detail.documentName || pdfFileName}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -282,30 +294,17 @@ export default function DoctorPreviousVisitDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel="Download appointment PDF"
               hitSlop={8}
-              disabled={downloading}
-              onPress={handleDownloadPdf}
+              onPress={() => setDownloadOpen(true)}
             >
-              <Ionicons
-                name={downloading ? 'hourglass-outline' : 'download-outline'}
-                size={s(18)}
-                color={colors.brand}
-              />
+              <Ionicons name="download-outline" size={s(18)} color={colors.brand} />
             </Pressable>
           </View>
-
-          <PrimaryButton
-            label={downloading ? 'Preparing PDF…' : 'Download Appointment PDF'}
-            onPress={handleDownloadPdf}
-            loading={downloading}
-            size="sm"
-            style={{ marginTop: s(18), width: '100%', alignSelf: 'center' }}
-          />
 
           <PrimaryButton
             label="Back To Appointments"
             onPress={() => navigation.goBack()}
             size="sm"
-            style={{ marginTop: s(10), width: '100%', alignSelf: 'center' }}
+            style={{ marginTop: s(22), width: '100%', alignSelf: 'center' }}
           />
         </View>
       </ScrollView>

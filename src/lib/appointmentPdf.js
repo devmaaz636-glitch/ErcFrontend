@@ -1,6 +1,7 @@
 import { Alert, Platform } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const BRAND = '#BF824F';
 
@@ -22,9 +23,26 @@ function row(label, value) {
   `;
 }
 
+function isShareCancelError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return (
+    message.includes('cancel') ||
+    message.includes('dismiss') ||
+    message.includes('shareditemunavailable') ||
+    error?.code === 'ERR_SHARE_CANCELED'
+  );
+}
+
+function safePdfName(fileName, detail = {}) {
+  const raw =
+    fileName ||
+    `ERC-Appointment-${String(detail.requestId || detail.patientId || 'record').replace(/[^\w-]+/g, '_')}.pdf`;
+  const cleaned = String(raw).replace(/[^\w.-]+/g, '_');
+  return cleaned.toLowerCase().endsWith('.pdf') ? cleaned : `${cleaned}.pdf`;
+}
+
 /**
  * Build printable HTML for a doctor appointment booking / visit detail.
- * Includes patient, treatment, doctor, schedule, and medical notes from the page.
  */
 export function buildAppointmentPdfHtml(detail = {}) {
   const title = detail.title || 'Appointment Details';
@@ -138,38 +156,123 @@ export function buildAppointmentPdfHtml(detail = {}) {
 </html>`;
 }
 
+async function createPdfInCache(html, fileName) {
+  const printed = await Print.printToFileAsync({ html });
+  const sourceUri = printed?.uri;
+  if (!sourceUri) throw new Error('Could not create the PDF file.');
+
+  const cacheRoot = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+  if (!cacheRoot) return sourceUri;
+
+  const targetUri = `${cacheRoot}${fileName}`;
+  try {
+    const info = await FileSystem.getInfoAsync(targetUri);
+    if (info.exists) {
+      await FileSystem.deleteAsync(targetUri, { idempotent: true });
+    }
+    await FileSystem.copyAsync({ from: sourceUri, to: targetUri });
+    return targetUri;
+  } catch {
+    return sourceUri;
+  }
+}
+
+async function savePdfToAppDocuments(uri, fileName) {
+  const docsRoot = FileSystem.documentDirectory;
+  if (!docsRoot) return uri;
+  const dest = `${docsRoot}${fileName}`;
+  try {
+    const info = await FileSystem.getInfoAsync(dest);
+    if (info.exists) {
+      await FileSystem.deleteAsync(dest, { idempotent: true });
+    }
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  } catch {
+    return uri;
+  }
+}
+
+/** Android: let the user pick a Downloads / folder location and write the PDF there. */
+async function savePdfWithSaf(uri, fileName) {
+  if (Platform.OS !== 'android' || !FileSystem.StorageAccessFramework) {
+    return null;
+  }
+  try {
+    const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!permissions.granted) return null;
+
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const created = await FileSystem.StorageAccessFramework.createFileAsync(
+      permissions.directoryUri,
+      fileName.replace(/\.pdf$/i, ''),
+      'application/pdf'
+    );
+    await FileSystem.writeAsStringAsync(created, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return created;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Create a PDF from appointment page details and open the native share/save sheet.
+ * Create appointment PDF and save it on the device (no print dialog).
+ * Android prefers folder picker; otherwise share sheet for Save to Files / Drive.
  */
 export async function downloadAppointmentPdf(detail = {}, options = {}) {
   const html = buildAppointmentPdfHtml(detail);
-  const fileName =
-    options.fileName ||
-    `ERC-Appointment-${String(detail.requestId || detail.patientId || 'record').replace(/[^\w-]+/g, '_')}.pdf`;
+  const fileName = safePdfName(options.fileName, detail);
 
   try {
-    const { uri } = await Print.printToFileAsync({ html, base64: false });
-
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Download Appointment PDF',
-        UTI: 'com.adobe.pdf',
-      });
-      return { uri, shared: true };
-    }
-
-    // Web / environments without share sheet — open print dialog as fallback.
     if (Platform.OS === 'web') {
-      await Print.printAsync({ html });
-      return { uri, shared: false, printed: true };
+      // Browser download via print-to-file isn't available the same way; open a blob share.
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Download Appointment PDF',
+        });
+      }
+      return { uri, saved: true };
     }
 
-    Alert.alert('PDF ready', `Saved temporarily as ${fileName}`);
-    return { uri, shared: false };
+    const cacheUri = await createPdfInCache(html, fileName);
+    const localUri = await savePdfToAppDocuments(cacheUri, fileName);
+
+    // Prefer writing into a user-chosen system folder on Android.
+    const safUri = await savePdfWithSaf(localUri, fileName);
+    if (safUri) {
+      Alert.alert('Downloaded', 'Appointment PDF saved to your selected folder.');
+      return { uri: safUri, saved: true, method: 'saf' };
+    }
+
+    const canShare = await Sharing.isAvailableAsync().catch(() => false);
+    if (canShare) {
+      try {
+        await Sharing.shareAsync(localUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save Appointment PDF',
+          UTI: 'com.adobe.pdf',
+        });
+        return { uri: localUri, saved: true, method: 'share' };
+      } catch (shareError) {
+        if (isShareCancelError(shareError)) {
+          return { uri: localUri, saved: false, canceled: true };
+        }
+      }
+    }
+
+    Alert.alert('PDF saved', `Saved on this device as ${fileName}`);
+    return { uri: localUri, saved: true, method: 'documents' };
   } catch (error) {
-    const message = error?.message || 'Could not create the appointment PDF.';
-    Alert.alert('Download failed', message);
+    if (isShareCancelError(error)) {
+      return { uri: null, saved: false, canceled: true };
+    }
+    Alert.alert('Download failed', 'Could not save the appointment PDF. Please try again.');
     throw error;
   }
 }

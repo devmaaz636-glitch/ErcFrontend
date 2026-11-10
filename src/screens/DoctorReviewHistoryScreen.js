@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
+import DownloadPdfModal from '../components/DownloadPdfModal';
 import MedicalAlertsModal from '../components/MedicalAlertsModal';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
 import { downloadAppointmentPdf } from '../lib/appointmentPdf';
@@ -138,6 +139,7 @@ export default function DoctorReviewHistoryScreen() {
   const topPad = useTopPadding(24);
   const { user } = useSession();
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const sourceItem = route.params?.item;
@@ -164,6 +166,8 @@ export default function DoctorReviewHistoryScreen() {
     [detail.medications, detail.medication]
   );
 
+  const pdfFileName = `ERC-Appointment-${detail.requestId || detail.patientId}.pdf`;
+
   function openPreviousVisit(visit) {
     navigation.navigate('DoctorPreviousVisitDetail', {
       item: visit,
@@ -175,9 +179,10 @@ export default function DoctorReviewHistoryScreen() {
     if (downloading) return;
     setDownloading(true);
     try {
-      await downloadAppointmentPdf(detail, {
-        fileName: `ERC-Appointment-${detail.requestId || detail.patientId}.pdf`,
-      });
+      const result = await downloadAppointmentPdf(detail, { fileName: pdfFileName });
+      if (!result?.canceled) {
+        setDownloadOpen(false);
+      }
     } catch {
       /* alert handled in helper */
     } finally {
@@ -193,6 +198,13 @@ export default function DoctorReviewHistoryScreen() {
         onClose={() => setAlertsOpen(false)}
         allergies={allergies}
         medications={medications}
+      />
+      <DownloadPdfModal
+        visible={downloadOpen}
+        onClose={() => (downloading ? null : setDownloadOpen(false))}
+        onDownload={handleDownloadPdf}
+        loading={downloading}
+        fileName={detail.documentName || pdfFileName}
       />
 
       <ScrollView
@@ -392,19 +404,47 @@ export default function DoctorReviewHistoryScreen() {
             />
           ))}
 
-          <PrimaryButton
-            label={downloading ? 'Preparing PDF…' : 'Download Appointment PDF'}
-            onPress={handleDownloadPdf}
-            loading={downloading}
-            size="sm"
-            style={{ marginTop: s(10), width: '100%', alignSelf: 'center' }}
-          />
+          <SectionHeader title="Patient Documents" />
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 16,
+              padding: s(14),
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: s(36),
+                height: s(40),
+                borderRadius: 6,
+                backgroundColor: colors.dangerBg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: s(12),
+              }}
+            >
+              <Text style={{ color: colors.danger, fontSize: fs(8), fontWeight: '700' }}>PDF</Text>
+            </View>
+            <Text style={{ flex: 1, color: colors.ink, fontSize: fs(12), fontWeight: '600' }}>
+              {detail.documentName}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Download appointment PDF"
+              hitSlop={8}
+              onPress={() => setDownloadOpen(true)}
+            >
+              <Ionicons name="download-outline" size={s(18)} color={colors.brand} />
+            </Pressable>
+          </View>
 
           <PrimaryButton
             label="Back To Appointments"
             onPress={() => navigation.goBack()}
             size="sm"
-            style={{ marginTop: s(10), width: '100%', alignSelf: 'center' }}
+            style={{ marginTop: s(22), width: '100%', alignSelf: 'center' }}
           />
         </View>
       </ScrollView>
