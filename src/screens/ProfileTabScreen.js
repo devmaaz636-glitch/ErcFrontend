@@ -57,8 +57,8 @@ function InfoRow({ label, value }) {
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 10, fontWeight: '600', color: colors.ink }}>{label}</Text>
-        <Text style={{ fontSize: 9, color: colors.muted, marginTop: 3 }}>{value || '—'}</Text>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: colors.ink }}>{label}</Text>
+        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3 }}>{value || '—'}</Text>
       </View>
       <Ionicons name="chevron-forward" size={14} color={colors.muted} />
     </View>
@@ -92,7 +92,7 @@ function ActionRow({ label, icon, onPress }) {
       >
         <Ionicons name={icon} size={14} color={colors.white} />
       </View>
-      <Text style={{ flex: 1, fontSize: 11, fontWeight: '600', color: colors.ink }}>{label}</Text>
+      <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: colors.ink }}>{label}</Text>
       <Ionicons name="chevron-forward" size={14} color={colors.muted} />
     </Pressable>
   );
@@ -270,7 +270,7 @@ export default function ProfileTabScreen() {
             <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: 12 }}>
               {user.name || '—'}
             </Text>
-            <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>{displayedRole}</Text>
+            <Text style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{displayedRole}</Text>
           </View>
 
           <SectionTitle title="Account Information" />

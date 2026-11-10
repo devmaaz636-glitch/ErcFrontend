@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,13 +66,32 @@ function PrefRow({ icon, title, body, value, onValueChange }) {
         <Text style={{ fontSize: fs(13), fontWeight: '700', color: INK }}>{title}</Text>
         <Text style={{ fontSize: fs(10), color: DESC, marginTop: 3, lineHeight: 14 }}>{body}</Text>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: '#E5DED6', true: BROWN }}
-        thumbColor="#fff"
-        ios_backgroundColor="#E5DED6"
-      />
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityLabel={`${title} ${value ? 'enabled' : 'disabled'}`}
+        accessibilityState={{ checked: value }}
+        hitSlop={8}
+        onPress={() => onValueChange(!value)}
+        style={{
+          width: s(42),
+          height: s(24),
+          borderRadius: s(12),
+          padding: s(3),
+          justifyContent: 'center',
+          backgroundColor: value ? colors.brandSoft : '#E5DED6',
+        }}
+      >
+        <View
+          style={{
+            width: s(18),
+            height: s(18),
+            borderRadius: s(9),
+            backgroundColor: value ? BROWN : '#fff',
+            alignSelf: value ? 'flex-end' : 'flex-start',
+            elevation: 1,
+          }}
+        />
+      </Pressable>
     </View>
   );
 }

@@ -161,11 +161,6 @@ export default function DoctorConsultationScreen() {
             <Text style={styles.title}>Consultation</Text>
             <Text style={styles.subtitle}>Doctor Detail</Text>
           </View>
-          <IconCircleButton
-            name="ellipsis-vertical"
-            color={colors.brand}
-            accessibilityLabel="More options"
-          />
         </View>
 
         <SearchField value={query} onChangeText={setQuery} placeholder="Search Here" />
