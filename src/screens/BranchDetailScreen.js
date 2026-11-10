@@ -4,7 +4,9 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Text from '../components/AppText';
+import CalendarStatIcon from '../components/ui/CalendarStatIcon';
 import { IconCircleButton, NotificationBellButton, SkeletonRow } from '../components/ui';
 import { clinicErrorMessage, fetchBranch } from '../lib/clinic';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
@@ -89,20 +91,20 @@ function StatCard({ item }) {
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View
+        <LinearGradient
+          colors={[BROWN, '#EFB584']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
             width: iconSize,
             height: iconSize,
             borderRadius: iconSize / 2,
-            borderWidth: 1.5,
-            borderColor: BROWN,
-            backgroundColor: '#FBEFE3',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name={item.icon} size={s(15)} color={BROWN} />
-        </View>
+          <CalendarStatIcon size={s(14)} />
+        </LinearGradient>
         <TrendPill change={item.change} />
       </View>
       <Text style={{ fontSize: fs(22), fontWeight: '700', color: INK, marginTop: s(12) }}>

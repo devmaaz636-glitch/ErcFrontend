@@ -5,7 +5,9 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Text from '../components/AppText';
+import CalendarStatIcon from '../components/ui/CalendarStatIcon';
 import { formatAppointmentWhen } from '../components/BookingCalendar';
 import { RegionGlobeButton, useActiveRegionLabel } from '../components/RegionSwitcher';
 import {
@@ -85,19 +87,11 @@ function formatRequestWhen(item) {
   return time ? `${dateLabel} · ${time}` : dateLabel;
 }
 
-const ADMIN_STAT_ICONS = {
-  today: 'calendar-outline',
-  upcoming: 'time-outline',
-  completed: 'checkmark-circle-outline',
-  canceled: 'close-circle-outline',
-};
-
 function StatCard({ item }) {
   const up = item.change >= 0;
   const tone = up ? colors.success : colors.danger;
   const toneBg = up ? colors.successBg : colors.dangerBg;
   const iconSize = s(30);
-  const iconName = ADMIN_STAT_ICONS[item.id] || item.icon || 'calendar-outline';
 
   return (
     <View
@@ -111,20 +105,20 @@ function StatCard({ item }) {
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View
+        <LinearGradient
+          colors={[colors.brand, '#EFB584']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
             width: iconSize,
             height: iconSize,
             borderRadius: iconSize / 2,
-            borderWidth: 1.5,
-            borderColor: colors.brand,
-            backgroundColor: colors.brandSoft,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name={iconName} size={s(15)} color={colors.brand} />
-        </View>
+          <CalendarStatIcon size={s(14)} />
+        </LinearGradient>
         <View
           style={{
             flexDirection: 'row',

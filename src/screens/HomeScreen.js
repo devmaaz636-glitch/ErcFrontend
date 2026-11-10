@@ -374,39 +374,8 @@ export default function HomeScreen() {
             <BranchRow key={`${regionKey}-${item.id}`} item={item} rank={i + 1} />
           ))}
 
-          <SectionHeader title="Clinic Managers" onAction={openManagersList} />
-          {managers.map((item) => (
-            <ManagerRow
-              key={`${regionKey}-${item.id}`}
-              item={item}
-              onPress={() => openManagerDetail(item)}
-            />
-          ))}
-
-          <SectionHeader title="Doctors Performance" />
-          {doctors.map((item) => (
-            <DoctorRow
-              key={`${regionKey}-${item.id}`}
-              item={item}
-              onPress={() =>
-                navigation.navigate('DoctorConsultation', {
-                  doctorId: item.id,
-                  doctor: item,
-                })
-              }
-            />
-          ))}
         </View>
       </ScrollView>
-
-      <ClinicManagersModal
-        visible={managersModal.open}
-        mode={managersModal.mode}
-        selectedManager={managersModal.manager}
-        managers={allManagers}
-        stats={managersPayload?.stats || null}
-        onClose={() => setManagersModal({ open: false, mode: 'list', manager: null })}
-      />
     </View>
   );
 }
