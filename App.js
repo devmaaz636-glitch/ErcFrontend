@@ -11,8 +11,11 @@ import { colors } from './src/theme';
 import MainTabs from './src/navigation/MainTabs';
 import ManagerTabs from './src/navigation/ManagerTabs';
 import DoctorTabs from './src/navigation/DoctorTabs';
+import PatientTabs from './src/navigation/PatientTabs';
 import SplashScreen from './src/screens/SplashScreen';
 import SignInScreen from './src/screens/SignInScreen';
+import SignUpScreen from './src/screens/SignUpScreen';
+import PatientOnboardingScreen from './src/screens/PatientOnboardingScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ForgotPasswordCodeScreen from './src/screens/ForgotPasswordCodeScreen';
 import ForgotPasswordNewScreen from './src/screens/ForgotPasswordNewScreen';
@@ -76,6 +79,16 @@ export default function App() {
                 <Stack.Screen name="Splash" component={SplashScreen} />
                 <Stack.Screen name="SignIn" component={SignInScreen} />
                 <Stack.Screen
+                  name="SignUp"
+                  component={SignUpScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="PatientOnboarding"
+                  component={PatientOnboardingScreen}
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen
                   name="ForgotPassword"
                   component={ForgotPasswordScreen}
                   options={{ animation: 'slide_from_right' }}
@@ -104,6 +117,11 @@ export default function App() {
                 <Stack.Screen
                   name="DoctorTabs"
                   component={DoctorTabs}
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="PatientTabs"
+                  component={PatientTabs}
                   options={{ animation: 'fade', gestureEnabled: false }}
                 />
                 <Stack.Screen

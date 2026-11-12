@@ -20,6 +20,7 @@ import { ADMIN_REGIONS, matchRegion, regionForBranchId } from '../components/Reg
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
+import { isPatientOnboardingDone } from '../lib/patientOnboarding';
 import { colors } from '../theme';
 
 cssInterop(Image, { className: 'style' });
@@ -38,6 +39,11 @@ function isDoctorRole(value) {
 function isAdminRole(value) {
   const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
   return role === 'admin' || role === 'regional_admin' || role === 'regionaladmin';
+}
+
+function isPatientRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  return role === 'patient' || role === 'clinic_patient';
 }
 
 function Chevron() {
@@ -79,8 +85,10 @@ export default function VerifyRegionScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDoctorAccount = isDoctorRole(user?.role);
+  const isPatientAccount = isPatientRole(user?.role);
   const isManagerAccount =
     !isDoctorAccount &&
+    !isPatientAccount &&
     (isClinicManagerRole(user?.role) || Boolean(user?.branchId || user?.clinicId));
   const sessionLockedRegion =
     isManagerAccount || isDoctorAccount
@@ -110,7 +118,7 @@ export default function VerifyRegionScreen() {
   // Prefer manager whenever branchId/claims look like a clinic manager — never warm admin for them.
   // Doctors use local seed home — do not warm admin/manager dashboards.
   useEffect(() => {
-    if (isDoctorRole(user?.role)) return undefined;
+    if (isDoctorRole(user?.role) || isPatientRole(user?.role)) return undefined;
     const managerLikely =
       isClinicManagerRole(user?.role) ||
       Boolean(user?.branchId || user?.clinicId) ||
@@ -192,7 +200,9 @@ export default function VerifyRegionScreen() {
       let branchId = user?.branchId || user?.clinicId || null;
       // Skip forced token refresh when manager claims are already on the session (instant Get Started).
       const claimsAlreadyReady =
-        (isClinicManagerRole(role) && Boolean(branchId)) || isDoctorRole(role);
+        (isClinicManagerRole(role) && Boolean(branchId)) ||
+        isDoctorRole(role) ||
+        isPatientRole(role);
       if (!claimsAlreadyReady) {
         try {
           const tokenResult = await auth.currentUser?.getIdTokenResult(true);
@@ -209,13 +219,16 @@ export default function VerifyRegionScreen() {
         String(user?.email || auth.currentUser?.email || '')
           .trim()
           .toLowerCase() === 'ercdoctor@gmail.com';
-      const isManagerFlow = !isDoctorFlow && (isClinicManagerRole(role) || Boolean(branchId));
-      const isAdminFlow = !isDoctorFlow && !isManagerFlow && isAdminRole(role);
+      const isPatientFlow = !isDoctorFlow && isPatientRole(role);
+      const isManagerFlow =
+        !isDoctorFlow && !isPatientFlow && (isClinicManagerRole(role) || Boolean(branchId));
+      const isAdminFlow =
+        !isDoctorFlow && !isPatientFlow && !isManagerFlow && isAdminRole(role);
 
       // Never infer administrator access for an account without an explicit
       // claim/profile role. The backend enforces this too; matching it here
       // prevents an empty admin workspace while rejected requests retry.
-      if (!isDoctorFlow && !isManagerFlow && !isAdminFlow) {
+      if (!isDoctorFlow && !isPatientFlow && !isManagerFlow && !isAdminFlow) {
         setError('This account does not have an assigned app role. Contact Head Office.');
         setStarting(false);
         return;
@@ -253,6 +266,21 @@ export default function VerifyRegionScreen() {
           navigation.goBack();
         } else {
           navigation.replace('DoctorTabs');
+        }
+        return;
+      }
+
+      if (isPatientFlow) {
+        updateUser({
+          role: 'patient',
+          name: user?.name || auth.currentUser?.displayName || '',
+          region: effectiveRegion.short || effectiveRegion.name || '',
+        }).catch(() => {});
+        if (switchMode) {
+          navigation.goBack();
+        } else {
+          const done = await isPatientOnboardingDone(user?.uid || auth.currentUser?.uid);
+          navigation.replace(done ? 'PatientTabs' : 'PatientOnboarding');
         }
         return;
       }

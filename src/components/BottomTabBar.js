@@ -29,6 +29,7 @@ const TAB_META = {
   TreatmentsTab: { label: 'Treatments', icon: 'sparkles-outline', activeIcon: 'sparkles' },
   DoctorsTab: { label: 'Doctors', icon: 'medkit-outline', activeIcon: 'medkit' },
   PatientsTab: { label: 'Patients', icon: 'people-outline', activeIcon: 'people' },
+  AboutTab: { label: 'About Us', icon: 'information-circle-outline', activeIcon: 'information-circle' },
   ScheduleTab: {
     label: 'Schedule',
     icon: 'calendar-outline',

@@ -20,6 +20,7 @@ import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
+import { isPatientOnboardingDone } from '../lib/patientOnboarding';
 import { saveSignedInUser } from '../lib/users';
 import { colors } from '../theme';
 
@@ -36,6 +37,43 @@ function isAdminRole(value) {
 function isDoctorRole(value) {
   const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
   return role === 'doctor' || role === 'clinic_doctor' || role === 'physician';
+}
+
+function isPatientRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  return role === 'patient' || role === 'clinic_patient';
+}
+
+function ClearIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r="9" fill="#C9C2BA" />
+      <Path d="M9 9 L15 15 M15 9 L9 15" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function GoogleGlyph() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 48 48">
+      <Path
+        fill="#FFC107"
+        d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.5-.4-3.5z"
+      />
+      <Path
+        fill="#FF3D00"
+        d="M6.3 14.7l6.6 4.8C14.7 16.1 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"
+      />
+      <Path
+        fill="#4CAF50"
+        d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"
+      />
+      <Path
+        fill="#1976D2"
+        d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.5 5.7-6.5 7.1l.1.1 6.2 5.2C36.8 39 44 33.5 44 24c0-1.3-.1-2.5-.4-3.5z"
+      />
+    </Svg>
+  );
 }
 
 cssInterop(Image, { className: 'style' });
@@ -111,33 +149,47 @@ export default function SignInScreen() {
   const signingIn = useRef(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [notice, setNotice] = useState('');
 
   const logoWidth = Math.min(width * 0.68, 300);
   const logoHeight = logoWidth * (81 / 264);
   const photoHeight = Math.max(width * (434 / 430), height * 0.58);
 
   useEffect(() => {
-    let active = true;
-    AsyncStorage.getItem(REMEMBER_KEY)
-      .then((saved) => {
-        if (active && saved) {
-          setEmail(saved);
-          setRememberMe(true);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+    // Always start with empty password. Never prefill staff/demo credentials.
+    setPassword('');
+    setRememberMe(false);
+
+    const fromSignupEmail = String(route.params?.email || '').trim();
+    if (route.params?.signedUp && fromSignupEmail) {
+      setEmail(fromSignupEmail);
+      AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
+      return undefined;
+    }
+
+    // Do not restore remembered emails — prevents showing other roles' accounts.
+    AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
+    setEmail('');
+    return undefined;
+  }, [route.params?.signedUp, route.params?.email]);
 
   useEffect(() => {
+    if (route.params?.signedUp) {
+      setToast('Account created. Please sign in.');
+      navigation.setParams?.({ signedUp: undefined });
+      const timer = setTimeout(() => setToast(''), 2400);
+      return () => clearTimeout(timer);
+    }
     if (!route.params?.loggedOut) return undefined;
     setToast('You logged out successfully');
+    setEmail('');
+    setPassword('');
+    setRememberMe(false);
+    AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
     navigation.setParams?.({ loggedOut: undefined });
     const timer = setTimeout(() => setToast(''), 2200);
     return () => clearTimeout(timer);
-  }, [route.params?.loggedOut, navigation]);
+  }, [route.params?.loggedOut, route.params?.signedUp, navigation]);
 
   async function persistRememberedEmail() {
     if (rememberMe) {
@@ -165,10 +217,23 @@ export default function SignInScreen() {
     setError('');
     try {
       await signInWithEmail(nextEmail, password);
+      // Remember-me stores email only when the user opts in — never passwords.
       persistRememberedEmail().catch(() => {});
       if (auth.currentUser) {
         // Firestore profile write must never block sign-in.
         saveSignedInUser(auth.currentUser).catch(() => {});
+
+        const tokenResult = await auth.currentUser.getIdTokenResult(true).catch(() => null);
+        const claims = tokenResult?.claims || {};
+        const patientAccount =
+          isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
+
+        if (patientAccount) {
+          const done = await isPatientOnboardingDone(auth.currentUser.uid);
+          navigation.replace(done ? 'PatientTabs' : 'PatientOnboarding');
+          return;
+        }
+
         // Warm the correct home cache during Region Verify (demo managers → manager shell NOW).
         if (isDemoManagerEmail(nextEmail)) {
           const demo = findDemoManager(nextEmail);
@@ -176,27 +241,18 @@ export default function SignInScreen() {
             branchId: demo?.branchId || null,
             region: demo?.region || null,
           }).catch(() => {});
-        } else {
-          auth.currentUser
-            .getIdTokenResult(true)
-            .then((tokenResult) => {
-              const claims = tokenResult?.claims || {};
-              if (isDoctorRole(claims.role) || nextEmail.toLowerCase() === 'ercdoctor@gmail.com') {
-                return null;
-              }
-              if (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId) {
-                return warmManagerHomeCache(auth.currentUser.uid, {
-                  branchId: claims.branchId || claims.clinicId || null,
-                  region: claims.region || null,
-                });
-              }
-              // Admin data is loaded once by ClinicDataProvider after the role
-              // is resolved. Starting another full dashboard pipeline here
-              // competed with Verify Region and caused long blank states.
-              if (isAdminRole(claims.role)) return null;
-              return null;
-            })
-            .catch(() => {});
+        } else if (
+          !(
+            isDoctorRole(claims.role) ||
+            nextEmail.toLowerCase() === 'ercdoctor@gmail.com' ||
+            isAdminRole(claims.role)
+          ) &&
+          (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId)
+        ) {
+          warmManagerHomeCache(auth.currentUser.uid, {
+            branchId: claims.branchId || claims.clinicId || null,
+            region: claims.region || null,
+          }).catch(() => {});
         }
       }
       navigation.replace('RegionVerify');
@@ -275,14 +331,14 @@ export default function SignInScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          bounces={false}
-          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          bounces
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
         >
           <View
             className="items-center justify-center"
             style={{
-              flexGrow: 1,
-              minHeight: Math.max(height * 0.36, 200),
+              height: Math.max(height * 0.28, 160),
               paddingTop: insets.top,
             }}
           >
@@ -299,7 +355,8 @@ export default function SignInScreen() {
             style={{
               borderTopLeftRadius: 32,
               borderTopRightRadius: 32,
-              paddingBottom: Math.max(insets.bottom, 16) + 10,
+              paddingBottom: Math.max(insets.bottom, 20) + 16,
+              minHeight: height * 0.62,
             }}
           >
             <View className="w-full self-center" style={{ maxWidth: 480 }}>
@@ -320,17 +377,30 @@ export default function SignInScreen() {
                   label="Email"
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="admin@gmail.com"
+                  placeholder="Enter your email"
                   keyboardType="email-address"
                   autoComplete="email"
                   textContentType="emailAddress"
                   returnKeyType="next"
+                  trailing={
+                    email ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear email"
+                        hitSlop={8}
+                        onPress={() => setEmail('')}
+                        className="ml-2 h-10 w-10 items-center justify-center"
+                      >
+                        <ClearIcon />
+                      </Pressable>
+                    ) : null
+                  }
                 />
                 <Field
                   label="Password"
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="debra.holt@example.com"
+                  placeholder="••••••••"
                   secureTextEntry={!showPassword}
                   autoComplete="password"
                   textContentType="password"
@@ -400,7 +470,54 @@ export default function SignInScreen() {
                 className="h-[54px] items-center justify-center rounded-full bg-splash"
               >
                 <Text allowFontScaling={false} className="text-[16px] font-semibold text-white">
-                  Sign in
+                  Sign In
+                </Text>
+              </Pressable>
+
+              <View className="my-5 flex-row items-center">
+                <View className="h-px flex-1 bg-[#E8E1D9]" />
+                <Text allowFontScaling={false} className="mx-3 text-[13px] text-muted">
+                  OR
+                </Text>
+                <View className="h-px flex-1 bg-[#E8E1D9]" />
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setNotice('Google sign-in will be available soon.')}
+                className="h-[54px] flex-row items-center justify-center rounded-full border border-[#E8E1D9] bg-white"
+              >
+                <GoogleGlyph />
+                <Text allowFontScaling={false} className="ml-3 text-[15px] font-semibold text-ink">
+                  Sign in with Google
+                </Text>
+              </Pressable>
+
+              {notice ? (
+                <Text
+                  allowFontScaling={false}
+                  className="mt-3 text-center text-[13px]"
+                  style={{ color: colors.brand }}
+                >
+                  {notice}
+                </Text>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sign up for a patient account"
+                onPress={() => navigation.navigate('SignUp')}
+                hitSlop={10}
+                style={{
+                  marginTop: 22,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text allowFontScaling={false} className="text-[14px] text-muted">
+                  {"Don't have an account? "}
+                  <Text className="font-semibold text-splash">Sign Up</Text>
                 </Text>
               </Pressable>
             </View>

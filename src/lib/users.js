@@ -2,14 +2,18 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { api } from './api';
 
-export async function saveSignedInUser(user) {
+export async function saveSignedInUser(user, extras = {}) {
   const userRef = doc(db, 'users', user.uid);
   const existing = await getDoc(userRef);
+  const name = extras.name || user.displayName || null;
+  const role = extras.role || null;
 
   await setDoc(
     userRef,
     {
       email: user.email ?? '',
+      ...(name ? { name, displayName: name } : {}),
+      ...(role ? { role } : {}),
       ...(existing.exists() ? {} : { createdAt: serverTimestamp() }),
       lastLoginAt: serverTimestamp(),
     },

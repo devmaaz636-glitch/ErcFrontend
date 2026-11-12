@@ -25,6 +25,7 @@ function normalizeRole(value) {
     return 'clinic_manager';
   }
   if (role === 'doctor' || role === 'clinic_doctor' || role === 'physician') return 'doctor';
+  if (role === 'patient' || role === 'clinic_patient') return 'patient';
   return '';
 }
 
@@ -33,6 +34,7 @@ export function roleLabel(value) {
   if (role === 'clinic_manager') return 'Clinic Manager';
   if (role === 'doctor') return 'Doctor';
   if (role === 'admin') return 'Regional Admin';
+  if (role === 'patient') return 'Patient';
   return '';
 }
 

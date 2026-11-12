@@ -18,10 +18,13 @@ import UserAvatar from '../components/UserAvatar';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
 import { roleLabel, useSession } from '../context/SessionContext';
 import { useClinicData } from '../context/ClinicDataContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { signOutUser } from '../lib/auth';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { scale as s, useTopPadding } from '../utils/responsive';
+
+const REMEMBER_KEY = '@erc/remembered-email';
 
 const doctorProfileImage = require('../../assets/doctorimg.png');
 
@@ -142,22 +145,25 @@ export default function ProfileTabScreen() {
   const { dashboard } = useClinicData();
   const isManager = user.role === 'clinic_manager';
   const isDoctor = user.role === 'doctor';
+  const isPatient = user.role === 'patient';
   const displayedRole = roleLabel(user.role);
 
   const info = [
     { label: 'Full Name', value: user.name },
     { label: 'Primary Email', value: user.email },
     { label: 'Role', value: displayedRole },
-    isManager || isDoctor
-      ? {
-          label: 'Assigned Branch',
-          value:
-            user.branchName ||
-            dashboard?.clinic?.name ||
-            dashboard?.clinic?.city ||
-            (isDoctor ? 'Dubai Branch' : 'Loading assigned branch'),
-        }
-      : { label: 'Assigned Region', value: displayRegion },
+    isPatient
+      ? { label: 'Account Type', value: 'Patient' }
+      : isManager || isDoctor
+        ? {
+            label: 'Assigned Branch',
+            value:
+              user.branchName ||
+              dashboard?.clinic?.name ||
+              dashboard?.clinic?.city ||
+              (isDoctor ? 'Dubai Branch' : 'Loading assigned branch'),
+          }
+        : { label: 'Assigned Region', value: displayRegion },
   ];
 
   async function performLogout() {
@@ -176,6 +182,8 @@ export default function ProfileTabScreen() {
     }
 
     try {
+      // Never leave previous role emails in the Sign In fields.
+      await AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
       // Leave the role shell first so clearing session cannot flash admin/manager UI.
       navigation.reset({
         index: 0,

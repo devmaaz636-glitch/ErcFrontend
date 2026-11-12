@@ -69,6 +69,42 @@ export async function signInWithEmail(email, password) {
   }
 }
 
+/**
+ * Patient-only signup. Backend creates Firebase Auth user + role claim `patient`.
+ * Does NOT sign the user in — they must Sign In next (clean empty session).
+ */
+export async function signUpPatient({ fullName, email, password, confirmPassword }) {
+  const nextEmail = String(email || '').trim().toLowerCase();
+  const nextPassword = String(password || '');
+  const nextConfirm = String(confirmPassword || '');
+  const name = String(fullName || '').trim();
+
+  const { data } = await api.post('/api/auth/patient/signup', {
+    fullName: name,
+    email: nextEmail,
+    password: nextPassword,
+    confirmPassword: nextConfirm,
+  });
+
+  if (!data?.ok && !data?.uid) {
+    throw Object.assign(new Error('Could not create account.'), { code: 'auth/signup-failed' });
+  }
+
+  // Ensure no leftover staff/session stays active after signup.
+  if (auth.currentUser) {
+    await signOut(auth).catch(() => {});
+  }
+
+  return {
+    profile: {
+      uid: data.uid || null,
+      email: data.email || nextEmail,
+      name: data.name || name,
+      role: 'patient',
+    },
+  };
+}
+
 export function requestPasswordReset(email) {
   return requestResetCode(email);
 }
@@ -140,7 +176,9 @@ export function authErrorMessage(error, email = '') {
     case 'auth/requires-recent-login':
       return 'For your security, sign in again before changing your password.';
     case 'auth/email-already-in-use':
-      return 'Email or password is incorrect.';
+      return 'An account with this email already exists. Sign in instead.';
+    case 'auth/signup-failed':
+      return 'Could not create your account. Please try again.';
     default:
       return resetMessage;
   }
