@@ -20,7 +20,7 @@ import { ADMIN_REGIONS, matchRegion, regionForBranchId } from '../components/Reg
 import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
-import { isPatientOnboardingDone } from '../lib/patientOnboarding';
+import { patientMustSeeOnboarding } from '../lib/patientOnboarding';
 import { colors } from '../theme';
 
 cssInterop(Image, { className: 'style' });
@@ -279,8 +279,11 @@ export default function VerifyRegionScreen() {
         if (switchMode) {
           navigation.goBack();
         } else {
-          const done = await isPatientOnboardingDone(user?.uid || auth.currentUser?.uid);
-          navigation.replace(done ? 'PatientTabs' : 'PatientOnboarding');
+          const showOnboarding = await patientMustSeeOnboarding(
+            user?.email || auth.currentUser?.email,
+            user?.uid || auth.currentUser?.uid
+          );
+          navigation.replace(showOnboarding ? 'PatientOnboarding' : 'PatientTabs');
         }
         return;
       }

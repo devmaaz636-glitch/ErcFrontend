@@ -20,7 +20,7 @@ import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
-import { isPatientOnboardingDone } from '../lib/patientOnboarding';
+import { patientMustSeeOnboarding } from '../lib/patientOnboarding';
 import { saveSignedInUser } from '../lib/users';
 import { colors } from '../theme';
 
@@ -229,8 +229,12 @@ export default function SignInScreen() {
           isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
 
         if (patientAccount) {
-          const done = await isPatientOnboardingDone(auth.currentUser.uid);
-          navigation.replace(done ? 'PatientTabs' : 'PatientOnboarding');
+          saveSignedInUser(auth.currentUser, { role: 'patient' }).catch(() => {});
+          const showOnboarding = await patientMustSeeOnboarding(
+            nextEmail,
+            auth.currentUser.uid
+          );
+          navigation.replace(showOnboarding ? 'PatientOnboarding' : 'PatientTabs');
           return;
         }
 

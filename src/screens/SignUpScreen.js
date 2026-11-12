@@ -17,6 +17,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authErrorMessage, signUpPatient } from '../lib/auth';
+import { markPatientNeedsOnboarding } from '../lib/patientOnboarding';
 import { colors } from '../theme';
 
 const REMEMBER_KEY = '@erc/remembered-email';
@@ -159,12 +160,14 @@ export default function SignUpScreen() {
     signingUp.current = true;
     setError('');
     try {
-      await signUpPatient({
+      const created = await signUpPatient({
         fullName: name,
         email: nextEmail,
         password,
         confirmPassword,
       });
+      // Force onboarding the first time this patient signs in after signup.
+      await markPatientNeedsOnboarding(nextEmail, created?.profile?.uid).catch(() => {});
       // Never carry staff/demo remembered emails into the next Sign In.
       await AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
       navigation.replace('SignIn', {
