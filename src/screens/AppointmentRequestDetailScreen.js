@@ -169,6 +169,8 @@ export default function AppointmentRequestDetailScreen() {
       setReasonModal(false);
       if (action === 'approve') {
         setOutcome('approved');
+      } else if (action === 'reject') {
+        setOutcome('rejected');
       } else if (action === 'reschedule') {
         setOutcome('delivered');
       }
@@ -336,12 +338,34 @@ export default function AppointmentRequestDetailScreen() {
                     disabled={saving}
                     onPress={() => {
                       setRescheduling(true);
-                      setDate(request.requestedDate || toDateKey(new Date()));
+                      const today = toDateKey(new Date());
+                      const requested = request.requestedDate || today;
+                      setDate(requested < today ? today : requested);
                       setTime(request.requestedTime || '');
                     }}
                     style={{ height: s(34), borderRadius: s(18), backgroundColor: theme.colors.card, alignItems: 'center', justifyContent: 'center', marginTop: s(10) }}
                   >
                     <Text style={{ color: theme.colors.secondaryText, fontSize: fs(10), fontWeight: '500' }}>Reschedule</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Decline appointment request"
+                    disabled={saving}
+                    onPress={() => review('reject')}
+                    style={{
+                      height: s(34),
+                      borderRadius: s(18),
+                      borderWidth: 1,
+                      borderColor: '#E5484D',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginTop: s(10),
+                      opacity: saving ? 0.55 : 1,
+                    }}
+                  >
+                    <Text style={{ color: '#E5484D', fontSize: fs(10), fontWeight: '600' }}>
+                      Decline Request
+                    </Text>
                   </Pressable>
                 </>
               ) : null}
@@ -386,7 +410,7 @@ export default function AppointmentRequestDetailScreen() {
                     }}
                   />
                   <Pressable
-                    disabled={saving || !date}
+                    disabled={saving || !date || !time.trim()}
                     onPress={() => setReasonModal(true)}
                     style={[
                       {
@@ -395,7 +419,7 @@ export default function AppointmentRequestDetailScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginTop: s(12),
-                        opacity: date ? 1 : 0.55,
+                        opacity: date && time.trim() ? 1 : 0.55,
                       },
                       brandButtonBg,
                     ]}
@@ -422,8 +446,18 @@ export default function AppointmentRequestDetailScreen() {
                 <View style={modalStyles.successIcon}>
                   <Ionicons name="checkmark" size={s(25)} color="#fff" />
                 </View>
-                <Text style={modalStyles.title}>{outcome === 'approved' ? 'Request Approved' : 'Your Message Delivered'}</Text>
-                <Text style={modalStyles.subtitle}>The Approval Decision has been Recorded Successfully</Text>
+                <Text style={modalStyles.title}>
+                  {outcome === 'approved'
+                    ? 'Request Approved'
+                    : outcome === 'rejected'
+                      ? 'Request Declined'
+                      : 'Your Message Delivered'}
+                </Text>
+                <Text style={modalStyles.subtitle}>
+                  {outcome === 'rejected'
+                    ? 'The appointment request has been declined.'
+                    : 'The appointment decision has been recorded successfully.'}
+                </Text>
                 <Pressable onPress={closeOutcome} style={[modalStyles.primaryButton, brandButtonBg]}>
                   <Text style={[modalStyles.primaryButtonText, brandButtonText]}>Back To Appointments</Text>
                 </Pressable>
@@ -454,7 +488,7 @@ export default function AppointmentRequestDetailScreen() {
                   style={modalStyles.reasonInput}
                 />
                 <Pressable
-                  disabled={saving || !reason.trim()}
+                    disabled={saving || !reason.trim() || !time.trim()}
                   onPress={() => review('reschedule', {
                     requestedDate: date,
                     requestedTime: time,
@@ -463,7 +497,7 @@ export default function AppointmentRequestDetailScreen() {
                   style={[
                     modalStyles.primaryButton,
                     brandButtonBg,
-                    (!reason.trim() || saving) && { opacity: 0.55 },
+                    (!reason.trim() || !time.trim() || saving) && { opacity: 0.55 },
                   ]}
                 >
                   <Text style={[modalStyles.primaryButtonText, brandButtonText]}>

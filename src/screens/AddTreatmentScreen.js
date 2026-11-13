@@ -342,11 +342,7 @@ export default function AddTreatmentScreen() {
               >
                 {editing ? 'Edit Treatment' : 'Add New Treatment'}
               </Text>
-              <IconCircleButton
-                name="ellipsis-vertical"
-                accessibilityLabel="More options"
-                onPress={() => {}}
-              />
+              <View style={{ width: s(40) }} />
             </View>
 
             <View style={{ marginTop: s(22) }}>

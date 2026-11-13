@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,8 +13,6 @@ import {
 } from '../components/ui';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { clinicErrorMessage, fetchManagerTreatments } from '../lib/clinic';
-import { useSession } from '../context/SessionContext';
-import { createManagerSeedTreatmentList } from '../lib/managerSeed';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing, managerDashboard as theme } from '../theme';
 import { scale as s, fs, useTopPadding } from '../utils/responsive';
@@ -193,39 +191,17 @@ export default function TreatmentsTabScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
-  const { user } = useSession();
-  const treatmentSeed = useMemo(
-    () => createManagerSeedTreatmentList(user.branchId || user.clinicId, user.region),
-    [user.branchId, user.clinicId, user.region]
-  );
-
-  const [categories, setCategories] = useState(
-    treatmentSeed.categories?.length ? treatmentSeed.categories : FALLBACK_CATEGORIES
-  );
-  const [departments, setDepartments] = useState(
-    treatmentSeed.departments?.length
-      ? treatmentSeed.departments
-      : FALLBACK_CATEGORIES.slice(1)
-  );
-  const [currency, setCurrency] = useState(treatmentSeed.currency || 'AED');
-  const [items, setItems] = useState(treatmentSeed.items || []);
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const [departments, setDepartments] = useState(FALLBACK_CATEGORIES.slice(1));
+  const [currency, setCurrency] = useState('AED');
+  const [items, setItems] = useState([]);
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
-  const [loadedOnce, setLoadedOnce] = useState(Boolean(treatmentSeed.items?.length));
-
-  useEffect(() => {
-    setCategories(treatmentSeed.categories?.length ? treatmentSeed.categories : FALLBACK_CATEGORIES);
-    setDepartments(
-      treatmentSeed.departments?.length
-        ? treatmentSeed.departments
-        : FALLBACK_CATEGORIES.slice(1)
-    );
-    setCurrency(treatmentSeed.currency || 'AED');
-    setItems((prev) => (prev?.length ? prev : treatmentSeed.items || []));
-  }, [treatmentSeed]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await fetchManagerTreatments();
       setCategories(data.categories?.length ? data.categories : FALLBACK_CATEGORIES);
@@ -237,20 +213,12 @@ export default function TreatmentsTabScreen() {
       if (data.currency) setCurrency(data.currency);
       setItems(Array.isArray(data.items) ? data.items : []);
       setError('');
-      setLoadedOnce(true);
       return data.items || [];
     } catch (err) {
-      setCategories((prev) => (prev?.length ? prev : FALLBACK_CATEGORIES));
-      setLoadedOnce(true);
-      // Keep seed/list visible — only surface error when the list is still empty.
-      setError((prev) => prev);
-      setItems((prev) => {
-        if (!prev.length) {
-          setError(clinicErrorMessage(err));
-        }
-        return prev;
-      });
+      setError(clinicErrorMessage(err));
       return null;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -345,9 +313,14 @@ export default function TreatmentsTabScreen() {
           </View>
 
           {error && items.length === 0 ? (
-            <Text style={{ fontSize: fs(11), color: colors.danger, marginTop: s(12), textAlign: 'center' }}>
-              {error}
-            </Text>
+            <Pressable accessibilityRole="button" onPress={load} style={{ marginTop: s(12) }}>
+              <Text style={{ fontSize: fs(12), color: colors.danger, textAlign: 'center' }}>
+                {error}
+              </Text>
+              <Text style={{ fontSize: fs(12), color: colors.brand, marginTop: 4, textAlign: 'center' }}>
+                Tap to retry
+              </Text>
+            </Pressable>
           ) : null}
 
           <Text
@@ -413,7 +386,12 @@ export default function TreatmentsTabScreen() {
             </Pressable>
           </View>
 
-          {filtered.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: s(36) }}>
+              <ActivityIndicator color={colors.brand} />
+              <Text style={{ fontSize: fs(12), color: colors.desc, marginTop: 10 }}>Loading treatments…</Text>
+            </View>
+          ) : filtered.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: s(36) }}>
               <Ionicons name="sparkles-outline" size={s(28)} color={colors.muted} />
               <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>

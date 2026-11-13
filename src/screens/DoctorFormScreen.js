@@ -206,11 +206,7 @@ export default function DoctorFormScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {editing ? 'Edit Doctor' : 'Add New Doctor'}
           </Text>
-          <CircleBtn
-            name="ellipsis-vertical"
-            color={C.brand}
-            accessibilityLabel="More options"
-          />
+          <View style={styles.circleBtn} />
         </View>
 
         <Field label="Doctor Name" value={name} onChangeText={setName} placeholder="Enter here" />

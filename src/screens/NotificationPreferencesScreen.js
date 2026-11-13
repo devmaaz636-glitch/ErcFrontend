@@ -149,7 +149,7 @@ export default function NotificationPreferencesScreen() {
             Notification Channels
           </Text>
           <Text style={{ fontSize: fs(11), color: DESC, marginTop: 4, marginBottom: s(12), lineHeight: 16 }}>
-            Choose how you want to receive admin notifications.
+            Choose how you want to receive clinic updates and alerts.
           </Text>
 
           {CHANNELS.map((item) => (

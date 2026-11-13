@@ -302,6 +302,7 @@ export default function ManagerAlertsScreen() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('All');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [busyId, setBusyId] = useState(null);
   const toastTimer = useRef(null);
@@ -332,6 +333,7 @@ export default function ManagerAlertsScreen() {
   }, []);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await fetchManagerAlerts();
       const nextItems = Array.isArray(data.items) ? data.items : [];
@@ -342,6 +344,8 @@ export default function ManagerAlertsScreen() {
     } catch (err) {
       setError(clinicErrorMessage(err));
       return null;
+    } finally {
+      setLoading(false);
     }
   }, [applyList]);
 
@@ -467,24 +471,8 @@ export default function ManagerAlertsScreen() {
           setError('No appointment request available to review.');
           return;
         }
-        // Mark alert reviewed in the background; detail screen is the source of truth.
-        updateManagerAlert(alertItem.id, { action: 'review' }).catch(() => {});
-        setItems((prev) => {
-          const next = prev.map((row) =>
-            row.id === alertItem.id
-              ? {
-                  ...row,
-                  actionNeeded: false,
-                  primaryAction: null,
-                  resolvedAction: 'review',
-                  status: 'reviewed',
-                }
-              : row
-          );
-          itemsRef.current = next;
-          setStats(computeStats(next));
-          return next;
-        });
+        // Viewing a request is not a decision. Keep this alert actionable
+        // until the manager approves, reschedules, or declines the request.
         navigation.navigate('AppointmentRequestDetail', { requestId });
       } catch (err) {
         setError(clinicErrorMessage(err) || 'Could not open appointment request.');
@@ -543,7 +531,7 @@ export default function ManagerAlertsScreen() {
             {['All', 'Unread', 'Action Required'].map((label) => (
               <FilterChip
                 key={label}
-                label={label === 'All' ? 'All Read' : label}
+                label={label}
                 active={filter === label}
                 onPress={() => setFilter(label)}
               />
@@ -570,9 +558,12 @@ export default function ManagerAlertsScreen() {
           ) : null}
 
           {error ? (
-            <Text style={{ marginTop: s(12), color: colors.danger, fontSize: fs(11), textAlign: 'center' }}>
-              {error}
-            </Text>
+            <Pressable accessibilityRole="button" onPress={load} style={{ marginTop: s(12) }}>
+              <Text style={{ color: colors.danger, fontSize: fs(12), textAlign: 'center' }}>{error}</Text>
+              <Text style={{ color: BRAND_BG, fontSize: fs(12), marginTop: 4, textAlign: 'center' }}>
+                Tap to retry
+              </Text>
+            </Pressable>
           ) : null}
 
           <View
@@ -589,7 +580,12 @@ export default function ManagerAlertsScreen() {
             <Text style={{ fontSize: fs(10), color: theme.colors.secondaryText }}>Newest first</Text>
           </View>
 
-          {filtered.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: s(36) }}>
+              <ActivityIndicator color={BRAND_BG} />
+              <Text style={{ fontSize: fs(12), color: colors.desc, marginTop: 10 }}>Loading alerts…</Text>
+            </View>
+          ) : filtered.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: s(36) }}>
               <Ionicons name="notifications-outline" size={s(28)} color={colors.muted} />
               <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No alerts found</Text>

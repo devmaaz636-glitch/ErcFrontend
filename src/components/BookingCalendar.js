@@ -24,8 +24,19 @@ const MONTH_NAMES = [
   'December',
 ];
 
+function dateFromValue(value) {
+  if (value instanceof Date) return new Date(value.getTime());
+  // Date-only values represent a calendar day, not a UTC timestamp. Parsing
+  // them explicitly prevents the selected day moving on devices west of UTC.
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date(value);
+}
+
 export function toDateKey(value = new Date()) {
-  const date = value instanceof Date ? value : new Date(value);
+  const date = dateFromValue(value);
   if (Number.isNaN(date.getTime())) {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
@@ -39,7 +50,7 @@ export function toDateKey(value = new Date()) {
 
 export function formatScheduleDate(value, options = {}) {
   if (!value) return '';
-  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+  const date = dateFromValue(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString('en-US', {
     weekday: options.weekday || 'short',
@@ -92,14 +103,14 @@ export default function BookingCalendar({
   compact = false,
   readOnly = false,
 }) {
-  const selected = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
+  const selected = selectedDate ? dateFromValue(selectedDate) : new Date();
   const [cursor, setCursor] = useState(
     () => new Date(selected.getFullYear(), selected.getMonth(), 1)
   );
 
   useEffect(() => {
     if (!selectedDate) return;
-    const next = new Date(`${selectedDate}T00:00:00`);
+    const next = dateFromValue(selectedDate);
     if (!Number.isNaN(next.getTime())) {
       setCursor(new Date(next.getFullYear(), next.getMonth(), 1));
     }
@@ -110,6 +121,12 @@ export default function BookingCalendar({
   const cells = useMemo(() => buildMonthCells(year, month), [year, month]);
   const todayKey = toDateKey(new Date());
   const minKey = minDate ? toDateKey(minDate) : null;
+  const minimumMonth = minKey ? dateFromValue(minKey) : null;
+  const previousMonthDisabled = Boolean(
+    minimumMonth &&
+      (year < minimumMonth.getFullYear() ||
+        (year === minimumMonth.getFullYear() && month <= minimumMonth.getMonth()))
+  );
 
   function shiftMonth(delta) {
     setCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
@@ -122,9 +139,11 @@ export default function BookingCalendar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Previous month"
+          disabled={previousMonthDisabled}
+          accessibilityState={{ disabled: previousMonthDisabled }}
           onPress={() => shiftMonth(-1)}
           hitSlop={8}
-          style={({ pressed }) => [styles.nav, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [styles.nav, previousMonthDisabled && styles.navDisabled, pressed && { opacity: 0.6 }]}
         >
           <Ionicons name="chevron-back" size={18} color={HEADING} />
         </Pressable>
@@ -162,6 +181,7 @@ export default function BookingCalendar({
               key={key}
               disabled={disabled}
               accessibilityRole="button"
+              accessibilityLabel={formatScheduleDate(key)}
               accessibilityState={{ selected: selectedDay, disabled }}
               onPress={() => {
                 if (readOnly) return;
@@ -194,6 +214,7 @@ export default function BookingCalendar({
       </View>
 
       <Text style={styles.hint}>
+        {minKey ? `Choose ${formatScheduleDate(minKey)} or later. ` : ''}
         Selected: {formatScheduleDate(selectedDate) || 'Pick a date'}
       </Text>
     </View>
@@ -229,6 +250,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  navDisabled: {
+    opacity: 0.35,
   },
   month: {
     flex: 1,

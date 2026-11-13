@@ -8,8 +8,15 @@ const clamped = Math.min(Math.max(width, 320), 480);
 export const scale = (size) =>
   PixelRatio.roundToNearestPixel((clamped / BASE_WIDTH) * size);
 
-export const fs = (size, min = 10) =>
-  Math.round(Math.max(size + (scale(size) - size) * 0.5, min));
+// Body copy must remain readable on a phone.  A number of the early manager
+// mockups passed 7–10 here; honouring those values made labels and actions
+// inaccessible on real devices.
+const MIN_READABLE_FONT_SIZE = 12;
+
+export const fs = (size, min = MIN_READABLE_FONT_SIZE) =>
+  Math.round(
+    Math.max(size + (scale(size) - size) * 0.5, MIN_READABLE_FONT_SIZE, min)
+  );
 
 export const useTopPadding = (extra = 24) => {
   const insets = useSafeAreaInsets();

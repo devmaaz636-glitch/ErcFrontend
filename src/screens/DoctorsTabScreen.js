@@ -89,6 +89,9 @@ export default function DoctorsTabScreen() {
           {categories.map((item) => (
             <Pressable
               key={item}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter doctors by ${item}`}
+              accessibilityState={{ selected: category === item }}
               onPress={() => setCategory(item)}
               style={{
                 backgroundColor: category === item ? colors.brand : colors.brandSoft,
@@ -128,6 +131,8 @@ export default function DoctorsTabScreen() {
           {filtered.map((doctor) => (
             <Pressable
               key={doctor.id}
+              accessibilityRole="button"
+              accessibilityLabel={`View doctor ${doctor.name}`}
               onPress={() => navigation.navigate('DoctorDetail', { doctorId: doctor.id, doctor })}
               style={{ width: '48%', backgroundColor: colors.card, borderRadius: s(8), padding: s(10), marginBottom: s(10), alignItems: 'center' }}
             >

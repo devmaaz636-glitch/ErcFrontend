@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,8 +93,10 @@ export default function ManagerPatientsScreen() {
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await fetchManagerPatients();
       setCategories(data.categories?.length ? data.categories : FALLBACK_CATEGORIES);
@@ -102,6 +104,8 @@ export default function ManagerPatientsScreen() {
       setError('');
     } catch (err) {
       setError(clinicErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -162,9 +166,14 @@ export default function ManagerPatientsScreen() {
           </View>
 
           {error ? (
-            <Text style={{ marginTop: s(12), color: colors.danger, fontSize: fs(11), textAlign: 'center' }}>
-              {error}
-            </Text>
+            <Pressable accessibilityRole="button" onPress={load} style={{ marginTop: s(12) }}>
+              <Text style={{ color: colors.danger, fontSize: fs(12), textAlign: 'center' }}>
+                {error}
+              </Text>
+              <Text style={{ color: BRAND_BG, fontSize: fs(12), marginTop: 4, textAlign: 'center' }}>
+                Tap to retry
+              </Text>
+            </Pressable>
           ) : null}
 
           <Text
@@ -201,7 +210,12 @@ export default function ManagerPatientsScreen() {
             All Patients
           </Text>
 
-          {filtered.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: s(36) }}>
+              <ActivityIndicator color={BRAND_BG} />
+              <Text style={{ fontSize: fs(12), color: colors.desc, marginTop: 10 }}>Loading patients…</Text>
+            </View>
+          ) : filtered.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: s(36) }}>
               <Ionicons name="people-outline" size={s(28)} color={colors.muted} />
               <Text style={{ fontSize: fs(11), color: colors.desc, marginTop: 8 }}>No patients found</Text>

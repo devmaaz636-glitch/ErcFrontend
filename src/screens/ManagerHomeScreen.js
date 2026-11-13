@@ -17,7 +17,8 @@ const treatmentImage = require('../../assets/brachtabimage.png');
 const doctorImage = require('../../assets/doctor.png');
 
 function pickList(live, seedList) {
-  return Array.isArray(live) && live.length > 0 ? live : seedList;
+  // Empty live data is a valid clinic state; never replace it with demo data.
+  return Array.isArray(live) ? live : seedList;
 }
 
 function StatCard({ item }) {
@@ -34,7 +35,7 @@ function StatCard({ item }) {
     >
       <Ionicons name={item.icon || 'ellipse-outline'} size={s(15)} color="#fff" />
       <Text style={{ color: '#fff', fontSize: fs(17), fontWeight: '700', marginTop: s(7), lineHeight: fs(18) }}>
-        {item.value || '00'}
+        {item.value ?? '00'}
       </Text>
       <Text style={{ color: '#fff', fontSize: fs(9, 8), marginTop: s(2) }} numberOfLines={1}>
         {item.label}
@@ -260,6 +261,24 @@ export default function ManagerHomeScreen() {
     const text = query.trim().toLowerCase();
     return treatments.filter((item) => !text || String(item.name || '').toLowerCase().includes(text));
   }, [query, treatments]);
+  const filteredRequests = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return requests.filter(
+      (item) =>
+        !text ||
+        `${item.patient || ''} ${item.doctor || ''} ${item.treatment || ''}`
+          .toLowerCase()
+          .includes(text)
+    );
+  }, [query, requests]);
+  const filteredDoctors = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return doctors.filter(
+      (item) =>
+        !text ||
+        `${item.name || ''} ${item.specialty || ''}`.toLowerCase().includes(text)
+    );
+  }, [query, doctors]);
 
   async function onPullRefresh() {
     setPulling(true);
@@ -361,7 +380,7 @@ export default function ManagerHomeScreen() {
           ) : null}
 
           <SectionHeader title="Appointment Requests" onPress={() => navigation.navigate('AppointmentsTab')} />
-          {requests.slice(0, 3).map((request) => (
+          {filteredRequests.slice(0, 3).map((request) => (
             <RequestCard
               key={request.id}
               request={request}
@@ -381,7 +400,7 @@ export default function ManagerHomeScreen() {
           ))}
 
           <SectionHeader title="Doctors Performance" onPress={() => navigation.navigate('DoctorsTab')} />
-          {doctors.slice(0, 3).map((doctor) => (
+          {filteredDoctors.slice(0, 3).map((doctor) => (
             <DoctorCard
               key={doctor.id}
               doctor={doctor}

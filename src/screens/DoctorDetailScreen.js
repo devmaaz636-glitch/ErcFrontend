@@ -126,13 +126,8 @@ export default function DoctorDetailScreen() {
     let active = true;
 
     const primary = isManager ? fetchManagerDoctor : fetchClinicDoctor;
-    const secondary = isManager ? fetchClinicDoctor : null;
 
     primary(id)
-      .catch((err) => {
-        if (secondary) return secondary(id);
-        throw err;
-      })
       .then((item) => {
         if (active && item) setDoctor((prev) => mergeDoctor(prev, item));
       })

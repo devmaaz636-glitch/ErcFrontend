@@ -26,7 +26,6 @@ export default function SearchField({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedBrand}
-        maxFontSizeMultiplier={1.2}
         style={{ flex: 1, fontSize: fs(12), color: colors.ink, paddingVertical: 0 }}
       />
       {showButton ? (

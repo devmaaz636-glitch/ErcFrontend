@@ -121,7 +121,9 @@ function managerPayload(dashboard, appointments, appointmentRequests, previousRe
   const dashboardPending = Array.isArray(dashboard?.appointmentRequests)
     ? dashboard.appointmentRequests
     : [];
-  const requestItems = (fromArg || (previousItems.length ? previousItems : dashboardPending)).map(
+  // An empty array from the API is a valid, authoritative result. Only use
+  // cached/dashboard data when the request endpoint has not responded yet.
+  const requestItems = (fromArg ?? (previousItems.length ? previousItems : dashboardPending)).map(
     (item) => ({
       ...item,
       status: normalizeRequestStatus(item?.status),
@@ -277,33 +279,33 @@ export function ClinicDataProvider({ children }) {
                   ...prev.dashboard,
                   ...nextData.dashboard,
                   clinic: nextData.dashboard.clinic || prev.dashboard?.clinic || null,
-                  stats: nextData.dashboard.stats?.length
+                  stats: Array.isArray(nextData.dashboard.stats)
                     ? nextData.dashboard.stats
                     : prev.dashboard?.stats || [],
-                  appointmentRequests: nextData.dashboard.appointmentRequests?.length
+                  appointmentRequests: Array.isArray(nextData.dashboard.appointmentRequests)
                     ? nextData.dashboard.appointmentRequests
                     : prev.dashboard?.appointmentRequests || [],
-                  treatments: nextData.dashboard.treatments?.length
+                  treatments: Array.isArray(nextData.dashboard.treatments)
                     ? nextData.dashboard.treatments
                     : prev.dashboard?.treatments || [],
-                  doctors: nextData.dashboard.doctors?.length
+                  doctors: Array.isArray(nextData.dashboard.doctors)
                     ? nextData.dashboard.doctors
                     : prev.dashboard?.doctors || [],
-                  appointments: nextData.dashboard.appointments?.length
+                  appointments: Array.isArray(nextData.dashboard.appointments)
                     ? nextData.dashboard.appointments
                     : prev.dashboard?.appointments || [],
                 }
               : prev.dashboard,
             appointments: {
-              stats: nextData.appointments?.stats?.length
+              stats: Array.isArray(nextData.appointments?.stats)
                 ? nextData.appointments.stats
                 : prev.appointments?.stats || [],
-              items: nextData.appointments?.items?.length
+              items: Array.isArray(nextData.appointments?.items)
                 ? nextData.appointments.items
                 : prev.appointments?.items || [],
             },
             appointmentRequests: {
-              items: nextData.appointmentRequests?.items?.length
+              items: Array.isArray(nextData.appointmentRequests?.items)
                 ? nextData.appointmentRequests.items
                 : prev.appointmentRequests?.items || [],
               counts:
