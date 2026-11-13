@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
@@ -15,19 +15,19 @@ const STEPS = [
   {
     key: 'consult',
     image: require('../../assets/onboarding1.png'),
-    title: 'Deliver The Best\nPatient Consultations',
+    title: ['Deliver The Best Patient', 'Consultations'],
     body: 'Access patient records, review medical history, and provide personalized care for better consultation experiences.',
   },
   {
     key: 'team',
     image: require('../../assets/Onboarding2.png'),
-    title: 'Deliver The Best\nPatient Consultations',
+    title: ['Deliver The Best Patient', 'Consultations'],
     body: 'Access patient records, review medical history, and provide personalized care for better consultation experiences.',
   },
   {
     key: 'locate',
     image: require('../../assets/onboarding3.png'),
-    title: 'Deliver The Best\nPatient Consultations',
+    title: ['Deliver The Best Patient', 'Consultations'],
     body: 'Access patient records, review medical history, and provide personalized care for better consultation experiences.',
   },
 ];
@@ -43,9 +43,13 @@ export default function PatientOnboardingScreen() {
   const dots = useMemo(() => STEPS.map((item) => item.key), []);
 
   const sidePad = Math.max(24, width * 0.06);
-  const titleSize = Math.min(Math.max(width * 0.078, 28), 34);
+  // Sized so "Deliver The Best Patient" fits on one line on iOS and Android
+  const titleSize = Math.min(Math.max((width - sidePad * 2) / 13, 22), 34);
   const titleLine = titleSize * 1.18;
-  const bodySize = Math.min(Math.max(width * 0.035, 13), 15);
+  const bodySize = Math.min(Math.max(width * 0.042, 15), 17);
+
+  // Lifts the Next button, dots and bottom description a little higher
+  const bottomLift = Math.max(height * 0.03, 20);
 
   async function finish() {
     const uid = user?.uid || auth.currentUser?.uid;
@@ -67,7 +71,7 @@ export default function PatientOnboardingScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#1A1614' }}>
-      <StatusBar style="light" />
+      <StatusBar style="light" translucent />
 
       <Image
         source={step.image}
@@ -75,6 +79,19 @@ export default function PatientOnboardingScreen() {
         contentPosition="center"
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
         transition={180}
+      />
+
+      {/* Dim overlay so heading and description are clearer */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.28)',
+        }}
       />
 
       <LinearGradient
@@ -94,12 +111,12 @@ export default function PatientOnboardingScreen() {
       <View
         style={{
           flex: 1,
-          paddingTop: Math.max(insets.top, 10) + 6,
+          paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 10) + 6,
           paddingHorizontal: sidePad,
-          paddingBottom: Math.max(insets.bottom, 14) + 8,
+          paddingBottom: Math.max(insets.bottom, 14) + 8 + bottomLift,
         }}
       >
-        {/* Skip — top right, matches screenshot */}
+        {/* Skip — top right */}
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', minHeight: 28 }}>
           <Pressable
             accessibilityRole="button"
@@ -117,28 +134,35 @@ export default function PatientOnboardingScreen() {
           </Pressable>
         </View>
 
-        {/* Top copy block — left aligned like Figma */}
-        <View style={{ marginTop: height * 0.035, paddingRight: width * 0.08 }}>
-          <Text
-            allowFontScaling={false}
-            style={{
-              color: '#FFFFFF',
-              fontSize: titleSize,
-              fontWeight: '700',
-              lineHeight: titleLine,
-              letterSpacing: -0.3,
-            }}
-          >
-            {step.title}
-          </Text>
+        {/* Top copy block — heading (2 lines) + description */}
+        <View style={{ marginTop: height * 0.035 }}>
+          {step.title.map((line) => (
+            <Text
+              key={line}
+              allowFontScaling={false}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              style={{
+                color: '#FFFFFF',
+                fontSize: titleSize,
+                fontWeight: '700',
+                lineHeight: titleLine,
+                letterSpacing: -0.3,
+              }}
+            >
+              {line}
+            </Text>
+          ))}
           <Text
             allowFontScaling={false}
             style={{
               marginTop: 12,
-              color: 'rgba(255,255,255,0.94)',
+              color: '#FFFFFF',
               fontSize: bodySize,
               lineHeight: bodySize * 1.45,
               fontWeight: '400',
+              paddingRight: width * 0.08,
             }}
           >
             {step.body}
@@ -147,7 +171,7 @@ export default function PatientOnboardingScreen() {
 
         <View style={{ flex: 1 }} />
 
-        {/* Bottom actions */}
+        {/* Bottom actions: Next button, dots, then description */}
         <View style={{ width: '100%', alignItems: 'center' }}>
           <Pressable
             accessibilityRole="button"
@@ -203,9 +227,9 @@ export default function PatientOnboardingScreen() {
             allowFontScaling={false}
             style={{
               marginTop: 16,
-              color: 'rgba(255,255,255,0.92)',
-              fontSize: Math.max(bodySize - 1, 12),
-              lineHeight: Math.max(bodySize - 1, 12) * 1.45,
+              color: '#FFFFFF',
+              fontSize: bodySize,
+              lineHeight: bodySize * 1.45,
               textAlign: 'center',
               paddingHorizontal: 4,
             }}
