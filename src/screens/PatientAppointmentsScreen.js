@@ -1,0 +1,320 @@
+import { useMemo, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Text from '../components/AppText';
+import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
+import { colors, shadows, spacing } from '../theme';
+import { fs, scale as s, useTopPadding } from '../utils/responsive';
+
+const PATIENT_AVATAR = require('../../assets/patientimage.png');
+const CARD_BG = '#BF824F';
+
+const TABS = [
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'today', label: 'Today' },
+  { key: 'past', label: 'Past' },
+];
+
+const STATUS_STYLE = {
+  upcoming: { label: 'Upcoming', color: '#6B5CA5', bg: '#EDE8F8' },
+  pending: { label: 'Pending', color: '#C9A227', bg: '#F7F0D4' },
+  completed: { label: 'Completed', color: colors.success, bg: colors.successBg },
+  canceled: { label: 'Canceled', color: colors.danger, bg: colors.dangerBg },
+};
+
+const SEED = [
+  {
+    id: 'pa-1',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '09:30 AM',
+    status: 'upcoming',
+    tab: 'upcoming',
+  },
+  {
+    id: 'pa-2',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '09:30 AM',
+    status: 'pending',
+    tab: 'today',
+  },
+  {
+    id: 'pa-3',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '09:30 AM',
+    status: 'pending',
+    tab: 'today',
+  },
+  {
+    id: 'pa-4',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '11:00 AM',
+    status: 'pending',
+    tab: 'today',
+  },
+  {
+    id: 'pa-5',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Hair Prp',
+    time: '02:00 PM',
+    status: 'completed',
+    tab: 'past',
+  },
+];
+
+function SearchBar({ value, onChangeText }) {
+  return (
+    <View
+      style={{
+        marginTop: s(16),
+        height: s(48),
+        borderRadius: 999,
+        backgroundColor: colors.card,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: s(14),
+        ...shadows.card,
+      }}
+    >
+      <Ionicons name="search-outline" size={s(18)} color={colors.muted} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="Search Here..."
+        placeholderTextColor={colors.muted}
+        allowFontScaling={false}
+        style={{
+          flex: 1,
+          marginLeft: s(10),
+          fontSize: fs(13),
+          color: colors.ink,
+          paddingVertical: 0,
+        }}
+      />
+    </View>
+  );
+}
+
+function FilterTab({ label, active, onPress }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={{
+        paddingHorizontal: s(16),
+        paddingVertical: s(8),
+        borderRadius: 999,
+        backgroundColor: active ? '#F6E6D6' : 'transparent',
+        marginRight: s(8),
+      }}
+    >
+      <Text
+        style={{
+          fontSize: fs(12),
+          fontWeight: '600',
+          color: active ? CARD_BG : colors.ink,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function StatusChip({ status }) {
+  const tone = STATUS_STYLE[status] || STATUS_STYLE.pending;
+  return (
+    <View
+      style={{
+        backgroundColor: tone.bg,
+        borderRadius: 999,
+        paddingHorizontal: s(10),
+        paddingVertical: s(5),
+      }}
+    >
+      <Text style={{ color: tone.color, fontSize: fs(10), fontWeight: '600' }}>{tone.label}</Text>
+    </View>
+  );
+}
+
+function AppointmentCard({ item, onView }) {
+  return (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderRadius: 18,
+        padding: s(14),
+        marginBottom: s(12),
+        ...shadows.card,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        <Image
+          source={PATIENT_AVATAR}
+          contentFit="cover"
+          style={{
+            width: s(46),
+            height: s(46),
+            borderRadius: s(23),
+            backgroundColor: colors.fieldAlt,
+          }}
+        />
+        <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
+          <Text style={{ fontSize: fs(14), fontWeight: '700', color: colors.ink }}>{item.name}</Text>
+          <Text style={{ marginTop: 3, fontSize: fs(11), color: colors.desc }}>
+            Patient ID: {item.patientId}
+          </Text>
+        </View>
+        <StatusChip status={item.status} />
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: s(12) }}>
+        <Text style={{ fontSize: fs(12), fontWeight: '600', color: colors.ink }}>
+          {item.treatment}
+        </Text>
+        <Ionicons
+          name="time-outline"
+          size={s(13)}
+          color={colors.desc}
+          style={{ marginLeft: s(10) }}
+        />
+        <Text style={{ marginLeft: 4, fontSize: fs(11), color: colors.desc }}>{item.time}</Text>
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => onView?.(item)}
+        style={{
+          marginTop: s(14),
+          height: s(40),
+          borderRadius: 999,
+          backgroundColor: '#F6E6D6',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: CARD_BG, fontSize: fs(12), fontWeight: '700' }}>View Details</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+export default function PatientAppointmentsScreen() {
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const topPad = useTopPadding(20);
+  const [tab, setTab] = useState('today');
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return SEED.filter((item) => {
+      if (item.tab !== tab) return false;
+      if (!q) return true;
+      return (
+        item.name.toLowerCase().includes(q) ||
+        item.patientId.toLowerCase().includes(q) ||
+        item.treatment.toLowerCase().includes(q)
+      );
+    });
+  }, [search, tab]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style="dark" />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingTop: topPad,
+          paddingHorizontal: spacing.screen,
+          paddingBottom: insets.bottom + spacing.tabBarClearance + s(64),
+          alignItems: 'center',
+        }}
+      >
+        <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <IconCircleButton
+              name="chevron-back"
+              color={colors.brand}
+              accessibilityLabel="Go back"
+              onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
+            />
+            <View style={{ flex: 1, marginLeft: s(12), marginRight: s(8) }}>
+              <Text style={{ fontSize: fs(18), fontWeight: '700', color: colors.ink }}>
+                My Appointments
+              </Text>
+              <Text style={{ marginTop: 2, fontSize: fs(11), color: colors.desc }}>Patient</Text>
+            </View>
+            <NotificationBellButton color={colors.brand} />
+          </View>
+
+          <SearchBar value={search} onChangeText={setSearch} />
+
+          <View style={{ flexDirection: 'row', marginTop: s(16), alignItems: 'center' }}>
+            {TABS.map((item) => (
+              <FilterTab
+                key={item.key}
+                label={item.label}
+                active={tab === item.key}
+                onPress={() => setTab(item.key)}
+              />
+            ))}
+          </View>
+
+          <View style={{ marginTop: s(16) }}>
+            {filtered.length === 0 ? (
+              <View
+                style={{
+                  alignItems: 'center',
+                  paddingVertical: s(36),
+                  backgroundColor: colors.card,
+                  borderRadius: 18,
+                }}
+              >
+                <Ionicons name="calendar-outline" size={s(28)} color={colors.muted} />
+                <Text style={{ marginTop: 8, fontSize: fs(12), color: colors.desc }}>
+                  No appointments in this list
+                </Text>
+              </View>
+            ) : (
+              filtered.map((item) => (
+                <AppointmentCard key={item.id} item={item} onView={() => {}} />
+              ))
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          left: spacing.screen,
+          right: spacing.screen,
+          bottom: insets.bottom + spacing.tabBarClearance - s(8),
+          alignItems: 'center',
+        }}
+      >
+        <PrimaryButton
+          label="Add New Appointment +"
+          onPress={() => {}}
+          style={{ width: '100%', maxWidth: spacing.maxContent }}
+        />
+      </View>
+    </View>
+  );
+}

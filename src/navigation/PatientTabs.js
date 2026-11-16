@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from '../components/BottomTabBar';
 import PatientHomeScreen from '../screens/PatientHomeScreen';
+import PatientAppointmentsScreen from '../screens/PatientAppointmentsScreen';
 import PatientPlaceholderScreen from '../screens/PatientPlaceholderScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
@@ -22,7 +23,7 @@ export default function PatientTabs() {
       <Tab.Screen name="Home" component={PatientHomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen
         name="AppointmentsTab"
-        component={PatientPlaceholderScreen}
+        component={PatientAppointmentsScreen}
         options={{ title: 'Appointments' }}
       />
       <Tab.Screen
