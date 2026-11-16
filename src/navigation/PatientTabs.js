@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from '../components/BottomTabBar';
 import PatientHomeScreen from '../screens/PatientHomeScreen';
 import PatientPlaceholderScreen from '../screens/PatientPlaceholderScreen';
+import AboutUsScreen from '../screens/AboutUsScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
 import { colors } from '../theme';
 
@@ -31,7 +32,7 @@ export default function PatientTabs() {
       />
       <Tab.Screen
         name="AboutTab"
-        component={PatientPlaceholderScreen}
+        component={AboutUsScreen}
         options={{ title: 'About Us' }}
       />
       <Tab.Screen name="ProfileTab" component={ProfileTabScreen} options={{ title: 'Profile' }} />

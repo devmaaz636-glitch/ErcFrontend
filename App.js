@@ -37,6 +37,7 @@ import NotificationPreferencesScreen from './src/screens/NotificationPreferences
 import AppointmentRequestDetailScreen from './src/screens/AppointmentRequestDetailScreen';
 import TreatmentDetailScreen from './src/screens/TreatmentDetailScreen';
 import AddTreatmentScreen from './src/screens/AddTreatmentScreen';
+import AboutDetailsScreen from './src/screens/AboutDetailsScreen';
 import ManagerPatientsScreen from './src/screens/ManagerPatientsScreen';
 import ManagerPatientDetailScreen from './src/screens/ManagerPatientDetailScreen';
 import ManagerAlertsScreen from './src/screens/ManagerAlertsScreen';
@@ -137,6 +138,11 @@ export default function App() {
                 <Stack.Screen
                   name="BranchDetail"
                   component={BranchDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="AboutDetails"
+                  component={AboutDetailsScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen
