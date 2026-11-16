@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -40,7 +41,56 @@ const TAB_META = {
 
 const spring = { damping: 16, stiffness: 200, mass: 0.8 };
 
-function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout }) {
+function PatientTabIcon({ routeName, color, size }) {
+  const strokeWidth = 1.55;
+  const common = { stroke: color, strokeWidth, strokeLinecap: 'round', strokeLinejoin: 'round' };
+
+  if (routeName === 'Home') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path {...common} d="m3 10 9-7 9 7" />
+        <Path {...common} d="M5.5 9.5V21h4.8v-6h3.4v6h4.8V9.5" />
+      </Svg>
+    );
+  }
+
+  if (routeName === 'AppointmentsTab') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect {...common} x="2" y="4" width="20" height="18" rx="4" />
+        <Path {...common} d="M8 2v4M16 2v4M2 10h20" />
+      </Svg>
+    );
+  }
+
+  if (routeName === 'TreatmentsTab') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 19 18" fill="none">
+        <Circle {...common} cx="6.65" cy="4.15" r="3.75" />
+        <Path {...common} d="M1.15 16.65h11c.41 0 .75-.34.75-.75 0-3-2.8-5.25-6.25-5.25S.4 12.9.4 15.9c0 .41.34.75.75.75Z" />
+        <Path {...common} d="M14.8 4.4H16c.22 0 .4.18.4.4v.95c0 .22.18.4.4.4h.95c.22 0 .4.18.4.4v1.2c0 .22-.18.4-.4.4h-.95c-.22 0-.4.18-.4.4v.95c0 .22-.18.4-.4.4h-1.2c-.22 0-.4-.18-.4-.4v-.95c0-.22-.18-.4-.4-.4h-.95c-.22 0-.4-.18-.4-.4v-1.2c0-.22.18-.4.4-.4H14c.22 0 .4-.18.4-.4V4.8c0-.22.18-.4.4-.4Z" />
+      </Svg>
+    );
+  }
+
+  if (routeName === 'AboutTab') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path {...common} d="M4 10h16v11H4zM2.5 21h19M6.5 10V6.5h11V10M9 6.5V3h6v3.5" />
+        <Path {...common} d="M11 3v3.5M9.25 4.75h3.5M7.5 13.5v5M11 13.5v5M14.5 13.5v5M17.5 13.5v5" />
+      </Svg>
+    );
+  }
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle {...common} cx="12" cy="7" r="4" />
+      <Path {...common} d="M4.5 21v-1.5C4.5 15.9 7.86 13 12 13s7.5 2.9 7.5 6.5V21" />
+    </Svg>
+  );
+}
+
+function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout, variant }) {
   const meta = TAB_META[routeName] || {
     label: routeName,
     icon: 'ellipse-outline',
@@ -83,11 +133,19 @@ function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout }) {
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Animated.View style={iconStyle}>
-          <Ionicons
-            name={isFocused ? meta.activeIcon : meta.icon}
-            size={isFocused ? 18 : 22}
-            color={isFocused ? '#fff' : MUTED}
-          />
+          {variant === 'patient' ? (
+            <PatientTabIcon
+              routeName={routeName}
+              size={isFocused ? 20 : 24}
+              color={isFocused ? '#fff' : MUTED}
+            />
+          ) : (
+            <Ionicons
+              name={isFocused ? meta.activeIcon : meta.icon}
+              size={isFocused ? 18 : 22}
+              color={isFocused ? '#fff' : MUTED}
+            />
+          )}
         </Animated.View>
         {isFocused ? (
           <Animated.View style={[labelStyle, { marginLeft: 6 }]}>
@@ -105,7 +163,7 @@ function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout }) {
  * Floating tab bar with a spring-sliding brand pill + fade tab scenes.
  * Wired as React Navigation `tabBar` for MainTabs.
  */
-export default function BottomTabBar({ state, navigation, moreOpen = false, onMorePress }) {
+export default function BottomTabBar({ state, navigation, moreOpen = false, onMorePress, variant }) {
   const insets = useSafeAreaInsets();
   const [layouts, setLayouts] = useState({});
 
@@ -192,6 +250,7 @@ export default function BottomTabBar({ state, navigation, moreOpen = false, onMo
               isFocused={isFocused}
               onPress={onPress}
               onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+              variant={variant}
               onLayout={(e) => {
                 const { x, width } = e.nativeEvent.layout;
                 setLayouts((prev) => {

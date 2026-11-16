@@ -33,12 +33,12 @@ function LocationCard({ location, onPress }) {
       }}
     >
       <Image
-        source={require('../../assets/signin-bg.png')}
+        source={require('../../assets/clinic-interior.png')}
         contentFit="cover"
         contentPosition="center"
         transition={180}
         accessibilityLabel="Enfield Royal Clinic interior"
-        style={{ width: '100%', aspectRatio: 2.18, backgroundColor: colors.fieldAlt }}
+        style={{ width: '100%', aspectRatio: 2.153, backgroundColor: colors.fieldAlt }}
       />
 
       <View style={{ paddingHorizontal: s(12), paddingTop: s(13), paddingBottom: s(10) }}>

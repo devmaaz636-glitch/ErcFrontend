@@ -116,7 +116,7 @@ export default function AboutDetailsScreen() {
           </View>
 
           <Image
-            source={require('../../assets/signin-bg.png')}
+            source={require('../../assets/clinic-interior.png')}
             contentFit="cover"
             contentPosition="center"
             transition={180}

@@ -12,7 +12,7 @@ const Tab = createBottomTabNavigator();
 export default function PatientTabs() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <BottomTabBar {...props} />}
+      tabBar={(props) => <BottomTabBar {...props} variant="patient" />}
       screenOptions={{
         headerShown: false,
         animation: 'fade',
