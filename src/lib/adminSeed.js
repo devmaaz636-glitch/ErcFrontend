@@ -25,7 +25,14 @@ function normalizeRegion(label) {
   if (!raw) return null;
   if (raw.includes('ksa') || raw.includes('saudi') || raw.includes('riyadh')) return 'KSA';
   if (raw.includes('oman') || raw === 'om' || raw.includes('muscat')) return 'Oman';
-  if (raw.includes('pakistan') || raw === 'pk' || raw.includes('lahore')) return 'Pakistan';
+  if (
+    raw.includes('pakistan') ||
+    raw === 'pk' ||
+    raw.includes('islamabad') ||
+    raw.includes('lahore')
+  ) {
+    return 'Pakistan';
+  }
   if (raw.includes('usa') || raw === 'us' || raw.includes('york') || raw.includes('united states')) {
     return 'USA';
   }
@@ -109,7 +116,7 @@ const ALL_ATTENTION = [
     id: 'att-pk-1',
     title: 'Follow-up Queue',
     time: '2 hr ago',
-    body: 'Lahore Royal Clinic has pending treatment follow-ups.',
+    body: 'Islamabad Royal Clinic has pending treatment follow-ups.',
     type: 'booking',
     branchId: 'br-lahore',
     region: 'Pakistan',
@@ -129,7 +136,7 @@ const ALL_BRANCHES = [
   {
     id: 'br-dubai',
     name: 'Dubai Enfield Royal Clinic',
-    address: 'Sheikh Zayed Rd',
+    address: 'Villa 1089, Al Wasl Road, Al Manara Area, Dubai UAE',
     value: 109,
     quota: 81,
     progress: 0.813,
@@ -143,7 +150,7 @@ const ALL_BRANCHES = [
   {
     id: 'br-riyadh',
     name: 'Riyadh Royal Clinic',
-    address: 'King Fahd Rd',
+    address: 'QQ85+M2M, Al Hamra, Riyadh 13214, Saudi Arabia',
     value: 98,
     quota: 74,
     progress: 0.74,
@@ -157,7 +164,7 @@ const ALL_BRANCHES = [
   {
     id: 'br-muscat',
     name: 'Muscat Royal Clinic',
-    address: 'Qurum',
+    address: 'Al Sarooj, 3013 Way, Al Kharjiyah St, Muscat, Oman',
     value: 87,
     quota: 68,
     progress: 0.685,
@@ -170,12 +177,13 @@ const ALL_BRANCHES = [
   },
   {
     id: 'br-lahore',
-    name: 'Lahore Royal Clinic',
-    address: 'MM Alam Rd',
+    name: 'Enfield Royal Clinic Islamabad, Pakistan',
+    address:
+      '3rd Floor, Ammar Center, Block # 13-A College road F-7 Markaz Islamabad, Pakistan',
     value: 76,
     quota: 61,
     progress: 0.612,
-    city: 'Lahore',
+    city: 'Islamabad',
     region: 'Pakistan',
     bookings: 76,
     growth: 5.0,
@@ -184,12 +192,12 @@ const ALL_BRANCHES = [
   },
   {
     id: 'br-nyc',
-    name: 'New York Royal Clinic',
-    address: '5th Avenue',
+    name: 'Med Spa of Viera, FL',
+    address: '5460 Village Drive, Rockledge, Florida 32955, United States',
     value: 54,
     quota: 42,
     progress: 0.42,
-    city: 'New York',
+    city: 'Rockledge',
     region: 'USA',
     bookings: 54,
     growth: -4.3,
@@ -318,7 +326,12 @@ const ALL_DOCTORS = [
     score: 89,
     branchId: 'br-lahore',
     photoKey: 'treatmentdoctor',
-    clinic: { id: 'br-lahore', name: 'Lahore Royal Clinic', city: 'Lahore', region: 'Pakistan' },
+    clinic: {
+      id: 'br-lahore',
+      name: 'Enfield Royal Clinic Islamabad, Pakistan',
+      city: 'Islamabad',
+      region: 'Pakistan',
+    },
   },
   {
     id: 'doc-lahore-hair-transplant-1',
@@ -329,7 +342,12 @@ const ALL_DOCTORS = [
     score: 86,
     branchId: 'br-lahore',
     photoKey: 'treatmentdoctor',
-    clinic: { id: 'br-lahore', name: 'Lahore Royal Clinic', city: 'Lahore', region: 'Pakistan' },
+    clinic: {
+      id: 'br-lahore',
+      name: 'Enfield Royal Clinic Islamabad, Pakistan',
+      city: 'Islamabad',
+      region: 'Pakistan',
+    },
   },
 ];
 
@@ -382,7 +400,12 @@ const ALL_MANAGERS = [
     employeeId: 'CM-2005',
     appointmentsToday: 18,
     branchId: 'br-lahore',
-    clinic: { id: 'br-lahore', name: 'Lahore Royal Clinic', city: 'Lahore', region: 'Pakistan' },
+    clinic: {
+      id: 'br-lahore',
+      name: 'Enfield Royal Clinic Islamabad, Pakistan',
+      city: 'Islamabad',
+      region: 'Pakistan',
+    },
   },
 ];
 

@@ -96,10 +96,10 @@ export const MANAGER_CLINIC_CATALOG = {
   },
   'br-lahore': {
     id: 'br-lahore',
-    name: 'Lahore Royal Clinic',
-    city: 'Lahore',
+    name: 'Enfield Royal Clinic Islamabad, Pakistan',
+    city: 'Islamabad',
     region: 'Pakistan',
-    address: 'MM Alam Rd',
+    address: '3rd Floor, Ammar Center, Block # 13-A College road F-7 Markaz Islamabad, Pakistan',
     currency: 'PKR',
     doctors: buildCategoryDoctors('br-lahore'),
     patients: ['Sana Iqbal', 'Usman Raza', 'Hira Khan'],

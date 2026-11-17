@@ -35,6 +35,7 @@ const REGION_ALIASES = {
   nyc: 'USA',
   pakistan: 'Pakistan',
   pk: 'Pakistan',
+  islamabad: 'Pakistan',
   lahore: 'Pakistan',
 };
 
@@ -74,7 +75,12 @@ function doctorInRegion(doctor, regionKey, branchId) {
     if (regionKey === 'KSA' && clinic.includes('riyadh')) return true;
     if (regionKey === 'Oman' && clinic.includes('muscat')) return true;
     if (regionKey === 'USA' && (clinic.includes('york') || clinic.includes('nyc'))) return true;
-    if (regionKey === 'Pakistan' && clinic.includes('lahore')) return true;
+    if (
+      regionKey === 'Pakistan' &&
+      (clinic.includes('islamabad') || clinic.includes('lahore'))
+    ) {
+      return true;
+    }
   }
   return false;
 }

@@ -19,9 +19,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Ellipse, Path, Line } from 'react-native-svg';
 import Text from '../components/AppText';
+import PatientRegionPickerModal from '../components/PatientRegionPickerModal';
 import UserAvatar from '../components/UserAvatar';
 import { NotificationBellButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
+import { patientBranchMeta } from '../lib/patientClinic';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
@@ -351,10 +353,11 @@ export default function PatientHomeScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
   const { width } = useWindowDimensions();
-  const { user } = useSession();
+  const { user, setRegion, updateUser } = useSession();
   const [search, setSearch] = useState('');
   const [promoIndex, setPromoIndex] = useState(0);
   const [category, setCategory] = useState('laser');
+  const [regionOpen, setRegionOpen] = useState(false);
   const carouselRef = useRef(null);
   // Load only the Inter weights used on this screen (avoid full package barrel).
   useFonts({
@@ -365,7 +368,24 @@ export default function PatientHomeScreen() {
 
   const contentWidth = Math.min(width - spacing.screen * 2, spacing.maxContent);
   const displayName = user?.name?.trim() || 'Mona Lisa';
-  const branchLabel = user?.branchName || 'Dubai Branch';
+  const branchMeta = useMemo(
+    () => patientBranchMeta(user),
+    [user?.region, user?.branchId, user?.clinicId, user?.city, user?.branchName]
+  );
+
+  async function handleSelectClinic(clinic) {
+    if (!clinic) return;
+    setRegionOpen(false);
+    await setRegion(clinic.region);
+    await updateUser({
+      region: clinic.region,
+      branchId: clinic.branchId,
+      clinicId: clinic.branchId,
+      branchName: `${clinic.city} Branch`,
+      city: clinic.city,
+      clinicName: clinic.name,
+    });
+  }
 
   const slides = useMemo(() => PROMO_SLIDES, []);
 
@@ -413,19 +433,41 @@ export default function PatientHomeScreen() {
                   }}
                 />
               )}
-              <View style={{ marginLeft: s(10), flex: 1 }}>
+              <View style={{ marginLeft: s(10), flex: 1, minWidth: 0 }}>
                 <Text
                   style={{ fontSize: fs(16), fontWeight: '700', color: colors.ink }}
                   numberOfLines={1}
                 >
                   {displayName}
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Change clinic region"
+                  onPress={() => setRegionOpen(true)}
+                  hitSlop={8}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 3,
+                    alignSelf: 'flex-start',
+                    maxWidth: '100%',
+                  }}
+                >
                   <Ionicons name="location-outline" size={s(12)} color={colors.desc} />
-                  <Text style={{ marginLeft: 4, fontSize: fs(11), color: colors.desc }} numberOfLines={1}>
-                    {branchLabel}
+                  <Text
+                    style={{
+                      marginLeft: 4,
+                      marginRight: 2,
+                      fontSize: fs(11),
+                      color: colors.desc,
+                      flexShrink: 1,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {branchMeta.label}
                   </Text>
-                </View>
+                  <Ionicons name="chevron-down" size={s(11)} color={colors.muted} />
+                </Pressable>
               </View>
             </View>
             <NotificationBellButton color={colors.brand} />
@@ -666,6 +708,13 @@ export default function PatientHomeScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <PatientRegionPickerModal
+        visible={regionOpen}
+        user={user}
+        onClose={() => setRegionOpen(false)}
+        onSelect={handleSelectClinic}
+      />
     </View>
   );
 }

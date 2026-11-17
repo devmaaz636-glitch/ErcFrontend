@@ -137,6 +137,7 @@ export function SessionProvider({ children }) {
         : (sameUserCache && local.region) || remote?.region || '';
 
     const branchId =
+      (authoritativeRole === 'patient' && sameUserCache && (local.branchId || local.clinicId)) ||
       claims.branchId ||
       claims.clinicId ||
       backendUser?.branchId ||
@@ -149,12 +150,29 @@ export function SessionProvider({ children }) {
       email: firebaseUser.email || backendUser?.email || remote?.email || '',
       role: authoritativeRole,
       branchId,
-      clinicId: claims.clinicId || claims.branchId || backendUser?.clinicId || backendUser?.branchId || branchId,
+      clinicId:
+        (authoritativeRole === 'patient' && sameUserCache && (local.clinicId || local.branchId)) ||
+        claims.clinicId ||
+        claims.branchId ||
+        backendUser?.clinicId ||
+        backendUser?.branchId ||
+        branchId,
       branchName:
+        (authoritativeRole === 'patient' && sameUserCache && local.branchName) ||
         backendUser?.branch?.name ||
         backendUser?.branchName ||
         (authoritativeRole === 'doctor' ? 'Dubai Branch' : null),
-      region: backendUser?.region || nextRegion || (authoritativeRole === 'doctor' ? 'UAE' : ''),
+      city:
+        (authoritativeRole === 'patient' && sameUserCache && local.city) ||
+        backendUser?.city ||
+        null,
+      clinicName:
+        (authoritativeRole === 'patient' && sameUserCache && local.clinicName) || null,
+      region:
+        (authoritativeRole === 'patient' && sameUserCache && local.region) ||
+        backendUser?.region ||
+        nextRegion ||
+        (authoritativeRole === 'doctor' ? 'UAE' : ''),
       photoUrl: (sameUserCache && local.photoUrl) || remote?.photoUrl || firebaseUser.photoURL || null,
     });
 
@@ -234,6 +252,11 @@ export function SessionProvider({ children }) {
           name: nextUser?.name || '',
           region: nextUser?.region || '',
           photoUrl: nextUser?.photoUrl || null,
+          branchId: nextUser?.branchId || nextUser?.clinicId || null,
+          clinicId: nextUser?.clinicId || nextUser?.branchId || null,
+          branchName: nextUser?.branchName || '',
+          city: nextUser?.city || '',
+          clinicName: nextUser?.clinicName || '',
         })
       );
     } catch {

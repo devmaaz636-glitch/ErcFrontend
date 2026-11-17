@@ -13,7 +13,14 @@ export function normalizeRegionKey(value) {
   if (!raw) return 'UAE';
   if (raw.includes('ksa') || raw.includes('saudi')) return 'KSA';
   if (raw.includes('oman') || raw === 'om') return 'Oman';
-  if (raw.includes('pakistan') || raw === 'pk') return 'Pakistan';
+  if (
+    raw.includes('pakistan') ||
+    raw === 'pk' ||
+    raw.includes('islamabad') ||
+    raw.includes('lahore')
+  ) {
+    return 'Pakistan';
+  }
   if (raw.includes('usa') || raw.includes('united states') || raw === 'us') return 'USA';
   if (raw.includes('uae') || raw.includes('emirates') || raw.includes('dubai')) return 'UAE';
   return (

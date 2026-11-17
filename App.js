@@ -21,6 +21,7 @@ import ForgotPasswordCodeScreen from './src/screens/ForgotPasswordCodeScreen';
 import ForgotPasswordNewScreen from './src/screens/ForgotPasswordNewScreen';
 import VerifyRegionScreen from './src/screens/VerifyRegionScreen';
 import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
+import PatientAppointmentDetailScreen from './src/screens/PatientAppointmentDetailScreen';
 import BranchDetailScreen from './src/screens/BranchDetailScreen';
 import ClinicManagersScreen from './src/screens/ClinicManagersScreen';
 import ClinicManagerDetailScreen from './src/screens/ClinicManagerDetailScreen';
@@ -128,6 +129,11 @@ export default function App() {
                 <Stack.Screen
                   name="AppointmentDetail"
                   component={AppointmentDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="PatientAppointmentDetail"
+                  component={PatientAppointmentDetailScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen
