@@ -1,15 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
 import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+
+const TAB_EASE = Easing.out(Easing.quad);
+const TAB_DURATION = 160;
 
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const CARD_BG = '#BF824F';
@@ -28,8 +37,9 @@ const STATUS_STYLE = {
 };
 
 const SEED = [
+  // Upcoming — 3
   {
-    id: 'pa-1',
+    id: 'pa-u1',
     name: 'Maaz',
     patientId: 'ERC-1024',
     treatment: 'Laser Treatment',
@@ -38,39 +48,77 @@ const SEED = [
     tab: 'upcoming',
   },
   {
-    id: 'pa-2',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    treatment: 'Laser Treatment',
-    time: '09:30 AM',
-    status: 'pending',
-    tab: 'today',
-  },
-  {
-    id: 'pa-3',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    treatment: 'Laser Treatment',
-    time: '09:30 AM',
-    status: 'pending',
-    tab: 'today',
-  },
-  {
-    id: 'pa-4',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    treatment: 'Laser Treatment',
-    time: '11:00 AM',
-    status: 'pending',
-    tab: 'today',
-  },
-  {
-    id: 'pa-5',
+    id: 'pa-u2',
     name: 'Maaz',
     patientId: 'ERC-1024',
     treatment: 'Hair Prp',
+    time: '11:00 AM',
+    status: 'upcoming',
+    tab: 'upcoming',
+  },
+  {
+    id: 'pa-u3',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Dermal Fillers',
     time: '02:00 PM',
+    status: 'upcoming',
+    tab: 'upcoming',
+  },
+  // Today — 3 (matches Figma: 1 Upcoming + 2 Pending)
+  {
+    id: 'pa-t1',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '09:30 AM',
+    status: 'upcoming',
+    tab: 'today',
+  },
+  {
+    id: 'pa-t2',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '09:30 AM',
+    status: 'pending',
+    tab: 'today',
+  },
+  {
+    id: 'pa-t3',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '09:30 AM',
+    status: 'pending',
+    tab: 'today',
+  },
+  // Past — 3
+  {
+    id: 'pa-p1',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Hair Prp',
+    time: '10:00 AM',
     status: 'completed',
+    tab: 'past',
+  },
+  {
+    id: 'pa-p2',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Laser Treatment',
+    time: '01:30 PM',
+    status: 'completed',
+    tab: 'past',
+  },
+  {
+    id: 'pa-p3',
+    name: 'Maaz',
+    patientId: 'ERC-1024',
+    treatment: 'Facelift',
+    time: '04:00 PM',
+    status: 'canceled',
     tab: 'past',
   },
 ];
@@ -108,30 +156,111 @@ function SearchBar({ value, onChangeText }) {
   );
 }
 
-function FilterTab({ label, active, onPress }) {
+function FilterTab({ label, active, onPress, onLayout }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
+      onLayout={onLayout}
       style={{
-        paddingHorizontal: s(16),
-        paddingVertical: s(8),
+        flex: 1,
+        paddingVertical: s(10),
+        paddingHorizontal: s(8),
         borderRadius: 999,
-        backgroundColor: active ? '#F6E6D6' : 'transparent',
-        marginRight: s(8),
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2,
       }}
     >
       <Text
         style={{
-          fontSize: fs(12),
-          fontWeight: '600',
+          fontSize: fs(13),
+          fontWeight: active ? '700' : '600',
           color: active ? CARD_BG : colors.ink,
         }}
       >
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function FilterBar({ tab, onChange }) {
+  const [layouts, setLayouts] = useState({});
+  const activeIndex = Math.max(
+    0,
+    TABS.findIndex((item) => item.key === tab)
+  );
+  const indicatorX = useSharedValue(0);
+  const indicatorW = useSharedValue(0);
+  const ready = useSharedValue(0);
+
+  useEffect(() => {
+    const layout = layouts[activeIndex];
+    if (!layout) return;
+    const animate = ready.value === 1;
+    indicatorX.value = animate
+      ? withTiming(layout.x, { duration: TAB_DURATION, easing: TAB_EASE })
+      : layout.x;
+    indicatorW.value = animate
+      ? withTiming(layout.width, { duration: TAB_DURATION, easing: TAB_EASE })
+      : layout.width;
+    ready.value = 1;
+  }, [activeIndex, layouts, indicatorW, indicatorX, ready]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    opacity: indicatorW.value > 0 ? 1 : 0,
+    transform: [{ translateX: indicatorX.value }],
+    width: indicatorW.value,
+  }));
+
+  return (
+    <View
+      style={{
+        marginTop: s(20),
+        marginBottom: s(4),
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.card,
+        borderRadius: 999,
+        paddingHorizontal: s(8),
+        paddingVertical: s(6),
+        ...shadows.card,
+        overflow: 'hidden',
+      }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: 'absolute',
+            left: 0,
+            top: s(6),
+            bottom: s(6),
+            borderRadius: 999,
+            backgroundColor: '#F6E6D6',
+          },
+          indicatorStyle,
+        ]}
+      />
+      {TABS.map((item, index) => (
+        <FilterTab
+          key={item.key}
+          label={item.label}
+          active={tab === item.key}
+          onPress={() => onChange(item.key)}
+          onLayout={(event) => {
+            const { x, width } = event.nativeEvent.layout;
+            setLayouts((prev) => {
+              const next = prev[index];
+              if (next && next.x === x && next.width === width) return prev;
+              return { ...prev, [index]: { x, width } };
+            });
+          }}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -264,16 +393,7 @@ export default function PatientAppointmentsScreen() {
 
           <SearchBar value={search} onChangeText={setSearch} />
 
-          <View style={{ flexDirection: 'row', marginTop: s(16), alignItems: 'center' }}>
-            {TABS.map((item) => (
-              <FilterTab
-                key={item.key}
-                label={item.label}
-                active={tab === item.key}
-                onPress={() => setTab(item.key)}
-              />
-            ))}
-          </View>
+          <FilterBar tab={tab} onChange={setTab} />
 
           <View style={{ marginTop: s(16) }}>
             {filtered.length === 0 ? (
