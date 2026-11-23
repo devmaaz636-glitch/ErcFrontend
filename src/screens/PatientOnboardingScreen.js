@@ -51,22 +51,23 @@ export default function PatientOnboardingScreen() {
   // Lifts the Next button, dots and bottom description a little higher
   const bottomLift = Math.max(height * 0.03, 20);
 
-  async function finish() {
-    const uid = user?.uid || auth.currentUser?.uid;
-    await markPatientOnboardingDone(uid).catch(() => {});
+  function finish() {
+    // Navigate immediately — persist onboarding flag in the background (faster on iOS).
     navigation.replace('PatientTabs');
+    const uid = user?.uid || auth.currentUser?.uid;
+    markPatientOnboardingDone(uid).catch(() => {});
   }
 
   function onNext() {
     if (isLast) {
-      finish().catch(() => navigation.replace('PatientTabs'));
+      finish();
       return;
     }
     setIndex((prev) => Math.min(prev + 1, STEPS.length - 1));
   }
 
   function onSkip() {
-    finish().catch(() => navigation.replace('PatientTabs'));
+    finish();
   }
 
   return (
@@ -111,7 +112,7 @@ export default function PatientOnboardingScreen() {
       <View
         style={{
           flex: 1,
-          paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 10) + 6,
+          paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 12) + 8,
           paddingHorizontal: sidePad,
           paddingBottom: Math.max(insets.bottom, 14) + 8 + bottomLift,
         }}

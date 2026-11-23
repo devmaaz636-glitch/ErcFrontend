@@ -167,8 +167,9 @@ export default function SignUpScreen() {
         confirmPassword,
       });
       const uid = created?.profile?.uid || null;
-      await markPatientNeedsOnboarding(nextEmail, uid).catch(() => {});
-      await AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
+      // Don't block navigation on local bookkeeping — faster on iOS/Android.
+      markPatientNeedsOnboarding(nextEmail, uid).catch(() => {});
+      AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
       navigation.replace('CreateProfile', {
         email: nextEmail,
         fullName: name,

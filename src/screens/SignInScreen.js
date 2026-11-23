@@ -223,8 +223,15 @@ export default function SignInScreen() {
         // Firestore profile write must never block sign-in.
         saveSignedInUser(auth.currentUser).catch(() => {});
 
-        const tokenResult = await auth.currentUser.getIdTokenResult(true).catch(() => null);
-        const claims = tokenResult?.claims || {};
+        // Prefer cached token first so patient sign-in feels instant on iOS.
+        let tokenResult = await auth.currentUser.getIdTokenResult(false).catch(() => null);
+        let claims = tokenResult?.claims || {};
+        const hasRole =
+          claims.role || claims['https://enfieldroyalclinic.com/role'] || claims.branchId || claims.clinicId;
+        if (!hasRole) {
+          tokenResult = await auth.currentUser.getIdTokenResult(true).catch(() => null);
+          claims = tokenResult?.claims || claims;
+        }
         const patientAccount =
           isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
 
