@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { scale as s } from '../../utils/responsive';
+import { fontFamily } from '../../theme/fonts';
 
 export default function IconCircleButton({
   name = 'chevron-back',
@@ -51,7 +52,7 @@ export default function IconCircleButton({
             paddingHorizontal: 3,
           }}
         >
-          <Text style={{ color: '#fff', fontSize: s(8), fontWeight: '700', lineHeight: s(10) }}>
+          <Text style={{ color: '#fff', fontSize: s(8), fontWeight: '700', fontFamily: fontFamily.bold, lineHeight: s(10) }}>
             {count > 9 ? '9+' : String(count)}
           </Text>
         </View>

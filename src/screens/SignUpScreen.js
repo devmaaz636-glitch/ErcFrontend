@@ -166,13 +166,14 @@ export default function SignUpScreen() {
         password,
         confirmPassword,
       });
-      // Force onboarding the first time this patient signs in after signup.
-      await markPatientNeedsOnboarding(nextEmail, created?.profile?.uid).catch(() => {});
-      // Never carry staff/demo remembered emails into the next Sign In.
+      const uid = created?.profile?.uid || null;
+      await markPatientNeedsOnboarding(nextEmail, uid).catch(() => {});
       await AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
-      navigation.replace('SignIn', {
-        signedUp: true,
+      navigation.replace('CreateProfile', {
         email: nextEmail,
+        fullName: name,
+        uid,
+        fromSignup: true,
       });
     } catch (signUpError) {
       const apiMessage = signUpError?.response?.data?.message;

@@ -3,10 +3,6 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts } from 'expo-font';
-import { Inter_200ExtraLight } from '@expo-google-fonts/inter/200ExtraLight';
-import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
-import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Platform,
@@ -31,6 +27,9 @@ const PROMO_CARD = require('../../assets/patientcard.png');
 const TREATMENT_IMAGE = require('../../assets/treamntpateint.png');
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
+const LASER_ICON = require('../../assets/treatment-laser.svg');
+const HAIR_PRP_ICON = require('../../assets/treatment-hair.svg');
+const DERMAL_FILLERS_ICON = require('../../assets/treatment-fillers.svg');
 const CARD_BG = '#BF824F';
 
 const PROMO_SLIDES = [
@@ -61,10 +60,14 @@ const PROMO_SLIDES = [
 ];
 
 const CATEGORIES = [
-  { key: 'laser', label: 'Laser\nTreatment', Icon: LaserTreatmentIcon },
-  { key: 'prp', label: 'Hair Prp', Icon: HairPrpIcon },
-  { key: 'fillers', label: 'Dermal\nFillers', Icon: DermalFillersIcon },
+  { key: 'laser', label: 'Laser\nTreatment', iconSource: LASER_ICON },
+  { key: 'prp', label: 'Hair Prp', iconSource: HAIR_PRP_ICON },
+  { key: 'fillers', label: 'Dermal\nFillers', iconSource: DERMAL_FILLERS_ICON },
   { key: 'facelift', label: 'Facelift', Icon: FaceliftIcon },
+  { key: 'plastic', label: 'Plastic\nSurgery', iconName: 'body-outline' },
+  { key: 'skincare', label: 'Skin\nCare', iconName: 'flower-outline' },
+  { key: 'dental', label: 'Dental\nCare', iconName: 'medical-outline' },
+  { key: 'weight', label: 'Weight\nLoss', iconName: 'fitness-outline' },
 ];
 
 function LaserTreatmentIcon({ color, size = 28 }) {
@@ -204,7 +207,7 @@ function PromoCard({ item, width }) {
           allowFontScaling={false}
           style={{
             color: '#FFFFFF',
-            fontFamily: 'Inter_200ExtraLight',
+            fontFamily: 'Manrope_400Regular',
             fontSize: 24,
             lineHeight: 24,
             letterSpacing: 24 * -0.05,
@@ -217,7 +220,7 @@ function PromoCard({ item, width }) {
           allowFontScaling={false}
           style={{
             color: '#FFFFFF',
-            fontFamily: 'Inter_700Bold',
+            fontFamily: 'Manrope_700Bold',
             fontSize: 24,
             marginTop: 4,
             lineHeight: 24,
@@ -231,7 +234,7 @@ function PromoCard({ item, width }) {
           allowFontScaling={false}
           style={{
             color: '#FFFFFF',
-            fontFamily: 'Inter_400Regular',
+            fontFamily: 'Manrope_400Regular',
             fontSize: 12,
             lineHeight: 12,
             letterSpacing: 0,
@@ -268,10 +271,11 @@ function FrostedTreatmentPanel({ children }) {
     <View
       style={{
         position: 'absolute',
-        left: s(12),
-        right: s(12),
+        left: s(6),
+        right: s(6),
         bottom: s(12),
-        borderRadius: 18,
+        height: s(86),
+        borderRadius: s(10),
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.55)',
@@ -280,8 +284,9 @@ function FrostedTreatmentPanel({ children }) {
       {Platform.OS === 'web' ? (
         <View
           style={{
+            height: s(86),
             backgroundColor: 'rgba(255,255,255,0.72)',
-            paddingVertical: s(12),
+            paddingVertical: s(10),
             paddingHorizontal: s(14),
             flexDirection: 'row',
             alignItems: 'center',
@@ -294,7 +299,8 @@ function FrostedTreatmentPanel({ children }) {
           intensity={38}
           tint="light"
           style={{
-            paddingVertical: s(12),
+            height: s(86),
+            paddingVertical: s(10),
             paddingHorizontal: s(14),
             flexDirection: 'row',
             alignItems: 'center',
@@ -312,7 +318,7 @@ function FrostedTreatmentPanel({ children }) {
 function CategoryItem({ item, active, onPress }) {
   const tone = active ? '#FFFFFF' : CARD_BG;
   const Icon = item.Icon;
-  const size = s(78);
+  const size = s(62);
 
   return (
     <Pressable
@@ -327,15 +333,26 @@ function CategoryItem({ item, active, onPress }) {
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: s(6),
-        paddingTop: s(10),
-        paddingBottom: s(8),
+        paddingTop: s(7),
+        paddingBottom: s(6),
       }}
     >
-      <Icon color={tone} size={s(26)} />
+      {item.iconSource ? (
+        <Image
+          source={item.iconSource}
+          tintColor={tone}
+          contentFit="contain"
+          style={{ width: s(32), height: s(32) }}
+        />
+      ) : item.iconName ? (
+        <Ionicons name={item.iconName} size={s(30)} color={tone} />
+      ) : (
+        <Icon color={tone} size={s(30)} />
+      )}
       <Text
         allowFontScaling={false}
         style={{
-          marginTop: s(4),
+          marginTop: s(2),
           textAlign: 'center',
           fontSize: fs(9),
           fontWeight: '600',
@@ -359,13 +376,6 @@ export default function PatientHomeScreen() {
   const [category, setCategory] = useState('laser');
   const [regionOpen, setRegionOpen] = useState(false);
   const carouselRef = useRef(null);
-  // Load only the Inter weights used on this screen (avoid full package barrel).
-  useFonts({
-    Inter_200ExtraLight,
-    Inter_400Regular,
-    Inter_700Bold,
-  });
-
   const contentWidth = Math.min(width - spacing.screen * 2, spacing.maxContent);
   const displayName = user?.name?.trim() || 'Mona Lisa';
   const branchMeta = useMemo(
@@ -544,29 +554,35 @@ export default function PatientHomeScreen() {
             </Pressable>
           </View>
 
-          <View
-            style={{
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={s(80)}
+            decelerationRate="fast"
+            overScrollMode="never"
+            contentContainerStyle={{
               marginTop: s(14),
-              flexDirection: 'row',
-              justifyContent: 'space-between',
               paddingHorizontal: s(2),
+              paddingRight: s(18),
             }}
           >
             {CATEGORIES.map((item) => (
-              <CategoryItem
-                key={item.key}
-                item={item}
-                active={category === item.key}
-                onPress={() => setCategory(item.key)}
-              />
+              <View key={item.key} style={{ marginRight: s(18) }}>
+                <CategoryItem
+                  item={item}
+                  active={category === item.key}
+                  onPress={() => setCategory(item.key)}
+                />
+              </View>
             ))}
-          </View>
+          </ScrollView>
 
           {/* Featured treatment — frosted glass content panel */}
           <View
             style={{
               marginTop: s(18),
-              borderRadius: 22,
+              padding: s(8),
+              borderRadius: s(16),
               overflow: 'hidden',
               backgroundColor: colors.card,
               ...shadows.card,
@@ -575,7 +591,7 @@ export default function PatientHomeScreen() {
             <Image
               source={TREATMENT_IMAGE}
               contentFit="cover"
-              style={{ width: '100%', height: s(196) }}
+              style={{ width: '100%', height: s(240), borderRadius: s(10) }}
             />
             <LinearGradient
               colors={['transparent', 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.55)']}
@@ -594,7 +610,7 @@ export default function PatientHomeScreen() {
                 <Text
                   allowFontScaling={false}
                   style={{
-                    fontFamily: 'Inter_700Bold',
+                    fontFamily: 'Manrope_700Bold',
                     fontSize: 14,
                     color: CARD_BG,
                     lineHeight: 14,
@@ -606,7 +622,7 @@ export default function PatientHomeScreen() {
                   allowFontScaling={false}
                   style={{
                     marginTop: 6,
-                    fontFamily: 'Inter_400Regular',
+                    fontFamily: 'Manrope_400Regular',
                     fontSize: 12,
                     color: '#666666',
                     lineHeight: 12,
@@ -617,13 +633,12 @@ export default function PatientHomeScreen() {
                   Discover exclusive offers and experience the beauty you deserve.
                 </Text>
               </View>
-              <Pressable
-                accessibilityRole="button"
+              <View
                 style={{
                   width: s(38),
                   height: s(38),
                   borderRadius: s(19),
-                  backgroundColor: CARD_BG,
+                  backgroundColor: 'rgba(191,130,79,0.88)',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -634,7 +649,7 @@ export default function PatientHomeScreen() {
                   color={colors.white}
                   style={{ transform: [{ rotate: '45deg' }] }}
                 />
-              </Pressable>
+              </View>
             </FrostedTreatmentPanel>
           </View>
 

@@ -6,6 +6,7 @@ import { Animated, Easing, Platform, Text, useWindowDimensions, View } from 'rea
 import { signOutUser } from '../lib/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
+import { fontFamily } from '../theme/fonts';
 
 cssInterop(Image, { className: 'style' });
 
@@ -141,6 +142,7 @@ function ArchedWordmark({ layout, progress }) {
               className="text-center font-medium text-white"
               style={{
                 fontSize: layout.fontSize,
+                fontFamily: fontFamily.medium,
                 includeFontPadding: false,
                 textAlignVertical: 'center',
               }}

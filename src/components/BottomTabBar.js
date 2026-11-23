@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { fontFamily } from '../theme/fonts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
@@ -149,7 +150,7 @@ function TabItem({ routeName, isFocused, onPress, onLongPress, onLayout, variant
         </Animated.View>
         {isFocused ? (
           <Animated.View style={[labelStyle, { marginLeft: 6 }]}>
-            <Text numberOfLines={1} style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+            <Text numberOfLines={1} style={{ color: '#fff', fontSize: 12, fontWeight: '600', fontFamily: fontFamily.semibold }}>
               {meta.label}
             </Text>
           </Animated.View>

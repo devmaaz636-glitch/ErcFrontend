@@ -1,5 +1,11 @@
 import './global.css';
 import { LogBox, View } from 'react-native';
+import { useFonts } from 'expo-font';
+import { Manrope_400Regular } from '@expo-google-fonts/manrope/400Regular';
+import { Manrope_500Medium } from '@expo-google-fonts/manrope/500Medium';
+import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
+import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
+import { Manrope_800ExtraBold } from '@expo-google-fonts/manrope/800ExtraBold';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -37,6 +43,8 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import NotificationPreferencesScreen from './src/screens/NotificationPreferencesScreen';
 import AppointmentRequestDetailScreen from './src/screens/AppointmentRequestDetailScreen';
 import TreatmentDetailScreen from './src/screens/TreatmentDetailScreen';
+import PatientTreatmentDetailScreen from './src/screens/PatientTreatmentDetailScreen';
+import PatientBookAppointmentScreen from './src/screens/PatientBookAppointmentScreen';
 import AddTreatmentScreen from './src/screens/AddTreatmentScreen';
 import AboutDetailsScreen from './src/screens/AboutDetailsScreen';
 import ManagerPatientsScreen from './src/screens/ManagerPatientsScreen';
@@ -45,6 +53,7 @@ import ManagerAlertsScreen from './src/screens/ManagerAlertsScreen';
 import InvestigateAlertScreen from './src/screens/InvestigateAlertScreen';
 import AlertRequestDetailScreen from './src/screens/AlertRequestDetailScreen';
 import ProfileTabScreen from './src/screens/ProfileTabScreen';
+import CreatePatientProfileScreen from './src/screens/CreatePatientProfileScreen';
 
 LogBox.ignoreLogs([
   'Splashscreen.setOptions',
@@ -58,6 +67,14 @@ ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+
   return (
     <SafeAreaProvider>
       <SessionProvider>
@@ -89,6 +106,11 @@ export default function App() {
                   name="PatientOnboarding"
                   component={PatientOnboardingScreen}
                   options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="CreateProfile"
+                  component={CreatePatientProfileScreen}
+                  options={{ animation: 'slide_from_right', gestureEnabled: false }}
                 />
                 <Stack.Screen
                   name="ForgotPassword"
@@ -215,6 +237,16 @@ export default function App() {
                   name="TreatmentDetail"
                   component={TreatmentDetailScreen}
                   options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="PatientTreatmentDetail"
+                  component={PatientTreatmentDetailScreen}
+                  options={{ animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="PatientBookAppointment"
+                  component={PatientBookAppointmentScreen}
+                  options={{ animation: 'slide_from_bottom' }}
                 />
                 <Stack.Screen
                   name="AddTreatment"

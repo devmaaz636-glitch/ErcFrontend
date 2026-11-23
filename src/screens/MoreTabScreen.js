@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { fontFamily } from '../theme/fonts';
 import Animated, {
   Easing,
   interpolate,
@@ -217,6 +218,7 @@ export default function MoreTabScreen() {
                       fontSize: 15,
                       lineHeight: 20,
                       fontWeight: '600',
+                      fontFamily: fontFamily.semibold,
                       color: TEXT_COLOR,
                       includeFontPadding: false,
                     }}

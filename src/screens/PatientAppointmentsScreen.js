@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -191,7 +191,7 @@ function SearchBar({ value, onChangeText }) {
     <View
       style={{
         marginTop: s(16),
-        height: s(48),
+        height: s(44),
         borderRadius: 999,
         backgroundColor: colors.card,
         flexDirection: 'row',
@@ -228,7 +228,7 @@ function FilterTab({ label, active, onPress, onLayout }) {
       onLayout={onLayout}
       style={{
         flex: 1,
-        paddingVertical: s(10),
+        height: s(40),
         paddingHorizontal: s(8),
         borderRadius: 999,
         alignItems: 'center',
@@ -391,8 +391,8 @@ function AppointmentCard({ item, onView }) {
         accessibilityRole="button"
         onPress={() => onView?.(item)}
         style={{
-          marginTop: s(14),
-          height: s(40),
+          marginTop: s(12),
+          height: s(32),
           borderRadius: 999,
           backgroundColor: '#F6E6D6',
           alignItems: 'center',
@@ -407,14 +407,24 @@ function AppointmentCard({ item, onView }) {
 
 export default function PatientAppointmentsScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
   const [tab, setTab] = useState('today');
   const [search, setSearch] = useState('');
+  const [appointments, setAppointments] = useState(SEED);
+
+  useEffect(() => {
+    const newlyBooked = route.params?.newlyBooked;
+    if (!newlyBooked?.id) return;
+    setAppointments((prev) => [newlyBooked, ...prev.filter((item) => item.id !== newlyBooked.id)]);
+    setTab('today');
+    navigation.setParams?.({ newlyBooked: undefined });
+  }, [navigation, route.params?.newlyBooked]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return SEED.filter((item) => {
+    return appointments.filter((item) => {
       if (item.tab !== tab) return false;
       if (!q) return true;
       return (
@@ -423,7 +433,7 @@ export default function PatientAppointmentsScreen() {
         item.treatment.toLowerCase().includes(q)
       );
     });
-  }, [search, tab]);
+  }, [appointments, search, tab]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -500,7 +510,7 @@ export default function PatientAppointmentsScreen() {
       >
         <PrimaryButton
           label="Add New Appointment +"
-          onPress={() => {}}
+          onPress={() => navigation.navigate('PatientBookAppointment')}
           style={{ width: '100%', maxWidth: spacing.maxContent }}
         />
       </View>

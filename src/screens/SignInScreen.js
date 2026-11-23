@@ -20,7 +20,8 @@ import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
-import { saveSignedInUser } from '../lib/users';
+import { getUserProfile, saveSignedInUser } from '../lib/users';
+import { hasCompletePatientProfile, isPatientProfileComplete } from '../lib/patientOnboarding';
 import { colors } from '../theme';
 
 function isClinicManagerRole(value) {
@@ -228,9 +229,23 @@ export default function SignInScreen() {
           isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
 
         if (patientAccount) {
-          // Patients always land on onboarding after Sign In (including post-logout).
           saveSignedInUser(auth.currentUser, { role: 'patient' }).catch(() => {});
-          navigation.replace('PatientOnboarding');
+          const uid = auth.currentUser.uid;
+          const [localProfileComplete, remoteProfile] = await Promise.all([
+            isPatientProfileComplete(uid),
+            getUserProfile(uid).catch(() => null),
+          ]);
+          const profileComplete =
+            localProfileComplete || hasCompletePatientProfile(remoteProfile);
+          if (profileComplete) {
+            navigation.replace('PatientTabs');
+          } else {
+            navigation.replace('CreateProfile', {
+              email: auth.currentUser.email || nextEmail,
+              fullName: auth.currentUser.displayName || '',
+              uid,
+            });
+          }
           return;
         }
 

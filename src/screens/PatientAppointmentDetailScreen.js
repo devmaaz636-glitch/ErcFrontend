@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
@@ -19,6 +19,7 @@ import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
+const PDF_ICON = require('../../assets/pdf-file.svg');
 const BRAND = '#BF824F';
 
 const STATUS_STYLE = {
@@ -147,6 +148,11 @@ export default function PatientAppointmentDetailScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(16);
   const { user } = useSession();
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
+  const [preferredDay, setPreferredDay] = useState('');
+  const [preferredTime, setPreferredTime] = useState('');
+  const [reason, setReason] = useState('');
 
   const appointment = route.params?.appointment || {};
   // Clinic + map follow the signed-in patient's region/branch (same UI, region data only).
@@ -421,18 +427,11 @@ export default function PatientAppointmentDetailScreen() {
           <SectionTitle title="My Documents" />
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View
-                style={{
-                  width: s(40),
-                  height: s(40),
-                  borderRadius: 10,
-                  backgroundColor: '#FDECEC',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="document-text" size={s(20)} color="#E5484D" />
-              </View>
+              <Image
+                source={PDF_ICON}
+                contentFit="contain"
+                style={{ width: s(44), height: s(44) }}
+              />
               <Text
                 style={{
                   flex: 1,
@@ -464,7 +463,7 @@ export default function PatientAppointmentDetailScreen() {
           />
           <Pressable
             accessibilityRole="button"
-            onPress={() => {}}
+            onPress={() => setRescheduleOpen(true)}
             style={{
               marginTop: s(12),
               height: s(48),
@@ -481,6 +480,206 @@ export default function PatientAppointmentDetailScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={rescheduleOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRescheduleOpen(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(20,20,20,0.38)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: s(24),
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 360,
+              borderRadius: s(18),
+              backgroundColor: '#FFFFFF',
+              padding: s(18),
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: s(16) }}>
+              <Text style={{ flex: 1, fontSize: fs(16), fontWeight: '700', color: colors.ink }}>
+                Appointment Schedule
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close reschedule"
+                hitSlop={10}
+                onPress={() => setRescheduleOpen(false)}
+              >
+                <Ionicons name="close" size={s(18)} color={colors.muted} />
+              </Pressable>
+            </View>
+
+            <Text style={{ fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
+              Select Time And Day
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setPreferredDay(preferredDay || 'May 18, 2026')}
+              style={{
+                height: s(46),
+                borderRadius: s(12),
+                borderWidth: 1,
+                borderColor: '#EFEAE5',
+                paddingHorizontal: s(14),
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: s(10),
+              }}
+            >
+              <Text style={{ flex: 1, fontSize: fs(11), color: preferredDay ? colors.ink : colors.muted }}>
+                {preferredDay || 'Select Day'}
+              </Text>
+              <Ionicons name="chevron-down" size={s(16)} color={colors.muted} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setPreferredTime(preferredTime || '09:30 AM - 10:30 AM')}
+              style={{
+                height: s(46),
+                borderRadius: s(12),
+                borderWidth: 1,
+                borderColor: '#EFEAE5',
+                paddingHorizontal: s(14),
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ flex: 1, fontSize: fs(11), color: preferredTime ? colors.ink : colors.muted }}>
+                {preferredTime || 'Select Time'}
+              </Text>
+              <Ionicons name="chevron-down" size={s(16)} color={colors.muted} />
+            </Pressable>
+
+            <Text style={{ marginTop: s(14), fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
+              Write Here
+            </Text>
+            <TextInput
+              value={reason}
+              onChangeText={setReason}
+              placeholder=""
+              multiline
+              textAlignVertical="top"
+              style={{
+                height: s(112),
+                borderRadius: s(12),
+                borderWidth: 1,
+                borderColor: '#EFEAE5',
+                paddingHorizontal: s(12),
+                paddingVertical: s(10),
+                fontSize: fs(11),
+                color: colors.ink,
+              }}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setRescheduleOpen(false);
+                setRescheduleSuccess(true);
+              }}
+              style={{
+                height: s(48),
+                borderRadius: 999,
+                backgroundColor: BRAND,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: s(18),
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: fs(13), fontWeight: '700' }}>Confirm</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={rescheduleSuccess}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRescheduleSuccess(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(20,20,20,0.38)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: s(24),
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 340,
+              borderRadius: s(18),
+              backgroundColor: '#FFFFFF',
+              padding: s(20),
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: s(64),
+                height: s(64),
+                borderRadius: s(32),
+                backgroundColor: '#2BB673',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="checkmark" size={s(36)} color="#FFFFFF" />
+            </View>
+            <Text
+              style={{
+                marginTop: s(16),
+                fontSize: fs(18),
+                fontWeight: '700',
+                color: BRAND,
+                textAlign: 'center',
+              }}
+            >
+              Rescheduled Successfully
+            </Text>
+            <Text
+              style={{
+                marginTop: s(8),
+                fontSize: fs(11),
+                color: colors.desc,
+                textAlign: 'center',
+              }}
+            >
+              Your appointment reschedule request was submitted successfully.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setRescheduleSuccess(false)}
+              style={{
+                height: s(48),
+                borderRadius: 999,
+                backgroundColor: BRAND,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: s(20),
+                width: '100%',
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: fs(13), fontWeight: '700' }}>
+                Back To Appointments
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

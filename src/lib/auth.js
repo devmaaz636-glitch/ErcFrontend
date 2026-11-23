@@ -70,8 +70,8 @@ export async function signInWithEmail(email, password) {
 }
 
 /**
- * Patient-only signup. Backend creates Firebase Auth user + role claim `patient`.
- * Does NOT sign the user in — they must Sign In next (clean empty session).
+ * Patient-only signup. Backend creates Firebase Auth user + role claim `patient`,
+ * then signs the new patient in for the immediate Create Profile flow.
  */
 export async function signUpPatient({ fullName, email, password, confirmPassword }) {
   const nextEmail = String(email || '').trim().toLowerCase();
@@ -90,10 +90,10 @@ export async function signUpPatient({ fullName, email, password, confirmPassword
     throw Object.assign(new Error('Could not create account.'), { code: 'auth/signup-failed' });
   }
 
-  // Ensure no leftover staff/session stays active after signup.
-  if (auth.currentUser) {
-    await signOut(auth).catch(() => {});
-  }
+  // Sign the newly created patient in immediately. The next screen will create
+  // their profile, rather than sending them back through the login form.
+  const signedIn = await signInWithEmailAndPassword(auth, nextEmail, nextPassword);
+  await signedIn.user.getIdToken(true);
 
   return {
     profile: {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -69,120 +70,95 @@ function CategoryChip({ label, active, onPress }) {
 }
 
 function TreatmentCard({ item, onView }) {
-  const active = String(item.status || 'active').toLowerCase() === 'active';
   const imageSource = item.imageUri
     ? { uri: item.imageUri }
     : item.custom
       ? treatmentDetailImage
       : treatmentImage;
   return (
-    <View
-      style={{
-        backgroundColor: theme.colors.card,
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View details for ${item.name}`}
+      onPress={onView}
+      style={({ pressed }) => ({
+        width: '48.5%',
+        height: s(270),
         borderRadius: s(16),
-        padding: s(14),
+        overflow: 'hidden',
+        backgroundColor: theme.colors.card,
         marginBottom: s(12),
-      }}
+        padding: s(7),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.82)',
+        opacity: pressed ? 0.92 : 1,
+      })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        <View
-          style={{
-            width: s(56),
-            height: s(56),
-            borderRadius: s(28),
-            marginRight: s(12),
-            backgroundColor: '#EFE7DF',
-            overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Image
-            source={imageSource}
-            contentFit={item.imageUri || item.custom ? 'cover' : 'contain'}
-            style={{ width: s(56), height: s(56) }}
-          />
-        </View>
-        <View style={{ flex: 1, marginRight: s(8) }}>
-          <Text
-            style={{ color: theme.colors.text, fontSize: fs(13), fontWeight: '700' }}
-            numberOfLines={1}
-          >
-            {item.name}
-          </Text>
-          <Text
-            style={{ color: theme.colors.secondaryText, fontSize: fs(10), marginTop: 4 }}
-            numberOfLines={1}
-          >
-            {item.category || item.department || 'Treatment'} · {item.duration || '—'}
-          </Text>
-          {item.description ? (
-            <Text
-              style={{ color: theme.colors.tertiaryText, fontSize: fs(9), marginTop: 4, lineHeight: fs(13) }}
-              numberOfLines={2}
-            >
-              {item.description}
-            </Text>
-          ) : null}
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: s(8) }}>
-            <Text style={{ color: colors.brand, fontSize: fs(14), fontWeight: '700' }}>
-              {item.priceLabel || `${item.currency || 'AED'} ${item.price ?? '—'}`}
-            </Text>
-            <Text style={{ color: theme.colors.tertiaryText, fontSize: fs(9), marginLeft: 6 }}>
-              {item.unit || item.session || 'Per Session'}
-            </Text>
-          </View>
-        </View>
-        <View
-          style={{
-            backgroundColor: active ? colors.successBg : colors.warningBg,
-            borderRadius: s(8),
-            paddingHorizontal: s(8),
-            paddingVertical: s(4),
-          }}
-        >
-          <Text
-            style={{
-              color: active ? colors.success : colors.brand,
-              fontSize: fs(8),
-              fontWeight: '700',
-            }}
-          >
-            {active ? 'Active' : 'Inactive'}
-          </Text>
-        </View>
+      <Image
+        source={imageSource}
+        contentFit="cover"
+        style={{ position: 'absolute', left: s(7), top: s(7), right: s(7), bottom: s(7), borderRadius: s(13) }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: s(10),
+          top: s(10),
+          alignItems: 'center',
+          borderRadius: s(9),
+          width: s(38),
+          height: s(38),
+          justifyContent: 'center',
+          backgroundColor: 'rgba(191,130,79,0.88)',
+        }}
+      >
+        <Ionicons name="arrow-up" size={s(16)} color="#FFFFFF" style={{ transform: [{ rotate: '45deg' }] }} />
       </View>
 
-      <View style={{ width: '100%', marginTop: s(14) }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View details for ${item.name}`}
-          onPress={onView}
-          android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: false }}
-          style={({ pressed }) => ({
-            width: '100%',
-            borderRadius: 999,
-            overflow: 'hidden',
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <View
+      <View
+        style={{
+          position: 'absolute',
+          left: s(10),
+          right: s(10),
+          bottom: s(10),
+          borderRadius: s(13),
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.72)',
+        }}
+      >
+        {Platform.OS === 'web' ? (
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.82)', paddingVertical: s(10), paddingHorizontal: s(10) }}>
+            <View style={{ flex: 1, marginRight: s(6) }}>
+              <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
+                {item.description || `${item.category || item.department || 'Treatment'} care by our specialists.`}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <BlurView
+            intensity={38}
+            tint="light"
             style={{
-              width: '100%',
-              height: s(34),
-              borderRadius: 999,
-              backgroundColor: BUTTON_BG,
-              alignItems: 'center',
-              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.82)',
+              paddingVertical: s(10),
+              paddingHorizontal: s(10),
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: fs(10), fontWeight: '600' }}>
-              View Details
-            </Text>
-          </View>
-        </Pressable>
+            <View style={{ flex: 1, marginRight: s(6) }}>
+              <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
+                {item.description || `${item.category || item.department || 'Treatment'} care by our specialists.`}
+              </Text>
+            </View>
+          </BlurView>
+        )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -399,20 +375,29 @@ export default function TreatmentsTabScreen() {
               </Text>
             </View>
           ) : (
-            filtered.map((item) => (
-              <TreatmentCard
-                key={item.id}
-                item={item}
-                onView={() =>
-                  navigation.navigate('TreatmentDetail', {
-                    treatmentId: item.id,
-                    treatment: item,
-                    departments,
-                    currency,
-                  })
-                }
-              />
-            ))
+            <View
+              style={{
+                width: '100%',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+              }}
+            >
+              {filtered.map((item) => (
+                <TreatmentCard
+                  key={item.id}
+                  item={item}
+                  onView={() =>
+                    navigation.navigate('TreatmentDetail', {
+                      treatmentId: item.id,
+                      treatment: item,
+                      departments,
+                      currency,
+                    })
+                  }
+                />
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>

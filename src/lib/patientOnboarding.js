@@ -2,6 +2,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const keyFor = (uid) => `@erc/patient-onboarding-done:${uid || 'guest'}`;
 const PENDING_KEY = '@erc/patient-pending-onboarding-email';
+const PROFILE_COMPLETE_PREFIX = '@erc/patient-profile-complete:';
+
+export async function isPatientProfileComplete(uid) {
+  if (!uid) return false;
+  try {
+    return (await AsyncStorage.getItem(`${PROFILE_COMPLETE_PREFIX}${uid}`)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export async function markPatientProfileComplete(uid) {
+  if (!uid) return;
+  await AsyncStorage.setItem(`${PROFILE_COMPLETE_PREFIX}${uid}`, '1');
+}
+
+export function hasCompletePatientProfile(profile) {
+  return Boolean(
+    profile &&
+    String(profile.region || '').trim() &&
+    String(profile.gender || '').trim()
+  );
+}
 
 export async function isPatientOnboardingDone(uid) {
   if (!uid) return false;

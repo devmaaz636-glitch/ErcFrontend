@@ -21,6 +21,8 @@ import { useClinicData } from '../context/ClinicDataContext';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
 import { colors } from '../theme';
+import { hasCompletePatientProfile, isPatientProfileComplete } from '../lib/patientOnboarding';
+import { getUserProfile } from '../lib/users';
 
 cssInterop(Image, { className: 'style' });
 const REGIONS = ADMIN_REGIONS;
@@ -278,7 +280,18 @@ export default function VerifyRegionScreen() {
         if (switchMode) {
           navigation.goBack();
         } else {
-          navigation.replace('PatientOnboarding');
+          const uid = auth.currentUser?.uid;
+          const [localComplete, remoteProfile] = await Promise.all([
+            isPatientProfileComplete(uid),
+            uid ? getUserProfile(uid).catch(() => null) : Promise.resolve(null),
+          ]);
+          const profileComplete =
+            localComplete || hasCompletePatientProfile(remoteProfile);
+          navigation.replace(profileComplete ? 'PatientTabs' : 'CreateProfile', {
+            email: auth.currentUser?.email || user?.email || '',
+            fullName: user?.name || auth.currentUser?.displayName || '',
+            uid,
+          });
         }
         return;
       }

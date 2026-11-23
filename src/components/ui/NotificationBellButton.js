@@ -5,6 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useNotifications } from '../../context/NotificationsContext';
 import { colors } from '../../theme';
 import { scale as s } from '../../utils/responsive';
+import { fontFamily } from '../../theme/fonts';
 
 /**
  * Shared header bell — always shows the same live unread count
@@ -75,6 +76,7 @@ export default function NotificationBellButton({
               color: '#fff',
               fontSize: s(9),
               fontWeight: '800',
+              fontFamily: fontFamily.extraBold,
               lineHeight: s(11),
               includeFontPadding: false,
             }}

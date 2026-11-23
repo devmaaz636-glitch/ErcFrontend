@@ -168,6 +168,16 @@ export function SessionProvider({ children }) {
         null,
       clinicName:
         (authoritativeRole === 'patient' && sameUserCache && local.clinicName) || null,
+      gender:
+        (authoritativeRole === 'patient' && sameUserCache && local.gender) ||
+        remote?.gender ||
+        backendUser?.gender ||
+        '',
+      phone:
+        (authoritativeRole === 'patient' && sameUserCache && local.phone) ||
+        remote?.phone ||
+        backendUser?.phone ||
+        '',
       region:
         (authoritativeRole === 'patient' && sameUserCache && local.region) ||
         backendUser?.region ||
@@ -252,6 +262,8 @@ export function SessionProvider({ children }) {
           name: nextUser?.name || '',
           region: nextUser?.region || '',
           photoUrl: nextUser?.photoUrl || null,
+          gender: nextUser?.gender || '',
+          phone: nextUser?.phone || '',
           branchId: nextUser?.branchId || nextUser?.clinicId || null,
           clinicId: nextUser?.clinicId || nextUser?.branchId || null,
           branchName: nextUser?.branchName || '',

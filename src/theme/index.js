@@ -12,6 +12,7 @@ export { BRAND_BG, brandButtonBg, brandButtonText, brandPressableStyle } from '.
 export { typography } from './typography';
 export { shadows } from './shadows';
 export { managerDashboard } from './managerDashboard';
+export { fontFamily, manropeFontFamily } from './fonts';
 
 import { colors } from './colors';
 import { spacing, radius } from './spacing';

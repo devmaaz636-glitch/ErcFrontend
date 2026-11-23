@@ -2,12 +2,14 @@ import { TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius } from '../../theme';
 import { scale as s, fs } from '../../utils/responsive';
+import { fontFamily } from '../../theme/fonts';
 
 export default function SearchField({
   value,
   onChangeText,
   placeholder = 'Search Here',
   showButton = true,
+  iconPosition = 'right',
 }) {
   return (
     <View
@@ -21,14 +23,24 @@ export default function SearchField({
         paddingRight: showButton ? 6 : s(14),
       }}
     >
+      {iconPosition === 'left' ? (
+        <Ionicons name="search" size={s(18)} color={colors.muted} />
+      ) : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedBrand}
-        style={{ flex: 1, fontSize: fs(12), color: colors.ink, paddingVertical: 0 }}
+        style={{
+          flex: 1,
+          marginLeft: iconPosition === 'left' ? s(10) : 0,
+          fontSize: fs(12),
+          color: colors.ink,
+          fontFamily: fontFamily.regular,
+          paddingVertical: 0,
+        }}
       />
-      {showButton ? (
+      {showButton && iconPosition !== 'left' ? (
         <View
           style={{
             width: s(34),

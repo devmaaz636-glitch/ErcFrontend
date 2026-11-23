@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  input,
+  textarea,
+  button {
+    font-family: Manrope_400Regular, Manrope, sans-serif;
+  }
+}
