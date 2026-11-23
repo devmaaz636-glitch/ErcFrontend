@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
@@ -19,7 +19,6 @@ import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
-const PDF_ICON = require('../../assets/pdf-file.svg');
 const BRAND = '#BF824F';
 
 const STATUS_STYLE = {
@@ -147,6 +146,8 @@ export default function PatientAppointmentDetailScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(16);
+  const { width: windowW } = useWindowDimensions();
+  const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const { user } = useSession();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
@@ -208,10 +209,9 @@ export default function PatientAppointmentDetailScreen() {
           paddingTop: topPad,
           paddingHorizontal: spacing.screen,
           paddingBottom: insets.bottom + s(28),
-          alignItems: 'center',
         }}
       >
-        <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
+        <View style={{ width: pageWidth, alignSelf: 'center' }}>
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <IconCircleButton
@@ -427,11 +427,18 @@ export default function PatientAppointmentDetailScreen() {
           <SectionTitle title="My Documents" />
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Image
-                source={PDF_ICON}
-                contentFit="contain"
-                style={{ width: s(44), height: s(44) }}
-              />
+              <View
+                style={{
+                  width: s(44),
+                  height: s(44),
+                  borderRadius: s(10),
+                  backgroundColor: '#F4E8DE',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="document-text" size={s(24)} color={BRAND} />
+              </View>
               <Text
                 style={{
                   flex: 1,

@@ -27,9 +27,6 @@ const PROMO_CARD = require('../../assets/patientcard.png');
 const TREATMENT_IMAGE = require('../../assets/treamntpateint.png');
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
-const LASER_ICON = require('../../assets/treatment-laser.svg');
-const HAIR_PRP_ICON = require('../../assets/treatment-hair.svg');
-const DERMAL_FILLERS_ICON = require('../../assets/treatment-fillers.svg');
 const CARD_BG = '#BF824F';
 
 const PROMO_SLIDES = [
@@ -57,17 +54,6 @@ const PROMO_SLIDES = [
     cta: 'Book Now',
     image: PROMO_CARD,
   },
-];
-
-const CATEGORIES = [
-  { key: 'laser', label: 'Laser\nTreatment', iconSource: LASER_ICON },
-  { key: 'prp', label: 'Hair Prp', iconSource: HAIR_PRP_ICON },
-  { key: 'fillers', label: 'Dermal\nFillers', iconSource: DERMAL_FILLERS_ICON },
-  { key: 'facelift', label: 'Facelift', Icon: FaceliftIcon },
-  { key: 'plastic', label: 'Plastic\nSurgery', iconName: 'body-outline' },
-  { key: 'skincare', label: 'Skin\nCare', iconName: 'flower-outline' },
-  { key: 'dental', label: 'Dental\nCare', iconName: 'medical-outline' },
-  { key: 'weight', label: 'Weight\nLoss', iconName: 'fitness-outline' },
 ];
 
 function LaserTreatmentIcon({ color, size = 28 }) {
@@ -141,6 +127,18 @@ function FaceliftIcon({ color, size = 28 }) {
     </Svg>
   );
 }
+
+// Inline Svg icons only — asset `.svg` requires fail on iOS/Android Image.
+const CATEGORIES = [
+  { key: 'laser', label: 'Laser\nTreatment', Icon: LaserTreatmentIcon },
+  { key: 'prp', label: 'Hair Prp', Icon: HairPrpIcon },
+  { key: 'fillers', label: 'Dermal\nFillers', Icon: DermalFillersIcon },
+  { key: 'facelift', label: 'Facelift', Icon: FaceliftIcon },
+  { key: 'plastic', label: 'Plastic\nSurgery', iconName: 'body-outline' },
+  { key: 'skincare', label: 'Skin\nCare', iconName: 'flower-outline' },
+  { key: 'dental', label: 'Dental\nCare', iconName: 'medical-outline' },
+  { key: 'weight', label: 'Weight\nLoss', iconName: 'fitness-outline' },
+];
 
 function SearchBar({ value, onChangeText }) {
   return (
@@ -267,52 +265,32 @@ function PromoCard({ item, width }) {
 }
 
 function FrostedTreatmentPanel({ children }) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: s(6),
-        right: s(6),
-        bottom: s(12),
-        height: s(86),
-        borderRadius: s(10),
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.55)',
-      }}
-    >
-      {Platform.OS === 'web' ? (
-        <View
-          style={{
-            height: s(86),
-            backgroundColor: 'rgba(255,255,255,0.72)',
-            paddingVertical: s(10),
-            paddingHorizontal: s(14),
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          {children}
-        </View>
-      ) : (
-        <BlurView
-          intensity={38}
-          tint="light"
-          style={{
-            height: s(86),
-            paddingVertical: s(10),
-            paddingHorizontal: s(14),
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: 'rgba(255,255,255,0.42)',
-            overflow: 'hidden',
-          }}
-        >
-          {children}
-        </BlurView>
-      )}
-    </View>
-  );
+  const panelStyle = {
+    position: 'absolute',
+    left: s(10),
+    right: s(10),
+    bottom: s(10),
+    minHeight: s(78),
+    borderRadius: s(16),
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.42)' : 'rgba(255,255,255,0.62)',
+    paddingVertical: s(11),
+    paddingHorizontal: s(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+  };
+
+  if (Platform.OS === 'ios' || Platform.OS === 'web') {
+    return (
+      <BlurView intensity={Platform.OS === 'ios' ? 55 : 40} tint="light" style={panelStyle}>
+        {children}
+      </BlurView>
+    );
+  }
+
+  return <View style={panelStyle}>{children}</View>;
 }
 
 function CategoryItem({ item, active, onPress }) {
@@ -337,27 +315,21 @@ function CategoryItem({ item, active, onPress }) {
         paddingBottom: s(6),
       }}
     >
-      {item.iconSource ? (
-        <Image
-          source={item.iconSource}
-          tintColor={tone}
-          contentFit="contain"
-          style={{ width: s(32), height: s(32) }}
-        />
-      ) : item.iconName ? (
+      {item.iconName ? (
         <Ionicons name={item.iconName} size={s(30)} color={tone} />
       ) : (
         <Icon color={tone} size={s(30)} />
       )}
       <Text
         allowFontScaling={false}
+        numberOfLines={2}
         style={{
           marginTop: s(2),
           textAlign: 'center',
-          fontSize: fs(9),
+          fontSize: fs(9, 8),
           fontWeight: '600',
           color: tone,
-          lineHeight: fs(11),
+          lineHeight: fs(11, 10),
         }}
       >
         {item.label}
@@ -422,10 +394,9 @@ export default function PatientHomeScreen() {
           paddingTop: topPad,
           paddingHorizontal: spacing.screen,
           paddingBottom: insets.bottom + spacing.tabBarClearance,
-          alignItems: 'center',
         }}
       >
-        <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
+        <View style={{ width: contentWidth, alignSelf: 'center' }}>
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: s(10) }}>
@@ -610,10 +581,10 @@ export default function PatientHomeScreen() {
                 <Text
                   allowFontScaling={false}
                   style={{
-                    fontFamily: 'Manrope_700Bold',
+                    fontFamily: 'Manrope_600SemiBold',
                     fontSize: 14,
-                    color: CARD_BG,
-                    lineHeight: 14,
+                    color: '#C19A7B',
+                    lineHeight: 18,
                   }}
                 >
                   Laser Treatment
@@ -621,12 +592,11 @@ export default function PatientHomeScreen() {
                 <Text
                   allowFontScaling={false}
                   style={{
-                    marginTop: 6,
+                    marginTop: 4,
                     fontFamily: 'Manrope_400Regular',
-                    fontSize: 12,
-                    color: '#666666',
-                    lineHeight: 12,
-                    letterSpacing: 0,
+                    fontSize: 11,
+                    color: '#555555',
+                    lineHeight: 15,
                   }}
                   numberOfLines={2}
                 >

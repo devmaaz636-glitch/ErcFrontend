@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../components/ui';
-import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
+import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
@@ -410,6 +410,8 @@ export default function PatientAppointmentsScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
+  const { width: windowW } = useWindowDimensions();
+  const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const [tab, setTab] = useState('today');
   const [search, setSearch] = useState('');
   const [appointments, setAppointments] = useState(SEED);
@@ -444,10 +446,9 @@ export default function PatientAppointmentsScreen() {
           paddingTop: topPad,
           paddingHorizontal: spacing.screen,
           paddingBottom: insets.bottom + spacing.tabBarClearance + s(64),
-          alignItems: 'center',
         }}
       >
-        <View style={{ width: '100%', maxWidth: spacing.maxContent }}>
+        <View style={{ width: pageWidth, alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <IconCircleButton
               name="chevron-back"
@@ -489,7 +490,7 @@ export default function PatientAppointmentsScreen() {
                   key={item.id}
                   item={item}
                   onView={(apt) =>
-                    navigation.navigate('PatientAppointmentDetail', { appointment: apt })
+                    navigateRoot(navigation, 'PatientAppointmentDetail', { appointment: apt })
                   }
                 />
               ))
@@ -510,7 +511,7 @@ export default function PatientAppointmentsScreen() {
       >
         <PrimaryButton
           label="Add New Appointment +"
-          onPress={() => navigation.navigate('PatientBookAppointment')}
+          onPress={() => navigateRoot(navigation, 'PatientBookAppointment')}
           style={{ width: '100%', maxWidth: spacing.maxContent }}
         />
       </View>

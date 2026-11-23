@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { treatmentDoctorImage } from '../lib/doctorMedia';
+import { navigateRoot } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
@@ -156,7 +157,7 @@ export default function PatientTreatmentDetailScreen() {
   const doctors = doctorsForTreatment(item);
 
   function openDoctor(doctor) {
-    navigation.navigate('DoctorDetail', {
+    navigateRoot(navigation, 'DoctorDetail', {
       doctor: {
         ...doctor,
         photo: null,
@@ -168,14 +169,14 @@ export default function PatientTreatmentDetailScreen() {
   }
 
   function bookNow() {
-    navigation.navigate('PatientBookAppointment', {
+    navigateRoot(navigation, 'PatientBookAppointment', {
       treatment: title,
       department: doctors[0]?.department || 'Laser',
     });
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7F3EF' }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -185,7 +186,7 @@ export default function PatientTreatmentDetailScreen() {
           paddingBottom: insets.bottom + s(20),
         }}
       >
-        <View style={{ width: '100%', maxWidth: spacing.maxContent, alignSelf: 'center' }}>
+        <View style={{ width: '100%', maxWidth: spacing.maxContent, alignSelf: 'stretch' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <IconCircleButton
               name="chevron-back"

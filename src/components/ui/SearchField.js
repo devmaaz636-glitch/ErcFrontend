@@ -53,9 +53,10 @@ export default function SearchField({
         >
           <Ionicons name="search" size={s(16)} color={colors.brand} />
         </View>
-      ) : (
+      ) : null}
+      {!showButton && iconPosition !== 'left' ? (
         <Ionicons name="search" size={s(18)} color={colors.desc} />
-      )}
+      ) : null}
     </View>
   );
 }

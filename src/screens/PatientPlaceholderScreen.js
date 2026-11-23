@@ -1,13 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
-import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
+import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 
@@ -27,15 +27,13 @@ const COPY = {
 };
 
 const TREATMENT_IMAGE = require('../../assets/treamntpateint.png');
-const LASER_ICON = require('../../assets/treatment-laser.svg');
-const HAIR_PRP_ICON = require('../../assets/treatment-hair.svg');
-const DERMAL_FILLERS_ICON = require('../../assets/treatment-fillers.svg');
 const BRAND = '#BF824F';
 
+// Ionicons only — SVG asset requires break on iOS/Android (web-only).
 const PATIENT_CATEGORIES = [
-  { id: 'laser', label: 'Laser\nTreatment', iconSource: LASER_ICON },
-  { id: 'hair', label: 'Hair Prp', iconSource: HAIR_PRP_ICON },
-  { id: 'fillers', label: 'Dermal\nFillers', iconSource: DERMAL_FILLERS_ICON },
+  { id: 'laser', label: 'Laser\nTreatment', icon: 'flash-outline' },
+  { id: 'hair', label: 'Hair Prp', icon: 'leaf-outline' },
+  { id: 'fillers', label: 'Dermal\nFillers', icon: 'water-outline' },
   { id: 'facelift', label: 'Facelift', icon: 'person-outline' },
   { id: 'plastic', label: 'Plastic\nSurgery', icon: 'body-outline' },
   { id: 'skincare', label: 'Skin\nCare', icon: 'flower-outline' },
@@ -76,8 +74,8 @@ function PatientTreatmentCard({ item, onPress }) {
           position: 'absolute',
           left: s(7),
           top: s(7),
-          width: '100%',
-          height: '100%',
+          right: s(7),
+          bottom: s(7),
           borderRadius: s(13),
         }}
       />
@@ -110,45 +108,26 @@ function PatientTreatmentCard({ item, onPress }) {
           zIndex: 2,
         }}
       >
-        {Platform.OS === 'web' ? (
-          <View
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.82)',
-              minHeight: s(70),
-              paddingVertical: s(10),
-              paddingHorizontal: s(10),
-            }}
-          >
-            <View style={{ flex: 1, marginRight: s(6) }}>
-              <Text style={{ color: BRAND, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
-                {item.description}
-              </Text>
-            </View>
+        <View
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.92)',
+            minHeight: s(70),
+            paddingVertical: s(10),
+            paddingHorizontal: s(10),
+          }}
+        >
+          <View style={{ flex: 1, marginRight: s(6) }}>
+            <Text style={{ color: BRAND, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text
+              style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }}
+              numberOfLines={2}
+            >
+              {item.description}
+            </Text>
           </View>
-        ) : (
-          <BlurView
-            intensity={38}
-            tint="light"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.82)',
-              minHeight: s(70),
-              paddingVertical: s(10),
-              paddingHorizontal: s(10),
-            }}
-          >
-            <View style={{ flex: 1, marginRight: s(6) }}>
-              <Text style={{ color: BRAND, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
-                {item.description}
-              </Text>
-            </View>
-          </BlurView>
-        )}
+        </View>
       </View>
     </Pressable>
   );
@@ -186,7 +165,7 @@ export default function PatientPlaceholderScreen() {
               <IconCircleButton
                 name="chevron-back"
                 accessibilityLabel="Go back"
-                onPress={() => navigation.goBack()}
+                onPress={() => navigateToTab(navigation, TAB_ROUTES.Home)}
               />
             ) : null}
             <View style={{ flex: 1, marginLeft: route.name === 'TreatmentsTab' ? s(12) : 0 }}>
@@ -253,16 +232,7 @@ export default function PatientPlaceholderScreen() {
                         marginRight: s(12),
                       }}
                     >
-                      {item.iconSource ? (
-                        <Image
-                          source={item.iconSource}
-                          tintColor={tone}
-                          contentFit="contain"
-                          style={{ width: s(32), height: s(32) }}
-                        />
-                      ) : (
-                        <Ionicons name={item.icon} size={s(25)} color={tone} />
-                      )}
+                      <Ionicons name={item.icon} size={s(25)} color={tone} />
                       <Text
                         style={{
                           marginTop: s(4),
@@ -306,7 +276,7 @@ export default function PatientPlaceholderScreen() {
                     key={item.id}
                     item={item}
                     onPress={() =>
-                      navigation.push('PatientTreatmentDetail', {
+                      navigateRoot(navigation, 'PatientTreatmentDetail', {
                         treatment: item,
                       })
                     }

@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from '../components/BottomTabBar';
 import PatientHomeScreen from '../screens/PatientHomeScreen';
 import PatientAppointmentsScreen from '../screens/PatientAppointmentsScreen';
-import PatientPlaceholderScreen from '../screens/PatientPlaceholderScreen';
+import PatientTreatmentsScreen from '../screens/PatientTreatmentsScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
 import ProfileTabScreen from '../screens/ProfileTabScreen';
 import { colors } from '../theme';
@@ -28,7 +28,7 @@ export default function PatientTabs() {
       />
       <Tab.Screen
         name="TreatmentsTab"
-        component={PatientPlaceholderScreen}
+        component={PatientTreatmentsScreen}
         options={{ title: 'Treatments' }}
       />
       <Tab.Screen

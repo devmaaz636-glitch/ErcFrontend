@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -126,37 +125,22 @@ function TreatmentCard({ item, onView }) {
           borderColor: 'rgba(255,255,255,0.72)',
         }}
       >
-        {Platform.OS === 'web' ? (
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.82)', paddingVertical: s(10), paddingHorizontal: s(10) }}>
-            <View style={{ flex: 1, marginRight: s(6) }}>
-              <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
-                {item.description || `${item.category || item.department || 'Treatment'} care by our specialists.`}
-              </Text>
-            </View>
+        <View
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.92)',
+            paddingVertical: s(10),
+            paddingHorizontal: s(10),
+          }}
+        >
+          <View style={{ flex: 1, marginRight: s(6) }}>
+            <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={{ color: colors.desc, fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
+              {item.description || `${item.category || item.department || 'Treatment'} care by our specialists.`}
+            </Text>
           </View>
-        ) : (
-          <BlurView
-            intensity={38}
-            tint="light"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.82)',
-              paddingVertical: s(10),
-              paddingHorizontal: s(10),
-            }}
-          >
-            <View style={{ flex: 1, marginRight: s(6) }}>
-              <Text style={{ color: colors.brand, fontSize: fs(13), fontWeight: '700' }} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={{ color: '#666666', fontSize: fs(10), lineHeight: fs(13), marginTop: s(4) }} numberOfLines={2}>
-                {item.description || `${item.category || item.department || 'Treatment'} care by our specialists.`}
-              </Text>
-            </View>
-          </BlurView>
-        )}
+        </View>
       </View>
     </Pressable>
   );

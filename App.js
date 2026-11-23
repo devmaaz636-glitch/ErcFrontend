@@ -67,13 +67,21 @@ ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  useFonts({
+  const [fontsLoaded] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
     Manrope_800ExtraBold,
   });
+
+  // Custom Manrope faces must load before paint — otherwise Android/iOS text
+  // with fontFamily set can render blank (web still falls back).
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.brand }} />
+    );
+  }
 
   return (
     <SafeAreaProvider>
