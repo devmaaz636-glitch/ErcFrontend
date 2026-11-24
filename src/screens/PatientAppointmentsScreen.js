@@ -17,6 +17,7 @@ import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 import { usePatientData } from '../context/PatientDataContext';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 
 const TAB_EASE = Easing.out(Easing.quad);
 const TAB_DURATION = 160;
@@ -36,156 +37,6 @@ const STATUS_STYLE = {
   completed: { label: 'Completed', color: colors.success, bg: colors.successBg },
   canceled: { label: 'Canceled', color: colors.danger, bg: colors.dangerBg },
 };
-
-const SEED = [
-  // Upcoming — 3
-  {
-    id: 'pa-u1',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1021',
-    treatment: 'Laser Treatment',
-    department: 'Laser',
-    duration: '30 Min',
-    basePrice: 600,
-    time: '09:30 AM',
-    dateLabel: 'Oct 10, 2026',
-    doctorName: 'Dr Muhammad',
-    doctorSpecialty: 'Laser Specialist',
-    status: 'upcoming',
-    tab: 'upcoming',
-  },
-  {
-    id: 'pa-u2',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1022',
-    treatment: 'Hair Prp',
-    department: 'Hair',
-    duration: '45 Min',
-    basePrice: 800,
-    time: '11:00 AM',
-    dateLabel: 'Oct 12, 2026',
-    doctorName: 'Dr Sara',
-    doctorSpecialty: 'Hair Specialist',
-    status: 'upcoming',
-    tab: 'upcoming',
-  },
-  {
-    id: 'pa-u3',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1023',
-    treatment: 'Dermal Fillers',
-    department: 'Injectables',
-    duration: '40 Min',
-    basePrice: 900,
-    time: '02:00 PM',
-    dateLabel: 'Oct 14, 2026',
-    doctorName: 'Dr Ahmed',
-    doctorSpecialty: 'Injectables Specialist',
-    status: 'upcoming',
-    tab: 'upcoming',
-  },
-  // Today — 3 (matches Figma: 1 Upcoming + 2 Pending)
-  {
-    id: 'pa-t1',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1024',
-    treatment: 'Laser Treatment',
-    department: 'Laser',
-    duration: '30 Min',
-    basePrice: 600,
-    time: '09:30 AM',
-    dateLabel: 'Oct 06, 2026',
-    doctorName: 'Dr Muhammad',
-    doctorSpecialty: 'Laser Specialist',
-    status: 'upcoming',
-    tab: 'today',
-  },
-  {
-    id: 'pa-t2',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1025',
-    treatment: 'Laser Treatment',
-    department: 'Laser',
-    duration: '30 Min',
-    basePrice: 600,
-    time: '09:30 AM',
-    dateLabel: 'Oct 06, 2026',
-    doctorName: 'Dr Muhammad',
-    doctorSpecialty: 'Laser Specialist',
-    status: 'pending',
-    tab: 'today',
-  },
-  {
-    id: 'pa-t3',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1026',
-    treatment: 'Laser Treatment',
-    department: 'Laser',
-    duration: '30 Min',
-    basePrice: 600,
-    time: '09:30 AM',
-    dateLabel: 'Oct 06, 2026',
-    doctorName: 'Dr Muhammad',
-    doctorSpecialty: 'Laser Specialist',
-    status: 'pending',
-    tab: 'today',
-  },
-  // Past — 3
-  {
-    id: 'pa-p1',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1011',
-    treatment: 'Hair Prp',
-    department: 'Hair',
-    duration: '45 Min',
-    basePrice: 800,
-    time: '10:00 AM',
-    dateLabel: 'Sep 20, 2026',
-    doctorName: 'Dr Sara',
-    doctorSpecialty: 'Hair Specialist',
-    status: 'completed',
-    tab: 'past',
-  },
-  {
-    id: 'pa-p2',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1012',
-    treatment: 'Laser Treatment',
-    department: 'Laser',
-    duration: '30 Min',
-    basePrice: 600,
-    time: '01:30 PM',
-    dateLabel: 'Sep 18, 2026',
-    doctorName: 'Dr Muhammad',
-    doctorSpecialty: 'Laser Specialist',
-    status: 'completed',
-    tab: 'past',
-  },
-  {
-    id: 'pa-p3',
-    name: 'Maaz',
-    patientId: 'ERC-1024',
-    requestId: 'APT-1013',
-    treatment: 'Facelift',
-    department: 'Plastic Surgery',
-    duration: '90 Min',
-    basePrice: 2500,
-    time: '04:00 PM',
-    dateLabel: 'Sep 12, 2026',
-    doctorName: 'Dr Noor',
-    doctorSpecialty: 'Plastic Surgery Specialist',
-    status: 'canceled',
-    tab: 'past',
-  },
-];
 
 function SearchBar({ value, onChangeText }) {
   return (
@@ -414,7 +265,8 @@ export default function PatientAppointmentsScreen() {
   const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const [tab, setTab] = useState('today');
   const [search, setSearch] = useState('');
-  const { appointments } = usePatientData();
+  const { appointments, refreshSilent } = usePatientData();
+  useRefreshOnFocus(refreshSilent);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

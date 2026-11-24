@@ -1,4 +1,4 @@
-import { TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius } from '../../theme';
 import { scale as s, fs } from '../../utils/responsive';
@@ -10,6 +10,8 @@ export default function SearchField({
   placeholder = 'Search Here',
   showButton = true,
   iconPosition = 'right',
+  onSubmit,
+  returnKeyType = 'search',
 }) {
   return (
     <View
@@ -29,6 +31,8 @@ export default function SearchField({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmit}
+        returnKeyType={returnKeyType}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedBrand}
         style={{
@@ -41,7 +45,10 @@ export default function SearchField({
         }}
       />
       {showButton && iconPosition !== 'left' ? (
-        <View
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Search"
+          onPress={onSubmit}
           style={{
             width: s(34),
             height: s(34),
@@ -52,7 +59,7 @@ export default function SearchField({
           }}
         >
           <Ionicons name="search" size={s(16)} color={colors.brand} />
-        </View>
+        </Pressable>
       ) : null}
       {!showButton && iconPosition !== 'left' ? (
         <Ionicons name="search" size={s(18)} color={colors.desc} />

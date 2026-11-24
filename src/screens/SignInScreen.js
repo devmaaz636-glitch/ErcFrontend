@@ -20,8 +20,8 @@ import { authErrorMessage, signInWithEmail } from '../lib/auth';
 import { warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
-import { getUserProfile, saveSignedInUser } from '../lib/users';
-import { hasCompletePatientProfile, isPatientProfileComplete } from '../lib/patientOnboarding';
+import { saveSignedInUser } from '../lib/users';
+import { useSession } from '../context/SessionContext';
 import { colors } from '../theme';
 
 function isClinicManagerRole(value) {
@@ -139,6 +139,7 @@ function Field({
 
 export default function SignInScreen() {
   const navigation = useNavigation();
+  const { updateUser } = useSession();
   const route = useRoute();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -236,23 +237,14 @@ export default function SignInScreen() {
           isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
 
         if (patientAccount) {
+          // Same path as admin/manager: verify region first, then tabs/profile.
           saveSignedInUser(auth.currentUser, { role: 'patient' }).catch(() => {});
-          const uid = auth.currentUser.uid;
-          const [localProfileComplete, remoteProfile] = await Promise.all([
-            isPatientProfileComplete(uid),
-            getUserProfile(uid).catch(() => null),
-          ]);
-          const profileComplete =
-            localProfileComplete || hasCompletePatientProfile(remoteProfile);
-          if (profileComplete) {
-            navigation.replace('PatientTabs');
-          } else {
-            navigation.replace('CreateProfile', {
-              email: auth.currentUser.email || nextEmail,
-              fullName: auth.currentUser.displayName || '',
-              uid,
-            });
-          }
+          updateUser({
+            role: 'patient',
+            name: auth.currentUser.displayName || '',
+            email: auth.currentUser.email || nextEmail,
+          }).catch(() => {});
+          navigation.replace('RegionVerify');
           return;
         }
 

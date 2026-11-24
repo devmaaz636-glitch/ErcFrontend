@@ -22,6 +22,9 @@ export async function fetchPatientPortal() {
     return {
       treatments: catalog.data?.treatments || [],
       doctors: catalog.data?.doctors || [],
+      categories: catalog.data?.categories || [],
+      banners: catalog.data?.banners || [],
+      popular: catalog.data?.popular || [],
       appointments: appointments.data?.items || [],
       documents: documents.data?.items || [],
     };

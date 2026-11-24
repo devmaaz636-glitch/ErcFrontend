@@ -2,23 +2,23 @@ import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg';
 import Text from '../components/AppText';
-import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
+import { IconCircleButton, NotificationBellButton, SearchField, SkeletonBone } from '../components/ui';
 import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 import { usePatientData } from '../context/PatientDataContext';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 
 const TREATMENT_IMAGE = require('../../assets/treamntpateint.png');
 const BRAND = colors.brand;
 const TITLE_COLOR = '#C19A7B';
 const DESC_COLOR = '#555555';
-const BLURB = 'Discover exclusive offers and experience the beauty you deserve.';
 const CARD_PAD = 6;
 const CARD_RADIUS = 26;
 const MEDIA_RADIUS = 20;
@@ -102,36 +102,19 @@ function FaceliftIcon({ color, size = 22 }) {
   );
 }
 
-const CATEGORIES = [
+const CATEGORY_FALLBACK = [
   { id: 'laser', label: 'Laser\nTreatments', Icon: LaserIcon, section: 'Laser Treatments' },
   { id: 'hair', label: 'Hair Prp', Icon: HairIcon, section: 'Hair PRP' },
   { id: 'fillers', label: 'Dermal\nFillers', Icon: FillersIcon, section: 'Dermal Fillers' },
   { id: 'facelift', label: 'Facelift', Icon: FaceliftIcon, section: 'Facelift' },
 ];
 
-const TREATMENTS = [
-  { id: 'laser-1', category: 'laser', title: 'Laser Treatment', description: BLURB },
-  { id: 'laser-2', category: 'laser', title: 'Laser Treatment', description: BLURB },
-  { id: 'laser-3', category: 'laser', title: 'Laser Treatment', description: BLURB },
-  { id: 'laser-4', category: 'laser', title: 'Laser Treatment', description: BLURB },
-  { id: 'hair-1', category: 'hair', title: 'Hair PRP', description: 'Restore healthier, fuller-looking hair with specialist care.' },
-  { id: 'hair-2', category: 'hair', title: 'Hair PRP', description: 'Restore healthier, fuller-looking hair with specialist care.' },
-  { id: 'hair-3', category: 'hair', title: 'Hair PRP', description: 'Restore healthier, fuller-looking hair with specialist care.' },
-  { id: 'hair-4', category: 'hair', title: 'Hair PRP', description: 'Restore healthier, fuller-looking hair with specialist care.' },
-  { id: 'fillers-1', category: 'fillers', title: 'Dermal Fillers', description: 'Refresh your natural features with tailored treatments.' },
-  { id: 'fillers-2', category: 'fillers', title: 'Dermal Fillers', description: 'Refresh your natural features with tailored treatments.' },
-  { id: 'fillers-3', category: 'fillers', title: 'Dermal Fillers', description: 'Refresh your natural features with tailored treatments.' },
-  { id: 'fillers-4', category: 'fillers', title: 'Dermal Fillers', description: 'Refresh your natural features with tailored treatments.' },
-  { id: 'facelift-1', category: 'facelift', title: 'Facelift', description: 'Explore advanced rejuvenation treatments for lasting confidence.' },
-  { id: 'facelift-2', category: 'facelift', title: 'Facelift', description: 'Explore advanced rejuvenation treatments for lasting confidence.' },
-  { id: 'facelift-3', category: 'facelift', title: 'Facelift', description: 'Explore advanced rejuvenation treatments for lasting confidence.' },
-  { id: 'facelift-4', category: 'facelift', title: 'Facelift', description: 'Explore advanced rejuvenation treatments for lasting confidence.' },
-];
-
-const POPULAR = [
-  { id: 'popular-1', category: 'laser', title: 'Laser Treatment', description: BLURB },
-  { id: 'popular-2', category: 'laser', title: 'Laser Treatment', description: BLURB },
-];
+const CATEGORY_ICONS = {
+  laser: LaserIcon,
+  hair: HairIcon,
+  fillers: FillersIcon,
+  facelift: FaceliftIcon,
+};
 
 function CategoryChip({ item, active, size, onPress }) {
   const tone = active ? colors.white : BRAND;
@@ -351,7 +334,15 @@ export default function PatientTreatmentsScreen() {
   const { width: windowW } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('laser');
-  const { treatments: portalTreatments, loading, error, refresh } = usePatientData();
+  const {
+    treatments: portalTreatments,
+    categories: portalCategories,
+    popular: portalPopular,
+    initialLoading,
+    error,
+    refreshSilent,
+  } = usePatientData();
+  useRefreshOnFocus(refreshSilent);
 
   const pageWidth = Math.min(Math.max(windowW - s(32), 280), spacing.maxContent);
   const gap = s(4);
@@ -360,31 +351,47 @@ export default function PatientTreatmentsScreen() {
   const cardHeight = Math.round(cardWidth * 1.58);
   const categoryGap = s(10);
   const categorySize = Math.floor((pageWidth - categoryGap * 3) / 4);
-  const activeMeta = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
+
+  const categories = useMemo(() => {
+    if (!portalCategories?.length) return CATEGORY_FALLBACK;
+    return portalCategories.map((item) => ({
+      ...item,
+      Icon: CATEGORY_ICONS[item.id] || LaserIcon,
+      section: item.section || item.label?.replace('\n', ' ') || item.id,
+    }));
+  }, [portalCategories]);
+
+  const activeMeta = categories.find((c) => c.id === category) || categories[0];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const source = portalTreatments;
-    return source.filter((item) => {
+    return portalTreatments.filter((item) => {
       if (item.category !== category) return false;
       if (!q) return true;
       return `${item.title || item.name} ${item.description}`.toLowerCase().includes(q);
     });
   }, [category, portalTreatments, search]);
 
-  const popular = useMemo(() => {
+  const popularAll = useMemo(() => {
+    const source = portalPopular?.length ? portalPopular : portalTreatments;
     const q = search.trim().toLowerCase();
-    const source = portalTreatments.slice(0, 2);
     if (!q) return source;
     return source.filter((item) =>
       `${item.title || item.name} ${item.description}`.toLowerCase().includes(q)
     );
-  }, [portalTreatments, search]);
+  }, [portalPopular, portalTreatments, search]);
+
+  // Preview row: the two most-booked treatments.
+  const popular = useMemo(() => popularAll.slice(0, 2), [popularAll]);
 
   function openTreatment(item) {
     navigateRoot(navigation, 'PatientTreatmentDetail', {
       treatment: { ...item, title: item.title || item.name },
     });
+  }
+
+  function openAllPopular() {
+    navigateRoot(navigation, 'PatientSearch', { mode: 'popular' });
   }
 
   return (
@@ -428,8 +435,14 @@ export default function PatientTreatmentsScreen() {
               value={search}
               onChangeText={setSearch}
               placeholder="Search Here..."
-              showButton={false}
-              iconPosition="left"
+              showButton
+              iconPosition="right"
+              onSubmit={() =>
+                navigateRoot(navigation, 'PatientSearch', {
+                  query: search.trim(),
+                  ts: Date.now(),
+                })
+              }
             />
           </View>
 
@@ -453,7 +466,7 @@ export default function PatientTreatmentsScreen() {
               marginBottom: s(20),
             }}
           >
-            {CATEGORIES.map((item) => (
+            {categories.map((item) => (
               <CategoryChip
                 key={item.id}
                 item={item}
@@ -476,15 +489,22 @@ export default function PatientTreatmentsScreen() {
             {activeMeta.section}
           </Text>
 
-          {loading && !portalTreatments.length ? (
-            <View style={{ paddingVertical: s(28), alignItems: 'center' }}>
-              <ActivityIndicator color={BRAND} />
-              <Text style={{ marginTop: s(10), fontSize: fs(12), color: colors.desc }}>Loading treatments…</Text>
+          {initialLoading ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              {[0, 1, 2, 3].map((key) => (
+                <SkeletonBone
+                  key={key}
+                  height={cardHeight}
+                  width={cardWidth}
+                  radius={s(16)}
+                  style={{ marginBottom: s(12) }}
+                />
+              ))}
             </View>
           ) : error && !portalTreatments.length ? (
             <View style={{ backgroundColor: colors.card, borderRadius: s(14), padding: s(16), marginBottom: s(12) }}>
               <Text style={{ fontSize: fs(12), color: colors.desc }}>{error}</Text>
-              <Pressable onPress={() => refresh().catch(() => {})} style={{ marginTop: s(10) }}>
+              <Pressable onPress={() => refreshSilent().catch(() => {})} style={{ marginTop: s(10) }}>
                 <Text style={{ color: BRAND, fontSize: fs(12), fontWeight: '700' }}>Try again</Text>
               </Pressable>
             </View>
@@ -528,7 +548,7 @@ export default function PatientTreatmentsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="See all popular treatments"
-              onPress={() => setCategory('laser')}
+              onPress={openAllPopular}
               hitSlop={8}
             >
               <Text

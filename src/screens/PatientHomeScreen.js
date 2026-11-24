@@ -20,6 +20,8 @@ import PatientRegionPickerModal from '../components/PatientRegionPickerModal';
 import UserAvatar from '../components/UserAvatar';
 import { NotificationBellButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
+import { usePatientData } from '../context/PatientDataContext';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { patientBranchMeta } from '../lib/patientClinic';
 import { colors, shadows, spacing } from '../theme';
@@ -142,7 +144,7 @@ const CATEGORIES = [
   { key: 'weight', label: 'Weight\nLoss', iconName: 'fitness-outline' },
 ];
 
-function SearchBar({ value, onChangeText }) {
+function SearchBar({ value, onChangeText, onSubmit }) {
   return (
     <View
       style={{
@@ -152,7 +154,8 @@ function SearchBar({ value, onChangeText }) {
         backgroundColor: colors.card,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: s(16),
+        paddingLeft: s(16),
+        paddingRight: s(8),
         ...shadows.card,
       }}
     >
@@ -160,6 +163,8 @@ function SearchBar({ value, onChangeText }) {
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmit}
+        returnKeyType="search"
         placeholder="Search Here..."
         placeholderTextColor={colors.muted}
         allowFontScaling={false}
@@ -171,6 +176,22 @@ function SearchBar({ value, onChangeText }) {
           paddingVertical: 0,
         }}
       />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open search"
+        onPress={onSubmit}
+        hitSlop={8}
+        style={{
+          width: s(36),
+          height: s(36),
+          borderRadius: s(18),
+          backgroundColor: colors.fieldAlt,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name="arrow-forward" size={s(16)} color={colors.brand} />
+      </Pressable>
     </View>
   );
 }
@@ -340,19 +361,33 @@ function CategoryItem({ item, active, onPress, size = s(78) }) {
   );
 }
 
+const BANNER_IMAGES = {
+  patientcard: PROMO_CARD,
+};
+
+const CATEGORY_ICONS = {
+  laser: LaserTreatmentIcon,
+  prp: HairPrpIcon,
+  hair: HairPrpIcon,
+  fillers: DermalFillersIcon,
+  facelift: FaceliftIcon,
+};
+
 export default function PatientHomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
   const { width } = useWindowDimensions();
   const { user, setRegion, updateUser } = useSession();
+  const { banners, categories: portalCategories, refreshSilent } = usePatientData();
+  useRefreshOnFocus(refreshSilent);
   const [search, setSearch] = useState('');
   const [promoIndex, setPromoIndex] = useState(0);
   const [category, setCategory] = useState('laser');
   const [regionOpen, setRegionOpen] = useState(false);
   const carouselRef = useRef(null);
   const contentWidth = Math.min(width - spacing.screen * 2, spacing.maxContent);
-  const displayName = user?.name?.trim() || 'Mona Lisa';
+  const displayName = user?.name?.trim() || 'Patient';
   const branchMeta = useMemo(
     () => patientBranchMeta(user),
     [user?.region, user?.branchId, user?.clinicId, user?.city, user?.branchName]
@@ -372,9 +407,25 @@ export default function PatientHomeScreen() {
     });
   }
 
-  const slides = useMemo(() => PROMO_SLIDES, []);
+  const slides = useMemo(() => {
+    if (!banners?.length) return PROMO_SLIDES;
+    return banners.map((item) => ({
+      ...item,
+      image: BANNER_IMAGES[item.imageKey] || PROMO_CARD,
+    }));
+  }, [banners]);
+
+  const homeCategories = useMemo(() => {
+    if (!portalCategories?.length) return CATEGORIES;
+    return portalCategories.map((item) => ({
+      key: item.id,
+      label: item.label,
+      Icon: CATEGORY_ICONS[item.id] || LaserTreatmentIcon,
+    }));
+  }, [portalCategories]);
 
   useEffect(() => {
+    if (slides.length < 2) return undefined;
     const timer = setInterval(() => {
       setPromoIndex((prev) => {
         const next = (prev + 1) % slides.length;
@@ -457,7 +508,16 @@ export default function PatientHomeScreen() {
             <NotificationBellButton color={colors.brand} />
           </View>
 
-          <SearchBar value={search} onChangeText={setSearch} />
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            onSubmit={() =>
+              navigateRoot(navigation, 'PatientSearch', {
+                query: search.trim(),
+                ts: Date.now(),
+              })
+            }
+          />
 
           {/* Promo carousel — auto-slide every 4s */}
           <ScrollView
@@ -545,12 +605,15 @@ export default function PatientHomeScreen() {
               paddingRight: s(18),
             }}
           >
-            {CATEGORIES.map((item) => (
+            {homeCategories.map((item) => (
               <View key={item.key} style={{ marginRight: s(10) }}>
                 <CategoryItem
                   item={item}
                   active={category === item.key}
-                  onPress={() => setCategory(item.key)}
+                  onPress={() => {
+                    setCategory(item.key);
+                    navigateToTab(navigation, TAB_ROUTES.Treatments);
+                  }}
                   size={s(78)}
                 />
               </View>

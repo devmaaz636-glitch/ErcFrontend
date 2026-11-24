@@ -414,7 +414,9 @@ export default function VerifyRegionScreen() {
                 ? `Your clinic manager account is locked to ${region.short || region.name}. Data from other regions is not available.`
                 : switchMode
                   ? 'Choose another region for your regional admin workspace.'
-                  : 'Please verify that the region assigned to your account is correct before continuing.'}
+                  : isPatientRole(user?.role)
+                    ? 'Please verify your clinic region before continuing to your patient home.'
+                    : 'Please verify that the region assigned to your account is correct before continuing.'}
             </Text>
 
             <Text allowFontScaling={false} className="mb-2 mt-6 text-[15px] font-semibold text-ink">

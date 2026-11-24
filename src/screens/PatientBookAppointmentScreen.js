@@ -396,6 +396,10 @@ export default function PatientBookAppointmentScreen() {
       setFormError('Please choose an available treatment and doctor.');
       return;
     }
+    if (selectedDate < dateKey(new Date())) {
+      setFormError('Please choose today or a future date.');
+      return;
+    }
     setSubmitting(true);
     try {
       const item = await book({
@@ -493,8 +497,34 @@ export default function PatientBookAppointmentScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Previous month"
                 hitSlop={8}
-                onPress={() => setCursor(new Date(year, month - 1, 1))}
-                style={{ width: s(32), height: s(32), alignItems: 'center', justifyContent: 'center', marginLeft: 'auto', marginRight: s(8) }}
+                disabled={
+                  year < new Date().getFullYear() ||
+                  (year === new Date().getFullYear() && month <= new Date().getMonth())
+                }
+                onPress={() => {
+                  const now = new Date();
+                  const prev = new Date(year, month - 1, 1);
+                  if (
+                    prev.getFullYear() < now.getFullYear() ||
+                    (prev.getFullYear() === now.getFullYear() && prev.getMonth() < now.getMonth())
+                  ) {
+                    return;
+                  }
+                  setCursor(prev);
+                }}
+                style={{
+                  width: s(32),
+                  height: s(32),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginLeft: 'auto',
+                  marginRight: s(8),
+                  opacity:
+                    year < new Date().getFullYear() ||
+                    (year === new Date().getFullYear() && month <= new Date().getMonth())
+                      ? 0.35
+                      : 1,
+                }}
               >
                 <Ionicons name="chevron-back" size={s(15)} color="#777777" />
               </Pressable>
@@ -543,13 +573,15 @@ export default function PatientBookAppointmentScreen() {
                 const active = selectedDate === key;
                 const weekday = cellDate.getDay();
                 const doctorWorking = doctor?.workingDays?.includes(weekday);
+                const past = !day.otherMonth && key < dateKey(new Date());
+                const disabled = day.muted || !doctorWorking || past;
                 return (
                   <Pressable
                     key={key}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: active, disabled: !doctorWorking }}
-                    disabled={day.muted || !doctorWorking}
-                    onPress={() => !day.muted && doctorWorking && setSelectedDate(key)}
+                    accessibilityState={{ selected: active, disabled }}
+                    disabled={disabled}
+                    onPress={() => !disabled && setSelectedDate(key)}
                     style={{
                       width: `${100 / 7}%`,
                       height: s(46),
@@ -559,12 +591,17 @@ export default function PatientBookAppointmentScreen() {
                       borderBottomWidth: index >= cells.length - 7 ? 0 : 1,
                       borderColor: '#E5E7EB',
                       backgroundColor: active ? BRAND : day.muted ? '#FFFFFF' : 'transparent',
+                      opacity: past && !day.muted ? 0.38 : 1,
                     }}
                   >
                     <Text
                       allowFontScaling={false}
                       style={{
-                        color: active ? '#FFFFFF' : day.muted ? '#B7B7B7' : '#171717',
+                        color: active
+                          ? '#FFFFFF'
+                          : day.muted || past
+                            ? '#B7B7B7'
+                            : '#171717',
                         fontSize: fs(12),
                         fontWeight: '500',
                       }}

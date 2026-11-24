@@ -46,6 +46,7 @@ import AppointmentRequestDetailScreen from './src/screens/AppointmentRequestDeta
 import TreatmentDetailScreen from './src/screens/TreatmentDetailScreen';
 import PatientTreatmentDetailScreen from './src/screens/PatientTreatmentDetailScreen';
 import PatientBookAppointmentScreen from './src/screens/PatientBookAppointmentScreen';
+import PatientSearchScreen from './src/screens/PatientSearchScreen';
 import AddTreatmentScreen from './src/screens/AddTreatmentScreen';
 import AboutDetailsScreen from './src/screens/AboutDetailsScreen';
 import ManagerPatientsScreen from './src/screens/ManagerPatientsScreen';
@@ -256,6 +257,11 @@ export default function App() {
                   name="PatientBookAppointment"
                   component={PatientBookAppointmentScreen}
                   options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="PatientSearch"
+                  component={PatientSearchScreen}
+                  options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen
                   name="AddTreatment"
