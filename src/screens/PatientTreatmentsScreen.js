@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
-import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,13 +12,14 @@ import { IconCircleButton, NotificationBellButton, SearchField } from '../compon
 import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+import { usePatientData } from '../context/PatientDataContext';
 
 const TREATMENT_IMAGE = require('../../assets/treamntpateint.png');
 const BRAND = colors.brand;
 const TITLE_COLOR = '#C19A7B';
 const DESC_COLOR = '#555555';
 const BLURB = 'Discover exclusive offers and experience the beauty you deserve.';
-const CARD_PAD = 8;
+const CARD_PAD = 6;
 const CARD_RADIUS = 26;
 const MEDIA_RADIUS = 20;
 const CARD_SHADOW = {
@@ -249,12 +250,12 @@ function TreatmentCard({ item, width, height, onPress }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`View ${item.title}`}
+      accessibilityLabel={`View ${item.title || item.name}`}
       onPress={onPress}
       style={({ pressed }) => ({
         width,
         height,
-        marginBottom: s(14),
+        marginBottom: 0,
         borderRadius: s(CARD_RADIUS),
         backgroundColor: '#FFFFFF',
         padding: CARD_PAD,
@@ -313,7 +314,7 @@ function TreatmentCard({ item, width, height, onPress }) {
             bottom: s(10),
           }}
         >
-          <GlassCaption title={item.title} description={item.description} />
+          <GlassCaption title={item.title || item.name} description={item.description} />
         </View>
       </View>
     </Pressable>
@@ -327,6 +328,7 @@ function TreatmentGrid({ items, cardWidth, cardHeight, onOpen }) {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
+        rowGap: s(14),
       }}
     >
       {items.map((item) => (
@@ -349,34 +351,40 @@ export default function PatientTreatmentsScreen() {
   const { width: windowW } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('laser');
+  const { treatments: portalTreatments, loading, error, refresh } = usePatientData();
 
-  const pageWidth = Math.min(Math.max(windowW - spacing.screen * 2, 280), spacing.maxContent);
-  const gap = s(12);
-  const cardWidth = Math.floor((pageWidth - gap) / 2);
-  const cardHeight = Math.round(cardWidth * 1.52);
+  const pageWidth = Math.min(Math.max(windowW - s(32), 280), spacing.maxContent);
+  const gap = s(4);
+  // Preserve equal columns all the way to the right content edge on mobile.
+  const cardWidth = (pageWidth - gap) / 2;
+  const cardHeight = Math.round(cardWidth * 1.58);
   const categoryGap = s(10);
   const categorySize = Math.floor((pageWidth - categoryGap * 3) / 4);
   const activeMeta = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return TREATMENTS.filter((item) => {
+    const source = portalTreatments;
+    return source.filter((item) => {
       if (item.category !== category) return false;
       if (!q) return true;
-      return `${item.title} ${item.description}`.toLowerCase().includes(q);
+      return `${item.title || item.name} ${item.description}`.toLowerCase().includes(q);
     });
-  }, [category, search]);
+  }, [category, portalTreatments, search]);
 
   const popular = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return POPULAR;
-    return POPULAR.filter((item) =>
-      `${item.title} ${item.description}`.toLowerCase().includes(q)
+    const source = portalTreatments.slice(0, 2);
+    if (!q) return source;
+    return source.filter((item) =>
+      `${item.title || item.name} ${item.description}`.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [portalTreatments, search]);
 
   function openTreatment(item) {
-    navigateRoot(navigation, 'PatientTreatmentDetail', { treatment: item });
+    navigateRoot(navigation, 'PatientTreatmentDetail', {
+      treatment: { ...item, title: item.title || item.name },
+    });
   }
 
   return (
@@ -388,7 +396,7 @@ export default function PatientTreatmentsScreen() {
         contentContainerStyle={{
           paddingTop: topPad,
           paddingBottom: insets.bottom + spacing.tabBarClearance,
-          paddingHorizontal: spacing.screen,
+          paddingHorizontal: s(12),
         }}
       >
         <View style={{ width: pageWidth, alignSelf: 'center' }}>
@@ -468,7 +476,19 @@ export default function PatientTreatmentsScreen() {
             {activeMeta.section}
           </Text>
 
-          {filtered.length ? (
+          {loading && !portalTreatments.length ? (
+            <View style={{ paddingVertical: s(28), alignItems: 'center' }}>
+              <ActivityIndicator color={BRAND} />
+              <Text style={{ marginTop: s(10), fontSize: fs(12), color: colors.desc }}>Loading treatments…</Text>
+            </View>
+          ) : error && !portalTreatments.length ? (
+            <View style={{ backgroundColor: colors.card, borderRadius: s(14), padding: s(16), marginBottom: s(12) }}>
+              <Text style={{ fontSize: fs(12), color: colors.desc }}>{error}</Text>
+              <Pressable onPress={() => refresh().catch(() => {})} style={{ marginTop: s(10) }}>
+                <Text style={{ color: BRAND, fontSize: fs(12), fontWeight: '700' }}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : filtered.length ? (
             <TreatmentGrid
               items={filtered}
               cardWidth={cardWidth}

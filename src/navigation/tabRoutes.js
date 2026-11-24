@@ -2,6 +2,7 @@
 export const TAB_ROUTES = {
   Home: 'Home',
   Appointments: 'AppointmentsTab',
+  Treatments: 'TreatmentsTab',
   Branches: 'BranchesTab',
   Profile: 'ProfileTab',
 };
@@ -26,6 +27,20 @@ export function navigateToTab(navigation, screen = TAB_ROUTES.Home) {
     return;
   }
 
+  // Detail screens live on the root stack. Return to the same role shell,
+  // rather than accidentally navigating a patient into the admin tabs.
+  if (routeNames.includes('PatientTabs')) {
+    navigation.navigate('PatientTabs', { screen });
+    return;
+  }
+  if (routeNames.includes('DoctorTabs')) {
+    navigation.navigate('DoctorTabs', { screen });
+    return;
+  }
+  if (routeNames.includes('ManagerTabs')) {
+    navigation.navigate('ManagerTabs', { screen });
+    return;
+  }
   navigation.navigate('MainTabs', { screen });
 }
 

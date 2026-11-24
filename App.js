@@ -13,6 +13,7 @@ import * as ExpoSplashScreen from 'expo-splash-screen';
 import { SessionProvider } from './src/context/SessionContext';
 import { ClinicDataProvider } from './src/context/ClinicDataContext';
 import { NotificationsProvider } from './src/context/NotificationsContext';
+import { PatientDataProvider } from './src/context/PatientDataContext';
 import { colors } from './src/theme';
 import MainTabs from './src/navigation/MainTabs';
 import ManagerTabs from './src/navigation/ManagerTabs';
@@ -61,7 +62,6 @@ LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
   'AsyncStorage has been extracted',
 ]);
-
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Stack = createNativeStackNavigator();
@@ -88,6 +88,7 @@ export default function App() {
       <SessionProvider>
         <ClinicDataProvider>
           <NotificationsProvider>
+          <PatientDataProvider>
           <View
             className="flex-1 bg-splash"
             style={{ flex: 1, backgroundColor: colors.brand }}
@@ -294,6 +295,7 @@ export default function App() {
               </Stack.Navigator>
             </NavigationContainer>
           </View>
+          </PatientDataProvider>
           </NotificationsProvider>
         </ClinicDataProvider>
       </SessionProvider>

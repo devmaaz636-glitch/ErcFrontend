@@ -11,6 +11,7 @@ import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+import { usePatientData } from '../context/PatientDataContext';
 
 const BRAND = '#BF824F';
 const TREATMENTS = ['Laser Treatment', 'Hair PRP', 'Dermal Fillers', 'Facelift'];
@@ -276,14 +277,16 @@ export default function PatientBookAppointmentScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useSession();
+  const { treatments, doctors, book, fetchAvailability } = usePatientData();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const topPad = useTopPadding(20);
-  const passedTreatment = route.params?.treatment || '';
+  const passedItem = typeof route.params?.treatment === 'object' ? route.params.treatment : null;
+  const passedTreatment = passedItem?.title || passedItem?.name || route.params?.treatment || '';
   const passedDepartment = route.params?.department || '';
 
   const [treatment, setTreatment] = useState(passedTreatment);
-  const [department, setDepartment] = useState(passedDepartment);
+  const [department, setDepartment] = useState(passedItem?.department || passedDepartment);
   const domainDoctors = useMemo(() => {
     const normalized = normalizeDepartment(passedDepartment || passedTreatment);
     if (!normalized) return DOCTORS;
@@ -291,7 +294,12 @@ export default function PatientBookAppointmentScreen() {
       item.departments.some((value) => normalizeDepartment(value) === normalizeDepartment(normalized))
     );
   }, [passedDepartment, passedTreatment]);
-  const [doctor, setDoctor] = useState(() => domainDoctors[0] || null);
+  const availableDoctors = useMemo(() => {
+    const target = normalizeDepartment(department || passedItem?.department || passedTreatment);
+    const source = doctors.length ? doctors : domainDoctors;
+    return source.filter((item) => normalizeDepartment(item.department) === target);
+  }, [department, doctors, domainDoctors, passedItem?.department, passedTreatment]);
+  const [doctor, setDoctor] = useState(() => availableDoctors[0] || domainDoctors[0] || null);
   const [treatmentPicker, setTreatmentPicker] = useState(false);
   const [departmentPicker, setDepartmentPicker] = useState(false);
   const [doctorPicker, setDoctorPicker] = useState(false);
@@ -306,21 +314,31 @@ export default function PatientBookAppointmentScreen() {
   const [document, setDocument] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [createdAppointment, setCreatedAppointment] = useState(null);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const cells = useMemo(() => buildCells(year, month), [year, month]);
-  const slots = useMemo(() => buildSlots(doctor), [doctor]);
+  const [slots, setSlots] = useState([]);
 
   useEffect(() => {
-    setSelectedTime(slots[0] || '');
-  }, [doctor?.id, slots]);
+    let active = true;
+    if (!doctor?.id || !selectedDate) {
+      setSlots([]);
+      return () => { active = false; };
+    }
+    fetchAvailability(doctor.id, selectedDate)
+      .then((next) => { if (active) { setSlots(next); setSelectedTime(next[0] || ''); } })
+      .catch((error) => { if (active) { setSlots([]); setSelectedTime(''); setFormError(error.message); } });
+    return () => { active = false; };
+  }, [doctor?.id, fetchAvailability, selectedDate]);
 
   useEffect(() => {
-    if (!domainDoctors.length) return;
-    if (doctor && domainDoctors.some((item) => item.id === doctor.id)) return;
-    setDoctor(domainDoctors[0]);
-  }, [domainDoctors, doctor]);
+    if (!availableDoctors.length) return;
+    if (doctor && availableDoctors.some((item) => item.id === doctor.id)) return;
+    setDoctor(availableDoctors[0]);
+  }, [availableDoctors, doctor]);
 
   useEffect(() => {
     if (!doctor) return;
@@ -360,7 +378,7 @@ export default function PatientBookAppointmentScreen() {
     if (!result.canceled) setDocument(result.assets?.[0] || null);
   }
 
-  function confirmAppointment() {
+  async function confirmAppointment() {
     if (!fullName.trim()) {
       setFormError('Full name is required.');
       return;
@@ -373,37 +391,34 @@ export default function PatientBookAppointmentScreen() {
       setFormError('Phone number is required.');
       return;
     }
-    setFormError('');
-    setConfirmed(true);
+    const selectedTreatment = treatments.find((item) => item.name === treatment || item.title === treatment);
+    if (!selectedTreatment || !doctor?.id) {
+      setFormError('Please choose an available treatment and doctor.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const item = await book({
+        treatmentId: selectedTreatment.id,
+        doctorId: doctor.id,
+        date: selectedDate,
+        time: selectedTime,
+        notes,
+        document: document ? { name: document.name, mimeType: document.mimeType } : null,
+      });
+      setCreatedAppointment(item);
+      setFormError('');
+      setConfirmed(true);
+    } catch (error) {
+      setFormError(error.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function finishBooking() {
     setConfirmed(false);
-    navigation.navigate({
-      name: 'PatientTabs',
-      params: {
-        screen: 'AppointmentsTab',
-        params: {
-          newlyBooked: {
-            id: `pa-new-${Date.now()}`,
-            name: fullName.trim(),
-            patientId: user?.patientId || 'ERC-1024',
-            requestId: `APT-${String(Date.now()).slice(-4)}`,
-            treatment,
-            department,
-            duration: '30 Min',
-            basePrice: 500,
-            time: selectedTime,
-            dateLabel: selectedDate,
-            doctorName: 'Dr Ahmed Khan',
-            doctorSpecialty: `${department} Specialist`,
-            status: 'pending',
-            tab: 'today',
-          },
-        },
-      },
-      merge: true,
-    });
+    navigation.reset({ index: 0, routes: [{ name: 'PatientTabs', params: { screen: 'AppointmentsTab' } }] });
   }
 
   return (
@@ -707,6 +722,7 @@ export default function PatientBookAppointmentScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={confirmAppointment}
+              disabled={submitting}
               style={{
                 height: s(52),
                 borderRadius: 999,
@@ -717,7 +733,7 @@ export default function PatientBookAppointmentScreen() {
               }}
             >
               <Text allowFontScaling={false} style={{ color: '#FFFFFF', fontSize: fs(14), fontWeight: '700' }}>
-                Confirm
+                {submitting ? 'Submitting…' : 'Confirm'}
               </Text>
             </Pressable>
           </View>
@@ -781,11 +797,11 @@ export default function PatientBookAppointmentScreen() {
 
             <View style={{ paddingHorizontal: s(18), paddingTop: s(14) }}>
               {[
-                ['Treatment', treatment],
-                ['Date', formatSelectedDate(selectedDate)],
-                ['Time', selectedTime],
+                ['Treatment', createdAppointment?.treatment || treatment],
+                ['Date', createdAppointment?.dateLabel || formatSelectedDate(selectedDate)],
+                ['Time', createdAppointment?.time || selectedTime],
                 ['Doctor', doctor?.name || '—'],
-                ['Branch', 'Dubai'],
+                ['Branch', user?.branchName || user?.city || 'Selected clinic'],
               ].map(([label, value], index) => (
                 <View
                   key={label}
@@ -831,7 +847,7 @@ export default function PatientBookAppointmentScreen() {
               }}
             >
               <Text allowFontScaling={false} style={{ color: '#FFFFFF', fontSize: fs(12), fontWeight: '700' }}>
-                Back To Treatments
+                View My Appointments
               </Text>
             </Pressable>
           </View>
@@ -841,10 +857,12 @@ export default function PatientBookAppointmentScreen() {
       <PickerModal
         visible={treatmentPicker}
         title="Select Treatment"
-        options={TREATMENTS}
+        options={treatments.map((item) => item.name)}
         selected={treatment}
         onSelect={(option) => {
           setTreatment(option);
+          const next = treatments.find((item) => item.name === option);
+          setDepartment(next?.department || '');
           setTreatmentPicker(false);
         }}
         onClose={() => setTreatmentPicker(false)}
@@ -863,10 +881,10 @@ export default function PatientBookAppointmentScreen() {
       <PickerModal
         visible={doctorPicker}
         title="Select Doctor"
-        options={domainDoctors.map((option) => option.name)}
+        options={availableDoctors.map((option) => option.name)}
         selected={doctor?.name || ''}
         onSelect={(option) => {
-          const next = domainDoctors.find((item) => item.name === option) || null;
+          const next = availableDoctors.find((item) => item.name === option) || null;
           setDoctor(next);
           setDoctorPicker(false);
         }}

@@ -155,6 +155,10 @@ export default function PatientTreatmentDetailScreen() {
     item.description ||
     'Laser Treatment Uses Advanced Laser Technology To Improve Skin Textures, Reduce Unwanted Hair, Treat Pigmentation, And Address Various Skin Concerns. It Offers A Safe, Effective, And Precise Solution Tailored To Your Skin Type And Needs.';
   const doctors = doctorsForTreatment(item);
+  const department = item.department || doctors[0]?.department || 'Laser';
+  const price = Number(item.price ?? item.basePrice ?? 500);
+  const sessions = Number(item.sessions ?? 1);
+  const duration = item.duration || `${item.durationMin || 30} min`;
 
   function openDoctor(doctor) {
     navigateRoot(navigation, 'DoctorDetail', {
@@ -170,8 +174,7 @@ export default function PatientTreatmentDetailScreen() {
 
   function bookNow() {
     navigateRoot(navigation, 'PatientBookAppointment', {
-      treatment: title,
-      department: doctors[0]?.department || 'Laser',
+      treatment: { ...item, title, department },
     });
   }
 
@@ -222,7 +225,7 @@ export default function PatientTreatmentDetailScreen() {
                 {title}
               </Text>
               <Text allowFontScaling={false} style={{ marginTop: s(4), color: '#777777', fontSize: fs(9) }}>
-                Laser Department
+                {department} Department
               </Text>
             </View>
             <View
@@ -278,10 +281,10 @@ export default function PatientTreatmentDetailScreen() {
               marginTop: s(12),
             }}
           >
-            <InfoTile icon="cash-outline" value="AED 500" label="Price Per Session" />
-            <InfoTile icon="time-outline" value="30 min" label="Duration" />
-            <InfoTile icon="people-outline" value="12" label="Sessions" />
-            <InfoTile icon="business-outline" value="Laser" label="Department" />
+            <InfoTile icon="cash-outline" value={`AED ${price}`} label="Price Per Session" />
+            <InfoTile icon="time-outline" value={duration} label="Duration" />
+            <InfoTile icon="people-outline" value={String(sessions)} label="Sessions" />
+            <InfoTile icon="business-outline" value={department} label="Department" />
           </View>
 
           <Text

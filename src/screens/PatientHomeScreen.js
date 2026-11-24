@@ -13,12 +13,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle, Ellipse, Path, Line } from 'react-native-svg';
 import Text from '../components/AppText';
 import PatientRegionPickerModal from '../components/PatientRegionPickerModal';
 import UserAvatar from '../components/UserAvatar';
 import { NotificationBellButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
+import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { patientBranchMeta } from '../lib/patientClinic';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
@@ -293,10 +295,9 @@ function FrostedTreatmentPanel({ children }) {
   return <View style={panelStyle}>{children}</View>;
 }
 
-function CategoryItem({ item, active, onPress }) {
+function CategoryItem({ item, active, onPress, size = s(78) }) {
   const tone = active ? '#FFFFFF' : CARD_BG;
   const Icon = item.Icon;
-  const size = s(62);
 
   return (
     <Pressable
@@ -313,12 +314,13 @@ function CategoryItem({ item, active, onPress }) {
         paddingHorizontal: s(6),
         paddingTop: s(7),
         paddingBottom: s(6),
+        ...shadows.card,
       }}
     >
       {item.iconName ? (
-        <Ionicons name={item.iconName} size={s(30)} color={tone} />
+        <Ionicons name={item.iconName} size={s(22)} color={tone} />
       ) : (
-        <Icon color={tone} size={s(30)} />
+        <Icon color={tone} size={s(22)} />
       )}
       <Text
         allowFontScaling={false}
@@ -339,6 +341,7 @@ function CategoryItem({ item, active, onPress }) {
 }
 
 export default function PatientHomeScreen() {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
   const { width } = useWindowDimensions();
@@ -520,7 +523,12 @@ export default function PatientHomeScreen() {
             <Text style={{ fontSize: fs(15), fontWeight: '700', color: colors.ink }}>
               Popular Treatments
             </Text>
-            <Pressable accessibilityRole="button" hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View all treatments"
+              hitSlop={8}
+              onPress={() => navigateToTab(navigation, TAB_ROUTES.Treatments)}
+            >
               <Text style={{ fontSize: fs(12), fontWeight: '600', color: CARD_BG }}>See All</Text>
             </Pressable>
           </View>
@@ -528,7 +536,7 @@ export default function PatientHomeScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            snapToInterval={s(80)}
+            snapToInterval={s(88)}
             decelerationRate="fast"
             overScrollMode="never"
             contentContainerStyle={{
@@ -538,18 +546,32 @@ export default function PatientHomeScreen() {
             }}
           >
             {CATEGORIES.map((item) => (
-              <View key={item.key} style={{ marginRight: s(18) }}>
+              <View key={item.key} style={{ marginRight: s(10) }}>
                 <CategoryItem
                   item={item}
                   active={category === item.key}
                   onPress={() => setCategory(item.key)}
+                  size={s(78)}
                 />
               </View>
             ))}
           </ScrollView>
 
           {/* Featured treatment — frosted glass content panel */}
-          <View
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View Laser Treatment details"
+            onPress={() =>
+              navigateRoot(navigation, 'PatientTreatmentDetail', {
+                treatment: {
+                  id: 'laser',
+                  title: 'Laser Treatment',
+                  name: 'Laser Treatment',
+                  description: 'Discover exclusive offers and experience the beauty you deserve.',
+                  category: 'Laser',
+                },
+              })
+            }
             style={{
               marginTop: s(18),
               padding: s(8),
@@ -621,7 +643,7 @@ export default function PatientHomeScreen() {
                 />
               </View>
             </FrostedTreatmentPanel>
-          </View>
+          </Pressable>
 
           {/* Follow Up Reminder */}
           <View
@@ -635,7 +657,12 @@ export default function PatientHomeScreen() {
             <Text style={{ fontSize: fs(15), fontWeight: '700', color: colors.ink }}>
               Follow Up Reminder
             </Text>
-            <Pressable accessibilityRole="button" hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View all appointments"
+              hitSlop={8}
+              onPress={() => navigateToTab(navigation, TAB_ROUTES.Appointments)}
+            >
               <Text style={{ fontSize: fs(12), fontWeight: '600', color: CARD_BG }}>See All</Text>
             </Pressable>
           </View>
@@ -687,7 +714,24 @@ export default function PatientHomeScreen() {
             <PrimaryButton
               label="Check Now"
               size="sm"
-              onPress={() => {}}
+              onPress={() =>
+                navigateRoot(navigation, 'PatientAppointmentDetail', {
+                  appointment: {
+                    id: 'follow-up-laser',
+                    requestId: 'APT-1024',
+                    treatment: 'Laser Hair Removal',
+                    department: 'Laser',
+                    duration: '30 Min',
+                    basePrice: 600,
+                    time: '02:30 PM',
+                    dateLabel: 'Oct 06, 2026',
+                    doctorName: 'Sarah Ahmed',
+                    doctorSpecialty: 'Laser Specialist',
+                    status: 'upcoming',
+                    documentName: 'Patient Issue.Pdf',
+                  },
+                })
+              }
               style={{ marginTop: s(12), width: '100%' }}
             />
           </View>

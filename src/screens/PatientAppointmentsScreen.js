@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -16,6 +16,7 @@ import { IconCircleButton, NotificationBellButton, PrimaryButton } from '../comp
 import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+import { usePatientData } from '../context/PatientDataContext';
 
 const TAB_EASE = Easing.out(Easing.quad);
 const TAB_DURATION = 160;
@@ -366,9 +367,9 @@ function AppointmentCard({ item, onView }) {
           }}
         />
         <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
-          <Text style={{ fontSize: fs(14), fontWeight: '700', color: colors.ink }}>{item.name}</Text>
+          <Text style={{ fontSize: fs(14), fontWeight: '700', color: colors.ink }}>{item.patientName || item.name || 'My appointment'}</Text>
           <Text style={{ marginTop: 3, fontSize: fs(11), color: colors.desc }}>
-            Patient ID: {item.patientId}
+            Request ID: {item.requestId || item.patientId || 'Pending'}
           </Text>
         </View>
         <StatusChip status={item.status} />
@@ -407,32 +408,27 @@ function AppointmentCard({ item, onView }) {
 
 export default function PatientAppointmentsScreen() {
   const navigation = useNavigation();
-  const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
   const { width: windowW } = useWindowDimensions();
   const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const [tab, setTab] = useState('today');
   const [search, setSearch] = useState('');
-  const [appointments, setAppointments] = useState(SEED);
-
-  useEffect(() => {
-    const newlyBooked = route.params?.newlyBooked;
-    if (!newlyBooked?.id) return;
-    setAppointments((prev) => [newlyBooked, ...prev.filter((item) => item.id !== newlyBooked.id)]);
-    setTab('today');
-    navigation.setParams?.({ newlyBooked: undefined });
-  }, [navigation, route.params?.newlyBooked]);
+  const { appointments } = usePatientData();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return appointments.filter((item) => {
-      if (item.tab !== tab) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      const itemDate = item.date || '';
+      if (tab === 'today' && itemDate !== today) return false;
+      if (tab === 'upcoming' && !(itemDate > today && item.status !== 'canceled')) return false;
+      if (tab === 'past' && !(itemDate < today || item.status === 'canceled' || item.status === 'completed')) return false;
       if (!q) return true;
       return (
-        item.name.toLowerCase().includes(q) ||
-        item.patientId.toLowerCase().includes(q) ||
-        item.treatment.toLowerCase().includes(q)
+        String(item.patientName || item.name || '').toLowerCase().includes(q) ||
+        String(item.requestId || item.patientId || '').toLowerCase().includes(q) ||
+        String(item.treatment || '').toLowerCase().includes(q)
       );
     });
   }, [appointments, search, tab]);

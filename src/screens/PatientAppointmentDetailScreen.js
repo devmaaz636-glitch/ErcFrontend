@@ -1,14 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
 import ClinicMapPreview from '../components/ClinicMapPreview';
+import BookingCalendar, { toDateKey } from '../components/BookingCalendar';
 import { IconCircleButton, PrimaryButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
+import { navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes';
 import {
   clinicMapsUrl,
   getPatientClinic,
@@ -16,6 +18,7 @@ import {
 } from '../lib/patientClinic';
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+import { usePatientData } from '../context/PatientDataContext';
 
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
@@ -58,6 +61,41 @@ function formatTimeLabel(time = '09:30 AM') {
   return String(time)
     .replace(/\s*AM$/i, ' Am')
     .replace(/\s*PM$/i, ' Pm');
+}
+
+function formatDateLabel(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function timeToMinutes(value) {
+  const match = String(value).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hours = Number(match[1]) % 12;
+  if (String(match[3]).toUpperCase() === 'PM') hours += 12;
+  return hours * 60 + Number(match[2]);
+}
+
+function formatSlotTime(total) {
+  let hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  hours %= 12;
+  if (!hours) hours = 12;
+  return `${hours}:${String(minutes).padStart(2, '0')} ${suffix}`;
+}
+
+function buildRescheduleSlots() {
+  const slots = [];
+  for (let start = 9 * 60; start + 60 <= 17 * 60; start += 60) {
+    slots.push(`${formatSlotTime(start)} - ${formatSlotTime(start + 60)}`);
+  }
+  return slots;
 }
 
 function SectionTitle({ title }) {
@@ -149,13 +187,15 @@ export default function PatientAppointmentDetailScreen() {
   const { width: windowW } = useWindowDimensions();
   const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const { user } = useSession();
+  const { changeAppointment, fetchAvailability } = usePatientData();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
   const [preferredDay, setPreferredDay] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
   const [reason, setReason] = useState('');
+  const [rescheduleError, setRescheduleError] = useState('');
 
-  const appointment = route.params?.appointment || {};
+  const [appointment, setAppointment] = useState(route.params?.appointment || {});
   // Clinic + map follow the signed-in patient's region/branch (same UI, region data only).
   const clinic = useMemo(
     () =>
@@ -194,6 +234,19 @@ export default function PatientAppointmentDetailScreen() {
   const end = appointment.endTime || endTimeFromStart(start, appointment.durationMinutes || 60);
   const timeRange = appointment.timeRange || `${formatTimeLabel(start)} - ${formatTimeLabel(end)}`;
   const documentName = appointment.documentName || 'Patient Issue.Pdf';
+  const [rescheduleSlots, setRescheduleSlots] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    if (!preferredDay || !appointment.doctorId) {
+      setRescheduleSlots([]);
+      return () => { active = false; };
+    }
+    fetchAvailability(appointment.doctorId, preferredDay)
+      .then((slots) => { if (active) setRescheduleSlots(slots); })
+      .catch((error) => { if (active) setRescheduleError(error.message); });
+    return () => { active = false; };
+  }, [appointment.doctorId, fetchAvailability, preferredDay]);
 
   const openClinicMap = () => {
     const url = clinicMapsUrl(clinic);
@@ -465,12 +518,33 @@ export default function PatientAppointmentDetailScreen() {
           {/* Actions */}
           <PrimaryButton
             label="Cancel"
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              Alert.alert('Cancel appointment', 'Are you sure you want to cancel this appointment?', [
+                { text: 'Keep appointment', style: 'cancel' },
+                {
+                  text: 'Cancel appointment', style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const item = await changeAppointment(appointment.id, { action: 'cancel' });
+                      setAppointment(item);
+                    } catch (error) {
+                      Alert.alert('Could not cancel', error.message);
+                    }
+                  },
+                },
+              ]);
+            }}
             style={{ marginTop: s(22), width: '100%' }}
           />
           <Pressable
             accessibilityRole="button"
-            onPress={() => setRescheduleOpen(true)}
+            onPress={() => {
+              setPreferredDay('');
+              setPreferredTime('');
+              setReason('');
+              setRescheduleError('');
+              setRescheduleOpen(true);
+            }}
             style={{
               marginTop: s(12),
               height: s(48),
@@ -507,6 +581,7 @@ export default function PatientAppointmentDetailScreen() {
             style={{
               width: '100%',
               maxWidth: 360,
+              maxHeight: '92%',
               borderRadius: s(18),
               backgroundColor: '#FFFFFF',
               padding: s(18),
@@ -525,86 +600,142 @@ export default function PatientAppointmentDetailScreen() {
                 <Ionicons name="close" size={s(18)} color={colors.muted} />
               </Pressable>
             </View>
-
-            <Text style={{ fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
-              Select Time And Day
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setPreferredDay(preferredDay || 'May 18, 2026')}
-              style={{
-                height: s(46),
-                borderRadius: s(12),
-                borderWidth: 1,
-                borderColor: '#EFEAE5',
-                paddingHorizontal: s(14),
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginBottom: s(10),
-              }}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: s(2) }}
             >
-              <Text style={{ flex: 1, fontSize: fs(11), color: preferredDay ? colors.ink : colors.muted }}>
-                {preferredDay || 'Select Day'}
+              <Text style={{ fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
+                Select Day
               </Text>
-              <Ionicons name="chevron-down" size={s(16)} color={colors.muted} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setPreferredTime(preferredTime || '09:30 AM - 10:30 AM')}
-              style={{
-                height: s(46),
-                borderRadius: s(12),
-                borderWidth: 1,
-                borderColor: '#EFEAE5',
-                paddingHorizontal: s(14),
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ flex: 1, fontSize: fs(11), color: preferredTime ? colors.ink : colors.muted }}>
-                {preferredTime || 'Select Time'}
+              <BookingCalendar
+                title=""
+                compact
+                selectedDate={preferredDay}
+                minDate={toDateKey(new Date())}
+                onSelect={(value) => {
+                  const selected = new Date(`${value}T00:00:00`);
+                  if (selected.getDay() === 0) {
+                    setPreferredDay('');
+                    setPreferredTime('');
+                    setRescheduleError('This doctor is unavailable on Sunday.');
+                    return;
+                  }
+                  setPreferredDay(value);
+                  setPreferredTime('');
+                  setRescheduleError('');
+                }}
+              />
+
+              <Text style={{ marginTop: s(14), fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
+                Select Time
               </Text>
-              <Ionicons name="chevron-down" size={s(16)} color={colors.muted} />
-            </Pressable>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                {rescheduleSlots.map((slot) => {
+                  const active = preferredTime === slot;
+                  return (
+                    <Pressable
+                      key={slot}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active, disabled: !preferredDay }}
+                      disabled={!preferredDay}
+                      onPress={() => {
+                        setPreferredTime(slot);
+                        setRescheduleError('');
+                      }}
+                      style={{
+                        width: '48%',
+                        height: s(50),
+                        borderRadius: s(10),
+                        borderWidth: 1,
+                        borderColor: active ? BRAND : '#EFEAE5',
+                        backgroundColor: active ? BRAND : '#FFFFFF',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: s(8),
+                        opacity: preferredDay ? 1 : 0.45,
+                      }}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        numberOfLines={2}
+                        style={{ color: active ? '#FFFFFF' : colors.ink, fontSize: fs(9), fontWeight: '700', textAlign: 'center' }}
+                      >
+                        {slot}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-            <Text style={{ marginTop: s(14), fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
-              Write Here
-            </Text>
-            <TextInput
-              value={reason}
-              onChangeText={setReason}
-              placeholder=""
-              multiline
-              textAlignVertical="top"
-              style={{
-                height: s(112),
-                borderRadius: s(12),
-                borderWidth: 1,
-                borderColor: '#EFEAE5',
-                paddingHorizontal: s(12),
-                paddingVertical: s(10),
-                fontSize: fs(11),
-                color: colors.ink,
-              }}
-            />
+              <Text style={{ marginTop: s(6), fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(8) }}>
+                Reason For Reschedule
+              </Text>
+              <TextInput
+                value={reason}
+                onChangeText={setReason}
+                placeholder="Write your reason"
+                placeholderTextColor={colors.muted}
+                multiline
+                textAlignVertical="top"
+                style={{
+                  height: s(82),
+                  borderRadius: s(12),
+                  borderWidth: 1,
+                  borderColor: '#EFEAE5',
+                  paddingHorizontal: s(12),
+                  paddingVertical: s(10),
+                  fontSize: fs(11),
+                  color: colors.ink,
+                }}
+              />
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setRescheduleOpen(false);
-                setRescheduleSuccess(true);
-              }}
-              style={{
-                height: s(48),
-                borderRadius: 999,
-                backgroundColor: BRAND,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: s(18),
-              }}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: fs(13), fontWeight: '700' }}>Confirm</Text>
-            </Pressable>
+              {rescheduleError ? (
+                <Text style={{ color: colors.danger, fontSize: fs(10), textAlign: 'center', marginTop: s(8) }}>
+                  {rescheduleError}
+                </Text>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={async () => {
+                  if (!preferredDay) {
+                    setRescheduleError('Please select a reschedule date.');
+                    return;
+                  }
+                  if (!preferredTime) {
+                    setRescheduleError('Please select an available time.');
+                    return;
+                  }
+                  if (!reason.trim()) {
+                    setRescheduleError('Please write a reason for rescheduling.');
+                    return;
+                  }
+                  const start = preferredTime.split(' - ')[0];
+                  try {
+                    const item = await changeAppointment(appointment.id, {
+                      action: 'reschedule', date: preferredDay, time: start, reason,
+                    });
+                    setAppointment(item);
+                    setRescheduleOpen(false);
+                    setRescheduleError('');
+                    setRescheduleSuccess(true);
+                  } catch (error) {
+                    setRescheduleError(error.message);
+                  }
+                }}
+                style={{
+                  height: s(48),
+                  borderRadius: 999,
+                  backgroundColor: BRAND,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: s(14),
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: fs(13), fontWeight: '700' }}>Confirm</Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -669,7 +800,10 @@ export default function PatientAppointmentDetailScreen() {
             </Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setRescheduleSuccess(false)}
+              onPress={() => {
+                setRescheduleSuccess(false);
+                navigateToTab(navigation, TAB_ROUTES.Appointments);
+              }}
               style={{
                 height: s(48),
                 borderRadius: 999,
