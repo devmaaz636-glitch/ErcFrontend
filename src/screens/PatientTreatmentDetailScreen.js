@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton } from '../components/ui';
 import { treatmentDoctorImage } from '../lib/doctorMedia';
+import { usePatientData } from '../context/PatientDataContext';
 import { navigateRoot } from '../navigation/tabRoutes';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
@@ -14,26 +15,13 @@ import { fs, scale as s, useTopPadding } from '../utils/responsive';
 const HERO_IMAGE = require('../../assets/treatmentdetail.png');
 const BRAND = '#BF824F';
 
-const DEFAULT_DOCTORS = [
-  { id: 'ahmed-khan-1', name: 'Dr. Ahmed Khan', specialty: 'Laser Treatment', department: 'Laser' },
-  { id: 'sarah-malik-1', name: 'Dr. Sarah Malik', specialty: 'Laser Treatment', department: 'Laser' },
-];
-
-function doctorsForTreatment(item) {
-  const text = `${item.title || ''} ${item.name || ''} ${item.category || ''} ${item.department || ''}`.toLowerCase();
-  const isHair = text.includes('hair') || text.includes('prp');
-  const isInjectables = text.includes('fill') || text.includes('inject');
-  const isPlastic = text.includes('face') || text.includes('plastic');
-  if (isHair) {
-    return [{ id: 'yusuf-alharbi', name: 'Dr. Yusuf Alharbi', specialty: 'Hair Specialist', department: 'Hair' }];
-  }
-  if (isInjectables) {
-    return [{ id: 'maya-quinn', name: 'Dr. Maya Quinn', specialty: 'Injectables Specialist', department: 'Injectables' }];
-  }
-  if (isPlastic) {
-    return [{ id: 'hana-farouk', name: 'Dr. Hana Farouk', specialty: 'Plastic Surgeon', department: 'Plastic Surgery' }];
-  }
-  return DEFAULT_DOCTORS;
+function normalizeDepartment(value) {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('laser')) return 'Laser';
+  if (text.includes('hair') || text.includes('prp')) return 'Hair';
+  if (text.includes('fill') || text.includes('inject')) return 'Injectables';
+  if (text.includes('face') || text.includes('plastic')) return 'Plastic Surgery';
+  return String(value || '').trim();
 }
 
 function InfoTile({ icon, value, label }) {
@@ -149,16 +137,17 @@ export default function PatientTreatmentDetailScreen() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(20);
+  const { doctors: portalDoctors } = usePatientData();
   const item = route.params?.treatment || {};
-  const title = item.title || item.name || 'Laser Hair Removal';
-  const description =
-    item.description ||
-    'Laser Treatment Uses Advanced Laser Technology To Improve Skin Textures, Reduce Unwanted Hair, Treat Pigmentation, And Address Various Skin Concerns. It Offers A Safe, Effective, And Precise Solution Tailored To Your Skin Type And Needs.';
-  const doctors = doctorsForTreatment(item);
-  const department = item.department || doctors[0]?.department || 'Laser';
-  const price = Number(item.price ?? item.basePrice ?? 500);
-  const sessions = Number(item.sessions ?? 1);
-  const duration = item.duration || `${item.durationMin || 30} min`;
+  const title = item.title || item.name || 'Treatment';
+  const description = item.description || '';
+  const department = item.department || normalizeDepartment(item.category || title) || '';
+  const doctors = (portalDoctors || []).filter(
+    (doc) => normalizeDepartment(doc.department) === normalizeDepartment(department)
+  );
+  const price = Number(item.price ?? item.basePrice ?? 0);
+  const sessions = Number(item.sessions ?? 0);
+  const duration = item.duration || (item.durationMin ? `${item.durationMin} min` : '—');
 
   function openDoctor(doctor) {
     navigateRoot(navigation, 'DoctorDetail', {
@@ -301,9 +290,24 @@ export default function PatientTreatmentDetailScreen() {
               marginTop: s(12),
             }}
           >
-            {doctors.map((doctor) => (
-              <DoctorCard key={doctor.id} doctor={doctor} onPress={() => openDoctor(doctor)} />
-            ))}
+            {doctors.length ? (
+              doctors.map((doctor) => (
+                <DoctorCard key={doctor.id} doctor={doctor} onPress={() => openDoctor(doctor)} />
+              ))
+            ) : (
+              <View
+                style={{
+                  width: '100%',
+                  backgroundColor: colors.card,
+                  borderRadius: s(14),
+                  padding: s(14),
+                }}
+              >
+                <Text style={{ fontSize: fs(12), color: colors.desc }}>
+                  No doctors listed for this treatment yet.
+                </Text>
+              </View>
+            )}
           </View>
 
           <Pressable

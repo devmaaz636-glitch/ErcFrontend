@@ -33,33 +33,6 @@ const PATIENT_AVATAR = require('../../assets/patientimage.png');
 const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
 const CARD_BG = '#BF824F';
 
-const PROMO_SLIDES = [
-  {
-    id: 'promo-1',
-    eyebrow: 'Exclusive Beauty Deals',
-    title: 'Save Up To 40%',
-    body: 'Discover exclusive offers and experience the beauty you deserve.',
-    cta: 'Book Now',
-    image: PROMO_CARD,
-  },
-  {
-    id: 'promo-2',
-    eyebrow: 'New Season Offers',
-    title: 'Glow With Confidence',
-    body: 'Book premium skincare treatments with specialists at your clinic.',
-    cta: 'Book Now',
-    image: PROMO_CARD,
-  },
-  {
-    id: 'promo-3',
-    eyebrow: 'Member Privileges',
-    title: 'Priority Booking',
-    body: 'Reserve preferred slots faster and manage follow-ups in one place.',
-    cta: 'Book Now',
-    image: PROMO_CARD,
-  },
-];
-
 function LaserTreatmentIcon({ color, size = 28 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
@@ -131,18 +104,6 @@ function FaceliftIcon({ color, size = 28 }) {
     </Svg>
   );
 }
-
-// Inline Svg icons only — asset `.svg` requires fail on iOS/Android Image.
-const CATEGORIES = [
-  { key: 'laser', label: 'Laser\nTreatment', Icon: LaserTreatmentIcon },
-  { key: 'prp', label: 'Hair Prp', Icon: HairPrpIcon },
-  { key: 'fillers', label: 'Dermal\nFillers', Icon: DermalFillersIcon },
-  { key: 'facelift', label: 'Facelift', Icon: FaceliftIcon },
-  { key: 'plastic', label: 'Plastic\nSurgery', iconName: 'body-outline' },
-  { key: 'skincare', label: 'Skin\nCare', iconName: 'flower-outline' },
-  { key: 'dental', label: 'Dental\nCare', iconName: 'medical-outline' },
-  { key: 'weight', label: 'Weight\nLoss', iconName: 'fitness-outline' },
-];
 
 function SearchBar({ value, onChangeText, onSubmit }) {
   return (
@@ -407,22 +368,24 @@ export default function PatientHomeScreen() {
     });
   }
 
-  const slides = useMemo(() => {
-    if (!banners?.length) return PROMO_SLIDES;
-    return banners.map((item) => ({
-      ...item,
-      image: BANNER_IMAGES[item.imageKey] || PROMO_CARD,
-    }));
-  }, [banners]);
+  const slides = useMemo(
+    () =>
+      (banners || []).map((item) => ({
+        ...item,
+        image: BANNER_IMAGES[item.imageKey] || PROMO_CARD,
+      })),
+    [banners]
+  );
 
-  const homeCategories = useMemo(() => {
-    if (!portalCategories?.length) return CATEGORIES;
-    return portalCategories.map((item) => ({
-      key: item.id,
-      label: item.label,
-      Icon: CATEGORY_ICONS[item.id] || LaserTreatmentIcon,
-    }));
-  }, [portalCategories]);
+  const homeCategories = useMemo(
+    () =>
+      (portalCategories || []).map((item) => ({
+        key: item.id,
+        label: item.label,
+        Icon: CATEGORY_ICONS[item.id] || LaserTreatmentIcon,
+      })),
+    [portalCategories]
+  );
 
   useEffect(() => {
     if (slides.length < 2) return undefined;
@@ -519,57 +482,64 @@ export default function PatientHomeScreen() {
             }
           />
 
-          {/* Promo carousel — auto-slide every 4s */}
-          <ScrollView
-            ref={carouselRef}
-            horizontal
-            decelerationRate="fast"
-            showsHorizontalScrollIndicator={false}
-            style={{ marginTop: s(18) }}
-            snapToInterval={contentWidth + s(12)}
-            snapToAlignment="start"
-            disableIntervalMomentum
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={(event) => {
-              const x = event.nativeEvent.contentOffset.x;
-              const next = Math.round(x / (contentWidth + s(12)));
-              setPromoIndex(Math.max(0, Math.min(next, slides.length - 1)));
-            }}
-          >
-            {slides.map((item, index) => (
-              <View
-                key={item.id}
-                style={{ width: contentWidth, marginRight: index === slides.length - 1 ? 0 : s(12) }}
+          {slides.length ? (
+            <>
+              {/* Promo carousel — from live banners API only */}
+              <ScrollView
+                ref={carouselRef}
+                horizontal
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: s(18) }}
+                snapToInterval={contentWidth + s(12)}
+                snapToAlignment="start"
+                disableIntervalMomentum
+                scrollEventThrottle={16}
+                onMomentumScrollEnd={(event) => {
+                  const x = event.nativeEvent.contentOffset.x;
+                  const next = Math.round(x / (contentWidth + s(12)));
+                  setPromoIndex(Math.max(0, Math.min(next, slides.length - 1)));
+                }}
               >
-                <PromoCard item={item} width={contentWidth} />
-              </View>
-            ))}
-          </ScrollView>
+                {slides.map((item, index) => (
+                  <View
+                    key={item.id}
+                    style={{
+                      width: contentWidth,
+                      marginRight: index === slides.length - 1 ? 0 : s(12),
+                    }}
+                  >
+                    <PromoCard item={item} width={contentWidth} />
+                  </View>
+                ))}
+              </ScrollView>
 
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: s(12),
-              gap: s(6),
-            }}
-          >
-            {slides.map((item, index) => {
-              const active = index === promoIndex;
-              return (
-                <View
-                  key={item.id}
-                  style={{
-                    width: active ? s(18) : s(7),
-                    height: s(7),
-                    borderRadius: 999,
-                    backgroundColor: active ? CARD_BG : '#E8D9C8',
-                  }}
-                />
-              );
-            })}
-          </View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginTop: s(12),
+                  gap: s(6),
+                }}
+              >
+                {slides.map((item, index) => {
+                  const active = index === promoIndex;
+                  return (
+                    <View
+                      key={item.id}
+                      style={{
+                        width: active ? s(18) : s(7),
+                        height: s(7),
+                        borderRadius: 999,
+                        backgroundColor: active ? CARD_BG : '#E8D9C8',
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
 
           {/* Popular Treatments */}
           <View

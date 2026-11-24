@@ -14,55 +14,6 @@ import { fs, scale as s, useTopPadding } from '../utils/responsive';
 import { usePatientData } from '../context/PatientDataContext';
 
 const BRAND = '#BF824F';
-const TREATMENTS = ['Laser Treatment', 'Hair PRP', 'Dermal Fillers', 'Facelift'];
-const DEPARTMENTS = ['Laser', 'Hair', 'Injectables', 'Plastic Surgery'];
-const DOCTORS = [
-  {
-    id: 'dr-ahmed-khan',
-    name: 'Dr. Ahmed Khan',
-    departments: ['Laser', 'Laser Treatments'],
-    specialty: 'Laser Specialist',
-    start: '09:00 AM',
-    end: '05:00 PM',
-    workingDays: [1, 2, 3, 4, 5, 6],
-  },
-  {
-    id: 'dr-sarah-malik',
-    name: 'Dr. Sarah Malik',
-    departments: ['Laser', 'Laser Treatments'],
-    specialty: 'Laser Specialist',
-    start: '10:00 AM',
-    end: '06:00 PM',
-    workingDays: [1, 2, 4, 5, 6],
-  },
-  {
-    id: 'dr-hana-farouk',
-    name: 'Dr. Hana Farouk',
-    departments: ['Plastic Surgery', 'Facelift'],
-    specialty: 'Plastic Surgeon',
-    start: '09:30 AM',
-    end: '04:30 PM',
-    workingDays: [1, 2, 3, 5, 6],
-  },
-  {
-    id: 'dr-maya-quinn',
-    name: 'Dr. Maya Quinn',
-    departments: ['Injectables', 'Dermal Fillers'],
-    specialty: 'Injectables Specialist',
-    start: '10:00 AM',
-    end: '06:00 PM',
-    workingDays: [1, 3, 4, 5, 6],
-  },
-  {
-    id: 'dr-yusuf-alharbi',
-    name: 'Dr. Yusuf Alharbi',
-    departments: ['Hair', 'Hair PRP'],
-    specialty: 'Hair Specialist',
-    start: '09:00 AM',
-    end: '05:00 PM',
-    workingDays: [2, 3, 4, 5, 6],
-  },
-];
 
 function normalizeDepartment(value) {
   const text = String(value || '').toLowerCase();
@@ -110,35 +61,6 @@ function formatSelectedDate(value) {
     month: '2-digit',
     year: 'numeric',
   });
-}
-
-function timeToMinutes(value) {
-  const match = String(value).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return null;
-  let hours = Number(match[1]) % 12;
-  if (String(match[3]).toUpperCase() === 'PM') hours += 12;
-  return hours * 60 + Number(match[2]);
-}
-
-function formatTime(totalMinutes) {
-  let hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const suffix = hours >= 12 ? 'PM' : 'AM';
-  hours %= 12;
-  if (hours === 0) hours = 12;
-  return `${hours}:${String(minutes).padStart(2, '0')} ${suffix}`;
-}
-
-function buildSlots(doctor) {
-  if (!doctor) return [];
-  const start = timeToMinutes(doctor.start);
-  const end = timeToMinutes(doctor.end);
-  if (start == null || end == null) return [];
-  const slots = [];
-  for (let minute = start; minute + 60 <= end; minute += 60) {
-    slots.push(`${formatTime(minute)} - ${formatTime(minute + 60)}`);
-  }
-  return slots;
 }
 
 function DetailsField({ label, value, onChangeText, placeholder, multiline = false, keyboardType = 'default' }) {
@@ -287,19 +209,18 @@ export default function PatientBookAppointmentScreen() {
 
   const [treatment, setTreatment] = useState(passedTreatment);
   const [department, setDepartment] = useState(passedItem?.department || passedDepartment);
-  const domainDoctors = useMemo(() => {
-    const normalized = normalizeDepartment(passedDepartment || passedTreatment);
-    if (!normalized) return DOCTORS;
-    return DOCTORS.filter((item) =>
-      item.departments.some((value) => normalizeDepartment(value) === normalizeDepartment(normalized))
+  const departmentOptions = useMemo(() => {
+    const set = new Set(
+      treatments.map((item) => item.department).filter(Boolean)
     );
-  }, [passedDepartment, passedTreatment]);
+    return [...set];
+  }, [treatments]);
   const availableDoctors = useMemo(() => {
     const target = normalizeDepartment(department || passedItem?.department || passedTreatment);
-    const source = doctors.length ? doctors : domainDoctors;
-    return source.filter((item) => normalizeDepartment(item.department) === target);
-  }, [department, doctors, domainDoctors, passedItem?.department, passedTreatment]);
-  const [doctor, setDoctor] = useState(() => availableDoctors[0] || domainDoctors[0] || null);
+    if (!target) return doctors;
+    return doctors.filter((item) => normalizeDepartment(item.department) === target);
+  }, [department, doctors, passedItem?.department, passedTreatment]);
+  const [doctor, setDoctor] = useState(null);
   const [treatmentPicker, setTreatmentPicker] = useState(false);
   const [departmentPicker, setDepartmentPicker] = useState(false);
   const [doctorPicker, setDoctorPicker] = useState(false);
@@ -341,7 +262,7 @@ export default function PatientBookAppointmentScreen() {
   }, [availableDoctors, doctor]);
 
   useEffect(() => {
-    if (!doctor) return;
+    if (!doctor?.workingDays?.length) return;
     const [yearValue, monthValue, dayValue] = selectedDate.split('-').map(Number);
     const weekday = new Date(yearValue, monthValue - 1, dayValue).getDay();
     if (doctor.workingDays.includes(weekday)) return;
@@ -353,7 +274,7 @@ export default function PatientBookAppointmentScreen() {
         break;
       }
     }
-  }, [doctor?.id, selectedDate]);
+  }, [doctor?.id, doctor?.workingDays, selectedDate]);
 
   function proceed() {
     if (!treatment || !department) {
@@ -907,7 +828,7 @@ export default function PatientBookAppointmentScreen() {
       <PickerModal
         visible={departmentPicker}
         title="Select Department"
-        options={DEPARTMENTS}
+        options={departmentOptions}
         selected={department}
         onSelect={(option) => {
           setDepartment(option);

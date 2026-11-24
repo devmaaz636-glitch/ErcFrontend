@@ -102,19 +102,22 @@ function FaceliftIcon({ color, size = 22 }) {
   );
 }
 
-const CATEGORY_FALLBACK = [
-  { id: 'laser', label: 'Laser\nTreatments', Icon: LaserIcon, section: 'Laser Treatments' },
-  { id: 'hair', label: 'Hair Prp', Icon: HairIcon, section: 'Hair PRP' },
-  { id: 'fillers', label: 'Dermal\nFillers', Icon: FillersIcon, section: 'Dermal Fillers' },
-  { id: 'facelift', label: 'Facelift', Icon: FaceliftIcon, section: 'Facelift' },
-];
-
 const CATEGORY_ICONS = {
   laser: LaserIcon,
   hair: HairIcon,
   fillers: FillersIcon,
   facelift: FaceliftIcon,
 };
+
+function categoryKeyFromTreatment(item) {
+  if (item?.category) return String(item.category);
+  const text = String(item?.department || item?.name || '').toLowerCase();
+  if (text.includes('laser')) return 'laser';
+  if (text.includes('hair') || text.includes('prp')) return 'hair';
+  if (text.includes('fill') || text.includes('inject')) return 'fillers';
+  if (text.includes('face') || text.includes('plastic')) return 'facelift';
+  return String(item?.department || 'other').toLowerCase();
+}
 
 function CategoryChip({ item, active, size, onPress }) {
   const tone = active ? colors.white : BRAND;
@@ -353,13 +356,27 @@ export default function PatientTreatmentsScreen() {
   const categorySize = Math.floor((pageWidth - categoryGap * 3) / 4);
 
   const categories = useMemo(() => {
-    if (!portalCategories?.length) return CATEGORY_FALLBACK;
-    return portalCategories.map((item) => ({
-      ...item,
-      Icon: CATEGORY_ICONS[item.id] || LaserIcon,
-      section: item.section || item.label?.replace('\n', ' ') || item.id,
-    }));
-  }, [portalCategories]);
+    if (portalCategories?.length) {
+      return portalCategories.map((item) => ({
+        ...item,
+        Icon: CATEGORY_ICONS[item.id] || LaserIcon,
+        section: item.section || item.label?.replace('\n', ' ') || item.id,
+      }));
+    }
+    // Derive from live treatments only — no hardcoded seed categories.
+    const seen = new Map();
+    portalTreatments.forEach((item) => {
+      const id = categoryKeyFromTreatment(item);
+      if (!id || seen.has(id)) return;
+      seen.set(id, {
+        id,
+        label: item.department || id,
+        section: item.department || id,
+        Icon: CATEGORY_ICONS[id] || LaserIcon,
+      });
+    });
+    return [...seen.values()];
+  }, [portalCategories, portalTreatments]);
 
   const activeMeta = categories.find((c) => c.id === category) || categories[0];
 
