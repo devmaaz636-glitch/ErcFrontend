@@ -56,6 +56,7 @@ export async function markPatientNeedsOnboarding(email, uid) {
   }
   if (uid) {
     await AsyncStorage.removeItem(keyFor(uid));
+    await AsyncStorage.removeItem(`${PROFILE_COMPLETE_PREFIX}${uid}`);
   }
 }
 

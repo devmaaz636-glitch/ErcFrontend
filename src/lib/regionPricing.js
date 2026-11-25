@@ -28,8 +28,23 @@ export function normalizeRegionKey(value) {
   );
 }
 
+// Filled from the backend catalog (see setRegionPricing); the values below
+// are only the offline fallback.
+const REGION_FACTORS = {};
+
+/** Replace currency / price factors with the live regions from the backend. */
+export function setRegionPricing(regions) {
+  if (!Array.isArray(regions) || !regions.length) return;
+  regions.forEach((item) => {
+    if (!item?.key) return;
+    REGION_CURRENCY[item.key] = item.currency || REGION_CURRENCY[item.key] || 'AED';
+    if (Number.isFinite(Number(item.factor))) REGION_FACTORS[item.key] = Number(item.factor);
+  });
+}
+
 export function regionPriceFactor(region) {
   const key = normalizeRegionKey(region);
+  if (Number.isFinite(REGION_FACTORS[key])) return REGION_FACTORS[key];
   if (key === 'KSA') return 1.05;
   if (key === 'Oman') return 0.1;
   if (key === 'Pakistan') return 75;

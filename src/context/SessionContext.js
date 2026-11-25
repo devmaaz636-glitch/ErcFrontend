@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { getAuthenticatedUserProfile, getUserProfile } from '../lib/users';
+import { getAuthenticatedUserProfile, getUserProfile, withTimeout } from '../lib/users';
 import { PROFILE_STORAGE_KEY } from '../lib/profileStorage';
 
 const SessionContext = createContext(null);
@@ -92,7 +92,8 @@ export function SessionProvider({ children }) {
     // Firestore/API request delay the role and therefore the entire admin UI.
     const [claimResult, remoteResult, backendResult] = await Promise.allSettled([
       firebaseUser.getIdTokenResult(false),
-      getUserProfile(firebaseUser.uid),
+      // Firestore is only a fallback source here; do not let it gate the session.
+      withTimeout(getUserProfile(firebaseUser.uid), 2500),
       getAuthenticatedUserProfile(),
     ]);
 

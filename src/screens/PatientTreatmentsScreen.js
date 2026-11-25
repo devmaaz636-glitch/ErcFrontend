@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg';
@@ -332,11 +332,12 @@ function TreatmentGrid({ items, cardWidth, cardHeight, onOpen }) {
 
 export default function PatientTreatmentsScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(24);
   const { width: windowW } = useWindowDimensions();
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('laser');
+  const [category, setCategory] = useState(route.params?.category || 'laser');
   const {
     treatments: portalTreatments,
     categories: portalCategories,
@@ -346,6 +347,12 @@ export default function PatientTreatmentsScreen() {
     refreshSilent,
   } = usePatientData();
   useRefreshOnFocus(refreshSilent);
+
+  // Home category chips open this tab on the chosen category.
+  const requestedCategory = route.params?.category;
+  useEffect(() => {
+    if (requestedCategory) setCategory(requestedCategory);
+  }, [requestedCategory]);
 
   const pageWidth = Math.min(Math.max(windowW - s(32), 280), spacing.maxContent);
   const gap = s(4);

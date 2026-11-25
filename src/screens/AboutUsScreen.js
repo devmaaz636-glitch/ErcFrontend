@@ -9,16 +9,10 @@ import Text from '../components/AppText';
 import { IconCircleButton, NotificationBellButton, SearchField } from '../components/ui';
 import { colors, radius, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+import { useSession } from '../context/SessionContext';
+import { usePatientData } from '../context/PatientDataContext';
+import { PATIENT_CLINIC_CATALOG, resolvePatientRegion } from '../lib/patientClinic';
 
-const LOCATIONS = [
-  {
-    id: 'enfield-royal-dubai',
-    name: 'Enfield Royal Clinic',
-    city: 'Dubai',
-    phone: '+971 50 XXX XXXX',
-    description: 'Discover exclusive offers and experience the beauty you deserve.',
-  },
-];
 
 function LocationCard({ location, onPress }) {
   return (
@@ -92,14 +86,30 @@ export default function AboutUsScreen() {
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(16);
   const [query, setQuery] = useState('');
+  // Each card decodes a large photo, so start with the patient's own region only.
+  const [showAll, setShowAll] = useState(false);
+  const { user } = useSession();
+  // Re-render when the live clinic list arrives from the backend.
+  const { clinics } = usePatientData();
+  const region = resolvePatientRegion(user);
 
   const locations = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return LOCATIONS;
-    return LOCATIONS.filter((location) =>
-      `${location.name} ${location.city} ${location.description}`.toLowerCase().includes(normalized)
+    // The patient's own region first, then the rest.
+    const all = PATIENT_CLINIC_CATALOG.map((clinic) => ({
+      ...clinic,
+      description: clinic.tagline || clinic.shortAddress,
+    })).sort((a, b) => Number(b.region === region) - Number(a.region === region));
+    if (!normalized) {
+      if (showAll) return all;
+      const own = all.filter((item) => item.region === region);
+      return own.length ? own : all.slice(0, 1);
+    }
+    return all.filter((location) =>
+      `${location.name} ${location.city} ${location.address} ${location.region}`.toLowerCase().includes(normalized)
     );
-  }, [query]);
+  }, [query, clinics, region, showAll]);
+  const hiddenCount = Math.max(PATIENT_CLINIC_CATALOG.length - locations.length, 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -146,10 +156,30 @@ export default function AboutUsScreen() {
               <LocationCard
                 key={location.id}
                 location={location}
-                onPress={() => navigation.navigate('AboutDetails')}
+                onPress={() => navigation.navigate('AboutDetails', { clinic: location })}
               />
             ))}
           </View>
+
+          {!query.trim() && !showAll && hiddenCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowAll(true)}
+              style={{
+                marginTop: s(16),
+                height: s(44),
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: colors.brand,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: fs(13), fontWeight: '600', color: colors.brand }}>
+                Show all locations ({hiddenCount} more)
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </ScrollView>
     </View>

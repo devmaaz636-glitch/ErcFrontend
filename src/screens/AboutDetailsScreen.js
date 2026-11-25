@@ -2,12 +2,14 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../components/AppText';
 import { IconCircleButton } from '../components/ui';
 import { colors, radius, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
+import { useSession } from '../context/SessionContext';
+import { getPatientClinic } from '../lib/patientClinic';
 
 const REASONS = [
   'Experienced medical professionals',
@@ -17,11 +19,13 @@ const REASONS = [
   'Comfortable and welcoming environment',
 ];
 
-const CONTACT_DETAILS = [
-  { id: 'address', icon: 'location-outline', title: 'Address', value: 'Dubai street 39030 Al Hsnokns' },
-  { id: 'phone', icon: 'call-outline', title: 'Phone', value: '+923318555546' },
-  { id: 'email', icon: 'mail-outline', title: 'Email', value: 'info@erc.pk' },
-];
+function contactDetails(clinic) {
+  return [
+    { id: 'address', icon: 'location-outline', title: 'Address', value: clinic?.address },
+    { id: 'phone', icon: 'call-outline', title: 'Phone', value: clinic?.phone },
+    { id: 'email', icon: 'mail-outline', title: 'Email', value: clinic?.email },
+  ].filter((item) => item.value);
+}
 
 function ReasonRow({ label, isLast }) {
   return (
@@ -93,6 +97,10 @@ export default function AboutDetailsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topPad = useTopPadding(16);
+  const route = useRoute();
+  const { user } = useSession();
+  // Opened from a clinic card; falls back to the patient's own clinic.
+  const clinic = route.params?.clinic || getPatientClinic(user);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -131,7 +139,7 @@ export default function AboutDetailsScreen() {
           />
 
           <Text style={{ marginTop: s(13), fontSize: fs(14), fontWeight: '700', color: colors.brand }}>
-            Enfield Royal Clinic
+            {clinic?.name || 'Enfield Royal Clinic'}
           </Text>
           <Text style={{ marginTop: s(8), fontSize: fs(10), color: colors.desc, lineHeight: fs(14) }}>
             At our clinic, we believe everyone deserves to feel confident, healthy, and cared for. We bring together
@@ -161,7 +169,7 @@ export default function AboutDetailsScreen() {
           </Text>
 
           <View style={{ marginTop: s(8), paddingBottom: s(8) }}>
-            {CONTACT_DETAILS.map((contact) => (
+            {contactDetails(clinic).map((contact) => (
               <ContactCard key={contact.id} {...contact} />
             ))}
           </View>

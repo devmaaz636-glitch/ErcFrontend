@@ -17,6 +17,7 @@ import { navigateRoot, navigateToTab, TAB_ROUTES } from '../navigation/tabRoutes
 import { colors, shadows, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 import { usePatientData } from '../context/PatientDataContext';
+import { useSession } from '../context/SessionContext';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 
 const TAB_EASE = Easing.out(Easing.quad);
@@ -195,7 +196,7 @@ function StatusChip({ status }) {
   );
 }
 
-function AppointmentCard({ item, onView }) {
+function AppointmentCard({ item, onView, photoUrl }) {
   return (
     <View
       style={{
@@ -208,7 +209,7 @@ function AppointmentCard({ item, onView }) {
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
         <Image
-          source={PATIENT_AVATAR}
+          source={photoUrl ? { uri: photoUrl } : PATIENT_AVATAR}
           contentFit="cover"
           style={{
             width: s(46),
@@ -265,13 +266,15 @@ export default function PatientAppointmentsScreen() {
   const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const [tab, setTab] = useState('today');
   const [search, setSearch] = useState('');
+  const { user } = useSession();
   const { appointments, refreshSilent } = usePatientData();
   useRefreshOnFocus(refreshSilent);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return appointments.filter((item) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const itemDate = item.date || '';
       if (tab === 'today' && itemDate !== today) return false;
       if (tab === 'upcoming' && !(itemDate > today && item.status !== 'canceled')) return false;
@@ -335,6 +338,7 @@ export default function PatientAppointmentsScreen() {
             ) : (
               filtered.map((item) => (
                 <AppointmentCard
+                  photoUrl={user?.photoUrl}
                   key={item.id}
                   item={item}
                   onView={(apt) =>

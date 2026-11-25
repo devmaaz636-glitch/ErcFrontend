@@ -187,7 +187,7 @@ export default function PatientAppointmentDetailScreen() {
   const { width: windowW } = useWindowDimensions();
   const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const { user } = useSession();
-  const { changeAppointment, fetchAvailability } = usePatientData();
+  const { changeAppointment, fetchAvailability, openDocument } = usePatientData();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
   const [preferredDay, setPreferredDay] = useState('');
@@ -223,17 +223,27 @@ export default function PatientAppointmentDetailScreen() {
   );
 
   const status = appointment.status || 'pending';
-  const treatment = appointment.treatment || 'Laser Treatment';
+  const treatment = appointment.treatment || 'Treatment';
   const department = appointment.department || departmentFromTreatment(treatment);
-  const duration = appointment.duration || '30 Min';
-  const requestId = appointment.requestId || `APT-${String(appointment.id || '1024').replace(/\D/g, '').padStart(4, '0') || '1024'}`;
-  const doctorName = appointment.doctorName || 'Dr Muhammad';
+  const duration = appointment.duration || '—';
+  const requestId = appointment.requestId || '—';
+  const doctorName = appointment.doctorName || 'Doctor to be assigned';
   const doctorSpecialty = appointment.doctorSpecialty || `${department} Specialist`;
-  const dateLabel = appointment.dateLabel || 'Oct 06, 2026';
-  const start = appointment.time || '02:30 PM';
+  const dateLabel = appointment.dateLabel || appointment.date || '—';
+  const start = appointment.time || '';
   const end = appointment.endTime || endTimeFromStart(start, appointment.durationMinutes || 60);
   const timeRange = appointment.timeRange || `${formatTimeLabel(start)} - ${formatTimeLabel(end)}`;
-  const documentName = appointment.documentName || 'Patient Issue.Pdf';
+  const attachedDocument = appointment.document || null;
+  const canChange = status === 'pending' || status === 'upcoming';
+
+  async function downloadDocument() {
+    if (!attachedDocument?.id) return;
+    try {
+      await openDocument(attachedDocument.id);
+    } catch (error) {
+      Alert.alert('Could not open document', error.message);
+    }
+  }
   const [rescheduleSlots, setRescheduleSlots] = useState([]);
 
   useEffect(() => {
@@ -288,7 +298,7 @@ export default function PatientAppointmentDetailScreen() {
           <Card style={{ marginTop: s(18) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Image
-                source={PATIENT_AVATAR}
+                source={user?.photoUrl ? { uri: user.photoUrl } : PATIENT_AVATAR}
                 contentFit="cover"
                 style={{
                   width: s(48),
@@ -497,68 +507,74 @@ export default function PatientAppointmentDetailScreen() {
                   flex: 1,
                   marginLeft: s(12),
                   fontSize: fs(13),
-                  fontWeight: '600',
-                  color: colors.ink,
+                  fontWeight: attachedDocument ? '600' : '400',
+                  color: attachedDocument ? colors.ink : colors.desc,
                 }}
                 numberOfLines={1}
               >
-                {documentName}
+                {attachedDocument ? attachedDocument.name : 'No document attached'}
               </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Download document"
-                hitSlop={8}
-                onPress={() => {}}
-              >
-                <Ionicons name="download-outline" size={s(20)} color={colors.ink} />
-              </Pressable>
+              {attachedDocument ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Download document"
+                  hitSlop={8}
+                  onPress={downloadDocument}
+                >
+                  <Ionicons name="download-outline" size={s(20)} color={colors.ink} />
+                </Pressable>
+              ) : null}
             </View>
           </Card>
 
-          {/* Actions */}
-          <PrimaryButton
-            label="Cancel"
-            onPress={() => {
-              Alert.alert('Cancel appointment', 'Are you sure you want to cancel this appointment?', [
-                { text: 'Keep appointment', style: 'cancel' },
-                {
-                  text: 'Cancel appointment', style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      const item = await changeAppointment(appointment.id, { action: 'cancel' });
-                      setAppointment(item);
-                    } catch (error) {
-                      Alert.alert('Could not cancel', error.message);
-                    }
-                  },
-                },
-              ]);
-            }}
-            style={{ marginTop: s(22), width: '100%' }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setPreferredDay('');
-              setPreferredTime('');
-              setReason('');
-              setRescheduleError('');
-              setRescheduleOpen(true);
-            }}
-            style={{
-              marginTop: s(12),
-              height: s(48),
-              borderRadius: 999,
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: '#E8E0D8',
-              alignItems: 'center',
-              justifyContent: 'center',
-              ...shadows.card,
-            }}
-          >
-            <Text style={{ fontSize: fs(14), fontWeight: '600', color: colors.ink }}>Reschedule</Text>
-          </Pressable>
+          {canChange ? (
+            <>
+              {/* Actions */}
+              <PrimaryButton
+                label="Cancel"
+                onPress={() => {
+                  Alert.alert('Cancel appointment', 'Are you sure you want to cancel this appointment?', [
+                    { text: 'Keep appointment', style: 'cancel' },
+                    {
+                      text: 'Cancel appointment', style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          const item = await changeAppointment(appointment.id, { action: 'cancel' });
+                          setAppointment(item);
+                        } catch (error) {
+                          Alert.alert('Could not cancel', error.message);
+                        }
+                      },
+                    },
+                  ]);
+                }}
+                style={{ marginTop: s(22), width: '100%' }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setPreferredDay('');
+                  setPreferredTime('');
+                  setReason('');
+                  setRescheduleError('');
+                  setRescheduleOpen(true);
+                }}
+                style={{
+                  marginTop: s(12),
+                  height: s(48),
+                  borderRadius: 999,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: '#E8E0D8',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  ...shadows.card,
+                }}
+              >
+                <Text style={{ fontSize: fs(14), fontWeight: '600', color: colors.ink }}>Reschedule</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
       </ScrollView>
 

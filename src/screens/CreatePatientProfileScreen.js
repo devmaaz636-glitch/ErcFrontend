@@ -3,24 +3,25 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
-  BackHandler,
   Pressable,
   ScrollView,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
-import { IconCircleButton } from '../components/ui';
 import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
-import { saveSignedInUser } from '../lib/users';
+import { savePatientProfile } from '../lib/patientPortal';
 import { markPatientOnboardingDone, markPatientProfileComplete } from '../lib/patientOnboarding';
-import { colors, spacing } from '../theme';
+import { colors } from '../theme';
 import { fs, scale as s } from '../utils/responsive';
 
 const REGIONS = ['UAE', 'KSA', 'Oman', 'Pakistan', 'USA'];
@@ -28,24 +29,27 @@ const GENDERS = ['Female', 'Male', 'Prefer not to say'];
 
 function SelectField({ label, value, placeholder, options, open, onToggle, onSelect }) {
   return (
-    <View style={{ marginBottom: s(16) }}>
-      <Text style={{ fontSize: fs(14), fontWeight: '700', color: colors.ink, marginBottom: s(8) }}>
+    <View style={{ marginBottom: s(11) }}>
+      <Text style={{ fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(6) }}>
         {label}
       </Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value || placeholder}`}
+        accessibilityState={{ expanded: open }}
         onPress={onToggle}
         style={{
-          height: s(52),
-          borderRadius: s(14),
-          backgroundColor: colors.field,
-          paddingHorizontal: s(14),
+          height: s(42),
+          borderRadius: s(12),
+          backgroundColor: colors.card,
+          paddingHorizontal: s(12),
           flexDirection: 'row',
           alignItems: 'center',
+          borderWidth: 1,
+          borderColor: '#F3EFEA',
         }}
       >
-        <Text style={{ flex: 1, fontSize: fs(14), color: value ? colors.ink : colors.placeholder }}>
+        <Text style={{ flex: 1, fontSize: fs(12), color: value ? colors.ink : colors.placeholder }}>
           {value || placeholder}
         </Text>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={s(16)} color={colors.muted} />
@@ -53,12 +57,12 @@ function SelectField({ label, value, placeholder, options, open, onToggle, onSel
       {open ? (
         <View
           style={{
-            marginTop: s(6),
-            borderRadius: s(14),
-            backgroundColor: colors.field,
+            marginTop: s(5),
+            borderRadius: s(12),
+            backgroundColor: colors.card,
             overflow: 'hidden',
             borderWidth: 1,
-            borderColor: colors.fieldAlt,
+            borderColor: '#EFE8E1',
           }}
         >
           {options.map((option) => (
@@ -67,13 +71,13 @@ function SelectField({ label, value, placeholder, options, open, onToggle, onSel
               accessibilityRole="button"
               onPress={() => onSelect(option)}
               style={{
-                minHeight: s(44),
-                paddingHorizontal: s(14),
+                minHeight: s(40),
+                paddingHorizontal: s(12),
                 justifyContent: 'center',
                 backgroundColor: value === option ? colors.brandSoft : colors.card,
               }}
             >
-              <Text style={{ fontSize: fs(13), color: value === option ? colors.brand : colors.ink }}>
+              <Text style={{ fontSize: fs(12), color: value === option ? colors.brand : colors.ink }}>
                 {option}
               </Text>
             </Pressable>
@@ -88,6 +92,7 @@ export default function CreatePatientProfileScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const { updateUser } = useSession();
   const [region, setRegion] = useState('');
   const [gender, setGender] = useState('');
@@ -99,29 +104,32 @@ export default function CreatePatientProfileScreen() {
   const [saving, setSaving] = useState(false);
 
   const fullName = String(route.params?.fullName || auth.currentUser?.displayName || '').trim();
+  const profileSheetHeight = Math.min(Math.max(height * 0.665, 420), 560);
 
-  async function onBack() {
+  function onBack() {
     if (regionOpen || genderOpen) {
       setRegionOpen(false);
       setGenderOpen(false);
-      return;
     }
-    return;
   }
 
   async function choosePhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError('Allow photo access to upload your profile picture.');
-      return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError('Allow photo access to upload your profile picture.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!result.canceled) setPhotoUrl(result.assets[0]?.uri || '');
+    } catch {
+      setError('Could not open your photos. Please try again.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-    if (!result.canceled) setPhotoUrl(result.assets[0]?.uri || '');
   }
 
   async function onContinue() {
@@ -135,125 +143,161 @@ export default function CreatePatientProfileScreen() {
     }
     if (saving) return;
 
+    const uid = auth.currentUser?.uid || route.params?.uid || null;
+    if (!auth.currentUser || !uid) {
+      setError('Your sign-in has expired. Please sign in again.');
+      return;
+    }
+
     setSaving(true);
     setError('');
-    const uid = auth.currentUser?.uid || route.params?.uid || null;
-    const name = fullName || auth.currentUser?.displayName || '';
-    const email = auth.currentUser?.email || route.params?.email || '';
+    const name = fullName || auth.currentUser.displayName || '';
+    const email = auth.currentUser.email || route.params?.email || '';
 
-    await updateUser({
-      uid,
-      name,
-      email,
-      role: 'patient',
-      region,
-      gender,
-      phone: phone.trim(),
-      photoUrl: photoUrl || null,
-    }).catch(() => {});
-
-    if (auth.currentUser) {
-      await saveSignedInUser(auth.currentUser, {
+    try {
+      await savePatientProfile({ name, region, gender, phone: phone.trim() });
+      await updateUser({
+        uid,
         name,
+        email,
         role: 'patient',
         region,
         gender,
         phone: phone.trim(),
         photoUrl: photoUrl || null,
-      }).catch(() => {});
+      });
+      await markPatientProfileComplete(uid);
+      await markPatientOnboardingDone(uid);
+      navigation.reset({ index: 0, routes: [{ name: 'PatientTabs' }] });
+    } catch (saveError) {
+      setError(saveError?.message || 'Could not save your profile. Please try again.');
+    } finally {
+      setSaving(false);
     }
-
-    await markPatientProfileComplete(uid).catch(() => {});
-    await markPatientOnboardingDone(uid).catch(() => {});
-    navigation.reset({ index: 0, routes: [{ name: 'PatientTabs' }] });
   }
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (regionOpen || genderOpen) {
-        setRegionOpen(false);
-        setGenderOpen(false);
-        return true;
-      }
+      onBack();
       return true;
     });
     return () => subscription.remove();
   }, [regionOpen, genderOpen]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style="dark" />
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          paddingTop: insets.top + s(24),
-          paddingBottom: Math.max(insets.bottom, s(18)),
-          paddingHorizontal: spacing.screen,
+    <View style={{ flex: 1, backgroundColor: colors.brand }}>
+      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <Image
+        source={require('../../assets/signin-bg.png')}
+        contentFit="cover"
+        contentPosition="center"
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.39 }}
+        accessibilityLabel="Enfield Royal Clinics reception"
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: height * 0.39,
+          backgroundColor: 'rgba(191, 130, 79, 0.10)',
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: Math.max(insets.top + s(52), height * 0.12),
+          left: 0,
+          right: 0,
+          alignItems: 'center',
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ width: '100%', maxWidth: spacing.maxContent, alignSelf: 'center' }}
+        <Image
+          source={require('../../assets/signin-logo.png')}
+          contentFit="contain"
+          accessibilityLabel="Enfield Royal Clinics"
+          style={{ width: s(154), height: s(48) }}
+        />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: profileSheetHeight,
+          maxWidth: 560,
+          alignSelf: 'center',
+          width: '100%',
+        }}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={{
+            flex: 1,
+            backgroundColor: colors.card,
+            borderTopLeftRadius: s(24),
+            borderTopRightRadius: s(24),
+          }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingTop: s(9),
+            paddingHorizontal: s(18),
+            paddingBottom: Math.max(insets.bottom, s(14)),
+          }}
         >
           <View
             style={{
-              backgroundColor: colors.card,
-              borderRadius: s(24),
-              paddingHorizontal: s(24),
-              paddingTop: s(12),
-              paddingBottom: s(24),
+              width: s(42),
+              height: s(3),
+              borderRadius: s(2),
+              backgroundColor: colors.brand,
+              alignSelf: 'center',
+              marginBottom: s(13),
             }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: s(18) }}>
-              <IconCircleButton
-                name="chevron-back"
-                accessibilityLabel="Go back"
-                onPress={onBack}
-              />
-              <Text
-                style={{ flex: 1, marginLeft: s(12), fontSize: fs(16), fontWeight: '700', color: colors.ink }}
-              >
-                Create Profile
-              </Text>
-            </View>
+          />
 
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: s(14) }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Upload profile picture"
-              onPress={choosePhoto}
-              style={{ alignSelf: 'center', marginBottom: s(18) }}
+              accessibilityLabel="Back"
+              onPress={onBack}
+              hitSlop={8}
+              style={{ width: s(26), height: s(30), justifyContent: 'center' }}
             >
-              {photoUrl ? (
-                <Image
-                  source={{ uri: photoUrl }}
-                  contentFit="cover"
-                  style={{ width: s(94), height: s(94), borderRadius: s(47) }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: s(94),
-                    height: s(94),
-                    borderRadius: s(47),
-                    backgroundColor: '#1F1B16',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="person" size={s(38)} color={colors.white} />
-                </View>
-              )}
+              <Ionicons name="chevron-back" size={s(20)} color={colors.muted} />
+            </Pressable>
+            <Text style={{ marginLeft: s(8), fontSize: fs(14), fontWeight: '700', color: colors.ink }}>
+              Create Profile
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Upload profile picture"
+            onPress={choosePhoto}
+            style={{ alignSelf: 'center', alignItems: 'center', marginBottom: s(10) }}
+          >
+            <View>
+              <Image
+                source={photoUrl ? { uri: photoUrl } : require('../../assets/userprofile.png')}
+                contentFit="cover"
+                style={{ width: s(84), height: s(84), borderRadius: s(42) }}
+              />
               <View
                 style={{
                   position: 'absolute',
                   right: 0,
                   bottom: 0,
-                  width: s(28),
-                  height: s(28),
-                  borderRadius: s(14),
+                  width: s(25),
+                  height: s(25),
+                  borderRadius: s(13),
                   backgroundColor: colors.brand,
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -261,95 +305,105 @@ export default function CreatePatientProfileScreen() {
                   borderColor: colors.card,
                 }}
               >
-                <Ionicons name="camera" size={s(13)} color={colors.white} />
-              </View>
-            </Pressable>
-
-            <SelectField
-              label="Region"
-              value={region}
-              placeholder="Select Your Region"
-              options={REGIONS}
-              open={regionOpen}
-              onToggle={() => {
-                setRegionOpen((value) => !value);
-                setGenderOpen(false);
-              }}
-              onSelect={(value) => {
-                setRegion(value);
-                setRegionOpen(false);
-                setError('');
-              }}
-            />
-
-            <SelectField
-              label="Gender"
-              value={gender}
-              placeholder="Select Your Gender"
-              options={GENDERS}
-              open={genderOpen}
-              onToggle={() => {
-                setGenderOpen((value) => !value);
-                setRegionOpen(false);
-              }}
-              onSelect={(value) => {
-                setGender(value);
-                setGenderOpen(false);
-                setError('');
-              }}
-            />
-
-            <View style={{ marginBottom: s(16) }}>
-              <Text style={{ fontSize: fs(14), fontWeight: '700', color: colors.ink, marginBottom: s(8) }}>
-                Phone Number ( Optional )
-              </Text>
-              <View
-                style={{
-                  height: s(52),
-                  borderRadius: s(14),
-                  backgroundColor: colors.card,
-                  borderWidth: 1,
-                  borderColor: colors.field,
-                  paddingHorizontal: s(14),
-                  justifyContent: 'center',
-                }}
-              >
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  placeholder="+92-XXX-XXXXXXX"
-                  placeholderTextColor={colors.placeholder}
-                  allowFontScaling={false}
-                  style={{ fontSize: fs(14), color: colors.ink, paddingVertical: 0 }}
-                />
+                <Ionicons name="camera" size={s(12)} color={colors.white} />
               </View>
             </View>
-
-            {error ? (
-              <Text style={{ fontSize: fs(12), color: colors.danger, marginBottom: s(10) }}>{error}</Text>
-            ) : null}
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Continue"
-              disabled={saving}
-              onPress={onContinue}
+            <Text
               style={{
-                height: s(54),
-                borderRadius: s(27),
-                backgroundColor: saving ? colors.brandLight : colors.brand,
-                alignItems: 'center',
+                marginTop: s(5),
+                fontSize: fs(12),
+                color: colors.ink,
+              }}
+            >
+              Upload Profile
+            </Text>
+          </Pressable>
+
+          <SelectField
+            label="Region"
+            value={region}
+            placeholder="Select Your Region"
+            options={REGIONS}
+            open={regionOpen}
+            onToggle={() => {
+              setRegionOpen((value) => !value);
+              setGenderOpen(false);
+            }}
+            onSelect={(value) => {
+              setRegion(value);
+              setRegionOpen(false);
+              setError('');
+            }}
+          />
+
+          <SelectField
+            label="Gender"
+            value={gender}
+            placeholder="Select Your Gender"
+            options={GENDERS}
+            open={genderOpen}
+            onToggle={() => {
+              setGenderOpen((value) => !value);
+              setRegionOpen(false);
+            }}
+            onSelect={(value) => {
+              setGender(value);
+              setGenderOpen(false);
+              setError('');
+            }}
+          />
+
+          <View style={{ marginBottom: s(12) }}>
+            <Text style={{ fontSize: fs(12), fontWeight: '600', color: colors.ink, marginBottom: s(6) }}>
+              Phone Number ( Optional )
+            </Text>
+            <View
+              style={{
+                height: s(42),
+                borderRadius: s(12),
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: '#F3EFEA',
+                paddingHorizontal: s(12),
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: fs(16), fontWeight: '700', color: colors.white }}>
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="Enter your phone number"
+                placeholderTextColor={colors.placeholder}
+                allowFontScaling={false}
+                style={{ fontSize: fs(12), color: colors.ink, paddingVertical: 0 }}
+              />
+            </View>
+          </View>
+
+          {error ? (
+            <Text style={{ fontSize: fs(12), color: colors.danger, marginBottom: s(8) }}>{error}</Text>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue"
+            disabled={saving}
+            onPress={onContinue}
+            style={{ height: s(44), borderRadius: s(24), overflow: 'hidden' }}
+          >
+            <LinearGradient
+              colors={saving ? [colors.brandLight, colors.brandLight] : ['#C4895C', '#E6A06A']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontSize: fs(13), fontWeight: '700', color: colors.white }}>
                 {saving ? 'Saving...' : 'Continue'}
               </Text>
-            </Pressable>
-          </View>
-        </KeyboardAvoidingView>
-      </ScrollView>
+            </LinearGradient>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

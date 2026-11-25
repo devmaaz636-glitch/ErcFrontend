@@ -22,7 +22,7 @@ import { useSession } from '../context/SessionContext';
 import { auth } from '../lib/firebase';
 import { colors } from '../theme';
 import { hasCompletePatientProfile, isPatientProfileComplete } from '../lib/patientOnboarding';
-import { getUserProfile } from '../lib/users';
+import { getAuthenticatedUserProfile, getUserProfile } from '../lib/users';
 
 cssInterop(Image, { className: 'style' });
 const REGIONS = ADMIN_REGIONS;
@@ -281,12 +281,15 @@ export default function VerifyRegionScreen() {
           navigation.goBack();
         } else {
           const uid = auth.currentUser?.uid;
-          const [localComplete, remoteProfile] = await Promise.all([
+          const [localComplete, remoteProfile, backendProfile] = await Promise.all([
             isPatientProfileComplete(uid),
             uid ? getUserProfile(uid).catch(() => null) : Promise.resolve(null),
+            getAuthenticatedUserProfile().catch(() => null),
           ]);
           const profileComplete =
-            localComplete || hasCompletePatientProfile(remoteProfile);
+            localComplete ||
+            hasCompletePatientProfile(backendProfile) ||
+            hasCompletePatientProfile(remoteProfile);
           navigation.replace(profileComplete ? 'PatientTabs' : 'CreateProfile', {
             email: auth.currentUser?.email || user?.email || '',
             fullName: user?.name || auth.currentUser?.displayName || '',

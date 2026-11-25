@@ -16,11 +16,12 @@ import { cssInterop } from 'nativewind';
 import Svg, { Circle, Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { authErrorMessage, signInWithEmail } from '../lib/auth';
+import { authErrorMessage, isGoogleCancelled, signInWithEmail, signInWithGoogle } from '../lib/auth';
 import { warmManagerHomeCache } from '../lib/clinic';
 import { demoPasswordFor, findDemoManager, isDemoManagerEmail } from '../lib/demoAccounts';
 import { auth } from '../lib/firebase';
-import { saveSignedInUser } from '../lib/users';
+import { getAuthenticatedUserProfile, getUserProfile, saveSignedInUser, withTimeout } from '../lib/users';
+import { hasCompletePatientProfile, isPatientProfileComplete } from '../lib/patientOnboarding';
 import { useSession } from '../context/SessionContext';
 import { colors } from '../theme';
 
@@ -181,6 +182,10 @@ export default function SignInScreen() {
       const timer = setTimeout(() => setToast(''), 2400);
       return () => clearTimeout(timer);
     }
+    if (route.params?.googleHint) {
+      setNotice('Tap "Sign in with Google". A new Google account becomes your patient account automatically.');
+      navigation.setParams?.({ googleHint: undefined });
+    }
     if (!route.params?.loggedOut) return undefined;
     setToast('You logged out successfully');
     setEmail('');
@@ -197,6 +202,96 @@ export default function SignInScreen() {
       await AsyncStorage.setItem(REMEMBER_KEY, email.trim());
     } else {
       await AsyncStorage.removeItem(REMEMBER_KEY);
+    }
+  }
+
+  // Everything that happens after Firebase accepts the login: claims, patient
+  // profile check, cache warm-up and navigation. Shared by password and Google.
+  async function completeSignIn(nextEmail) {
+    if (auth.currentUser) {
+      // Firestore profile write must never block sign-in.
+      saveSignedInUser(auth.currentUser).catch(() => {});
+
+      // Prefer cached token first so patient sign-in feels instant on iOS.
+      let tokenResult = await auth.currentUser.getIdTokenResult(false).catch(() => null);
+      let claims = tokenResult?.claims || {};
+      const hasRole =
+      claims.role || claims['https://enfieldroyalclinic.com/role'] || claims.branchId || claims.clinicId;
+      if (!hasRole) {
+      tokenResult = await auth.currentUser.getIdTokenResult(true).catch(() => null);
+      claims = tokenResult?.claims || claims;
+      }
+      const patientAccount =
+      isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
+
+      if (patientAccount) {
+      saveSignedInUser(auth.currentUser, { role: 'patient' }).catch(() => {});
+      updateUser({
+        role: 'patient',
+        name: auth.currentUser.displayName || '',
+        email: auth.currentUser.email || nextEmail,
+      }).catch(() => {});
+
+      const uid = auth.currentUser.uid;
+      // The backend is authoritative; Firestore is only a short fallback so a
+      // slow connection cannot hold up sign-in.
+      const [localComplete, backendProfile] = await Promise.all([
+        isPatientProfileComplete(uid),
+        getAuthenticatedUserProfile().catch(() => null),
+      ]);
+      let profileComplete = localComplete || hasCompletePatientProfile(backendProfile);
+      if (!profileComplete) {
+        const firestoreProfile = await withTimeout(getUserProfile(uid), 3000).catch(() => null);
+        profileComplete = hasCompletePatientProfile(firestoreProfile);
+      }
+      navigation.replace(profileComplete ? 'PatientTabs' : 'CreateProfile', {
+        email: auth.currentUser.email || nextEmail,
+        fullName: auth.currentUser.displayName || '',
+        uid,
+      });
+      return;
+      }
+
+      // Warm the correct home cache during Region Verify (demo managers → manager shell NOW).
+      if (isDemoManagerEmail(nextEmail)) {
+      const demo = findDemoManager(nextEmail);
+      warmManagerHomeCache(auth.currentUser.uid, {
+        branchId: demo?.branchId || null,
+        region: demo?.region || null,
+      }).catch(() => {});
+      } else if (
+      !(
+        isDoctorRole(claims.role) ||
+        nextEmail.toLowerCase() === 'ercdoctor@gmail.com' ||
+        isAdminRole(claims.role)
+      ) &&
+      (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId)
+      ) {
+      warmManagerHomeCache(auth.currentUser.uid, {
+        branchId: claims.branchId || claims.clinicId || null,
+        region: claims.region || null,
+      }).catch(() => {});
+      }
+    }
+    navigation.replace('RegionVerify');
+  }
+
+  async function handleGoogleSignIn() {
+    if (signingIn.current) return;
+    signingIn.current = true;
+    setError('');
+    setNotice('');
+    try {
+      await signInWithGoogle();
+      await completeSignIn(auth.currentUser?.email || '');
+    } catch (googleError) {
+      if (!isGoogleCancelled(googleError)) {
+        setError(googleError?.response?.data?.error === 'EMAIL_STAFF'
+          ? authErrorMessage({ code: 'EMAIL_STAFF' })
+          : authErrorMessage(googleError));
+      }
+    } finally {
+      signingIn.current = false;
     }
   }
 
@@ -220,56 +315,7 @@ export default function SignInScreen() {
       await signInWithEmail(nextEmail, password);
       // Remember-me stores email only when the user opts in — never passwords.
       persistRememberedEmail().catch(() => {});
-      if (auth.currentUser) {
-        // Firestore profile write must never block sign-in.
-        saveSignedInUser(auth.currentUser).catch(() => {});
-
-        // Prefer cached token first so patient sign-in feels instant on iOS.
-        let tokenResult = await auth.currentUser.getIdTokenResult(false).catch(() => null);
-        let claims = tokenResult?.claims || {};
-        const hasRole =
-          claims.role || claims['https://enfieldroyalclinic.com/role'] || claims.branchId || claims.clinicId;
-        if (!hasRole) {
-          tokenResult = await auth.currentUser.getIdTokenResult(true).catch(() => null);
-          claims = tokenResult?.claims || claims;
-        }
-        const patientAccount =
-          isPatientRole(claims.role) || isPatientRole(claims['https://enfieldroyalclinic.com/role']);
-
-        if (patientAccount) {
-          // Same path as admin/manager: verify region first, then tabs/profile.
-          saveSignedInUser(auth.currentUser, { role: 'patient' }).catch(() => {});
-          updateUser({
-            role: 'patient',
-            name: auth.currentUser.displayName || '',
-            email: auth.currentUser.email || nextEmail,
-          }).catch(() => {});
-          navigation.replace('RegionVerify');
-          return;
-        }
-
-        // Warm the correct home cache during Region Verify (demo managers → manager shell NOW).
-        if (isDemoManagerEmail(nextEmail)) {
-          const demo = findDemoManager(nextEmail);
-          warmManagerHomeCache(auth.currentUser.uid, {
-            branchId: demo?.branchId || null,
-            region: demo?.region || null,
-          }).catch(() => {});
-        } else if (
-          !(
-            isDoctorRole(claims.role) ||
-            nextEmail.toLowerCase() === 'ercdoctor@gmail.com' ||
-            isAdminRole(claims.role)
-          ) &&
-          (isClinicManagerRole(claims.role) || claims.branchId || claims.clinicId)
-        ) {
-          warmManagerHomeCache(auth.currentUser.uid, {
-            branchId: claims.branchId || claims.clinicId || null,
-            region: claims.region || null,
-          }).catch(() => {});
-        }
-      }
-      navigation.replace('RegionVerify');
+      await completeSignIn(nextEmail);
     } catch (signInError) {
       let message = authErrorMessage(signInError, nextEmail);
       if (isDemoManagerEmail(nextEmail) && password !== demoPasswordFor(nextEmail)) {
@@ -498,7 +544,7 @@ export default function SignInScreen() {
 
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setNotice('Google sign-in will be available soon.')}
+                onPress={handleGoogleSignIn}
                 className="h-[54px] flex-row items-center justify-center rounded-full border border-[#E8E1D9] bg-white"
               >
                 <GoogleGlyph />

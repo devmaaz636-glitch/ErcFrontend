@@ -164,6 +164,16 @@ export const PATIENT_CLINIC_CATALOG = [
   },
 ];
 
+/** Replace the bundled fallback list with the live clinics from the backend. */
+export function setPatientClinics(list) {
+  if (!Array.isArray(list) || !list.length) return;
+  PATIENT_CLINIC_CATALOG.splice(
+    0,
+    PATIENT_CLINIC_CATALOG.length,
+    ...list.map((item) => ({ ...item, aliases: item.aliases || [] }))
+  );
+}
+
 /** Default clinic id when a region has several locations. */
 const REGION_DEFAULT_CLINIC = {
   UAE: 'clinic-dubai',
@@ -328,6 +338,14 @@ const REGION_FLAGS = {
   Pakistan: '🇵🇰',
   USA: '🇺🇸',
 };
+
+/** Replace region flags with the live regions from the backend. */
+export function setRegionFlags(regions) {
+  if (!Array.isArray(regions)) return;
+  regions.forEach((item) => {
+    if (item?.key && item.flag) REGION_FLAGS[item.key] = item.flag;
+  });
+}
 
 export function patientRegionFlag(userOrRegion) {
   const region =

@@ -4,11 +4,18 @@ import {
   createPatientAppointment,
   fetchAvailability,
   fetchPatientPortal,
+  openAppointmentDocument,
   updatePatientAppointment,
+  uploadAppointmentDocument,
 } from '../lib/patientPortal';
+import { setPatientClinics, setRegionFlags } from '../lib/patientClinic';
+import { setRegionPricing } from '../lib/regionPricing';
 import { useSession } from './SessionContext';
 
 const PatientDataContext = createContext(null);
+
+// A silent refresh (screen focus) is skipped if data was fetched this recently.
+const SILENT_REFRESH_MIN_MS = 15000;
 
 const EMPTY = {
   treatments: [],
@@ -16,9 +23,20 @@ const EMPTY = {
   categories: [],
   banners: [],
   popular: [],
+  clinics: [],
+  regions: [],
+  followUps: [],
   appointments: [],
   documents: [],
 };
+
+// Clinics, currencies and flags come from the backend; push them into the
+// lookup helpers so every screen prices and labels from live data.
+function applyCatalogRegistries(next) {
+  setPatientClinics(next?.clinics);
+  setRegionPricing(next?.regions);
+  setRegionFlags(next?.regions);
+}
 
 function bumpPopular(popular = [], treatments = [], treatmentId) {
   const base = (popular?.length ? popular : treatments).map((item) => ({ ...item }));
@@ -46,6 +64,9 @@ export function PatientDataProvider({ children }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const hasCacheRef = useRef(false);
+  const dataRef = useRef(EMPTY);
+  const lastFetchRef = useRef(0);
+  const lastJsonRef = useRef('');
 
   const persist = useCallback(
     async (next) => {
@@ -56,18 +77,36 @@ export function PatientDataProvider({ children }) {
   );
 
   const refresh = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({ silent = false, force = false } = {}) => {
       if (!isPatient) return EMPTY;
+      // Focus-triggered refreshes are throttled; writes (book / cancel) pass force.
+      if (
+        silent &&
+        !force &&
+        hasCacheRef.current &&
+        Date.now() - lastFetchRef.current < SILENT_REFRESH_MIN_MS
+      ) {
+        return dataRef.current;
+      }
       const showSpinner = !silent && !hasCacheRef.current;
       if (showSpinner) setLoading(true);
       else setRefreshing(true);
       try {
         const next = await fetchPatientPortal();
         hasCacheRef.current = true;
-        setData(next);
+        lastFetchRef.current = Date.now();
+        // A refresh that returns the same data must not re-render every tab
+        // (they all stay mounted) or rewrite the cache.
+        const json = JSON.stringify(next);
+        if (json !== lastJsonRef.current) {
+          lastJsonRef.current = json;
+          dataRef.current = next;
+          applyCatalogRegistries(next);
+          setData(next);
+          persist(next);
+        }
         setError('');
-        persist(next);
-        return next;
+        return dataRef.current;
       } catch (nextError) {
         setError(nextError.message);
         throw nextError;
@@ -95,6 +134,8 @@ export function PatientDataProvider({ children }) {
         const cached = JSON.parse(raw);
         if (cached?.treatments || cached?.appointments) {
           hasCacheRef.current = true;
+          applyCatalogRegistries(cached);
+          dataRef.current = { ...EMPTY, ...cached };
           setData({ ...EMPTY, ...cached });
         }
       })
@@ -112,10 +153,25 @@ export function PatientDataProvider({ children }) {
 
   const book = useCallback(
     async (payload) => {
-      const item = await createPatientAppointment({
-        ...payload,
+      const { document: file, ...rest } = payload;
+      const created = await createPatientAppointment({
+        ...rest,
         branchId: user.branchId || user.clinicId || '',
       });
+      // The booking is already saved; an upload problem must not undo it.
+      let item = created;
+      let documentError = '';
+      if (file?.uri) {
+        try {
+          const doc = await uploadAppointmentDocument(created.id, file);
+          item = {
+            ...created,
+            document: { id: doc.id, name: doc.name, mimeType: doc.mimeType, size: doc.size },
+          };
+        } catch (uploadError) {
+          documentError = uploadError.message;
+        }
+      }
       setData((current) => {
         const next = {
           ...current,
@@ -126,8 +182,8 @@ export function PatientDataProvider({ children }) {
         return next;
       });
       // Background sync — do not block booking success UI.
-      refresh({ silent: true }).catch(() => {});
-      return item;
+      refresh({ silent: true, force: true }).catch(() => {});
+      return { ...item, documentError };
     },
     [persist, refresh, user.branchId, user.clinicId]
   );
@@ -143,11 +199,16 @@ export function PatientDataProvider({ children }) {
         persist(next);
         return next;
       });
-      refresh({ silent: true }).catch(() => {});
+      refresh({ silent: true, force: true }).catch(() => {});
       return item;
     },
     [persist, refresh]
   );
+
+  // Stable identities: screens pass these to focus effects, so a new function on
+  // every data change would re-trigger a refresh and loop forever.
+  const refreshLoud = useCallback(() => refresh({ silent: false }), [refresh]);
+  const refreshQuiet = useCallback(() => refresh({ silent: true }), [refresh]);
 
   const value = useMemo(
     () => ({
@@ -158,13 +219,14 @@ export function PatientDataProvider({ children }) {
       // True only on cold start with no cache — screens can show skeletons once.
       initialLoading: loading && !hasCacheRef.current && !data.treatments.length,
       error,
-      refresh: () => refresh({ silent: false }),
-      refreshSilent: () => refresh({ silent: true }),
+      refresh: refreshLoud,
+      refreshSilent: refreshQuiet,
       book,
       changeAppointment,
       fetchAvailability,
+      openDocument: openAppointmentDocument,
     }),
-    [data, hydrated, loading, refreshing, error, refresh, book, changeAppointment]
+    [data, hydrated, loading, refreshing, error, refreshLoud, refreshQuiet, book, changeAppointment]
   );
 
   return <PatientDataContext.Provider value={value}>{children}</PatientDataContext.Provider>;

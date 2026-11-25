@@ -1,6 +1,9 @@
+import { Platform } from 'react-native';
 import {
   EmailAuthProvider,
+  GoogleAuthProvider,
   reauthenticateWithCredential,
+  signInWithPopup,
   signInWithCustomToken,
   signInWithEmailAndPassword,
   signOut,
@@ -57,9 +60,9 @@ export async function signInWithEmail(email, password) {
   }
 
   try {
-    const result = await signInWithEmailAndPassword(auth, nextEmail, nextPassword);
-    await result.user.getIdToken(true);
-    return result;
+    // The token issued by sign-in already carries the account's claims, so no
+    // second forced refresh (an extra network round trip) is needed here.
+    return await signInWithEmailAndPassword(auth, nextEmail, nextPassword);
   } catch (error) {
     // If this email was later added as a demo manager, recover via backend.
     if (isRateLimitedError(error) && isDemoManagerEmail(nextEmail)) {
@@ -70,8 +73,46 @@ export async function signInWithEmail(email, password) {
 }
 
 /**
- * Patient-only signup. Backend creates Firebase Auth user + role claim `patient`,
- * then signs the new patient in for the immediate Create Profile flow.
+ * Sign in (or register) with Google. First-time accounts are made patients by
+ * the backend; existing roles are never changed.
+ * Works on web. Phones need a development build with a native Google sign-in
+ * library, which is not installed yet.
+ */
+export async function signInWithGoogle() {
+  if (Platform.OS !== 'web') {
+    throw Object.assign(
+      new Error('Google sign-in on phones needs a development build with Google Sign-In set up.'),
+      { code: 'auth/google-native-unavailable' }
+    );
+  }
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const result = await signInWithPopup(auth, provider);
+
+  const token = await result.user.getIdTokenResult(false);
+  if (!token.claims?.role) {
+    await api.post(
+      '/api/auth/google/complete',
+      {},
+      { headers: { Authorization: `Bearer ${token.token}` } }
+    );
+    // Pick up the freshly assigned role claim.
+    await result.user.getIdToken(true);
+  }
+  return result;
+}
+
+export function isGoogleCancelled(error) {
+  return (
+    error?.code === 'auth/popup-closed-by-user' ||
+    error?.code === 'auth/cancelled-popup-request' ||
+    error?.code === 'auth/user-cancelled'
+  );
+}
+
+/**
+ * Patient-only signup. The patient signs in from the Sign In screen after
+ * account creation; incomplete profile routing is handled after authentication.
  */
 export async function signUpPatient({ fullName, email, password, confirmPassword }) {
   const nextEmail = String(email || '').trim().toLowerCase();
@@ -89,11 +130,6 @@ export async function signUpPatient({ fullName, email, password, confirmPassword
   if (!data?.ok && !data?.uid) {
     throw Object.assign(new Error('Could not create account.'), { code: 'auth/signup-failed' });
   }
-
-  // Sign the newly created patient in immediately. The next screen will create
-  // their profile, rather than sending them back through the login form.
-  const signedIn = await signInWithEmailAndPassword(auth, nextEmail, nextPassword);
-  await signedIn.user.getIdToken(true);
 
   return {
     profile: {
@@ -169,6 +205,18 @@ export function authErrorMessage(error, email = '') {
       return demoEmail
         ? `Email or password is incorrect. Use password ${demoPasswordFor(email)}.`
         : 'Email or password is incorrect.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google window. Allow pop-ups and try again.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account with this email already exists. Sign in with your password instead.';
+    case 'auth/operation-not-allowed':
+      return 'Google sign-in is not enabled yet. Turn on the Google provider in Firebase Authentication.';
+    case 'auth/unauthorized-domain':
+      return 'This website address is not allowed for Google sign-in. Add it under Firebase Authentication > Settings > Authorized domains.';
+    case 'auth/google-native-unavailable':
+      return 'Google sign-in on phones needs a development build with Google Sign-In set up. Use email and password for now.';
+    case 'EMAIL_STAFF':
+      return 'This email is registered for staff access. Sign in with your password.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
     case 'auth/weak-password':

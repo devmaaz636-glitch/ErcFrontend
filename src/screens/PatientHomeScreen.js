@@ -30,7 +30,6 @@ import { fs, scale as s, useTopPadding } from '../utils/responsive';
 const PROMO_CARD = require('../../assets/patientcard.png');
 const TREATMENT_IMAGE = require('../../assets/treamntpateint.png');
 const PATIENT_AVATAR = require('../../assets/patientimage.png');
-const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
 const CARD_BG = '#BF824F';
 
 function LaserTreatmentIcon({ color, size = 28 }) {
@@ -157,7 +156,7 @@ function SearchBar({ value, onChangeText, onSubmit }) {
   );
 }
 
-function PromoCard({ item, width }) {
+function PromoCard({ item, width, onPress }) {
   const height = s(176);
   return (
     <View
@@ -228,6 +227,8 @@ function PromoCard({ item, width }) {
         </Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={item.cta || 'Book Now'}
+          onPress={onPress}
           style={{
             marginTop: s(14),
             alignSelf: 'flex-start',
@@ -340,8 +341,48 @@ export default function PatientHomeScreen() {
   const topPad = useTopPadding(20);
   const { width } = useWindowDimensions();
   const { user, setRegion, updateUser } = useSession();
-  const { banners, categories: portalCategories, refreshSilent } = usePatientData();
+  const {
+    banners,
+    categories: portalCategories,
+    treatments,
+    popular,
+    followUps,
+    refreshSilent,
+  } = usePatientData();
   useRefreshOnFocus(refreshSilent);
+
+  // Treatment plans that need attention, computed by the backend for this patient.
+  const plans = (followUps || []).slice(0, 3);
+
+  // Featured card: the most-booked treatment (falls back to the flagged one).
+  const featured = useMemo(() => {
+    const topBooked = (popular || []).find((item) => Number(item.bookingCount) > 0);
+    return (
+      topBooked ||
+      (treatments || []).find((item) => item.featured) ||
+      (popular || [])[0] ||
+      (treatments || [])[0] ||
+      null
+    );
+  }, [popular, treatments]);
+
+  function openTreatment(item) {
+    if (!item) return;
+    navigateRoot(navigation, 'PatientTreatmentDetail', {
+      treatment: { ...item, title: item.title || item.name },
+    });
+  }
+
+  function openBanner(banner) {
+    const target = (treatments || []).find((item) => item.id === banner?.treatmentId);
+    if (target) {
+      navigateRoot(navigation, 'PatientBookAppointment', {
+        treatment: { ...target, title: target.name },
+      });
+      return;
+    }
+    navigateToTab(navigation, TAB_ROUTES.Treatments);
+  }
   const [search, setSearch] = useState('');
   const [promoIndex, setPromoIndex] = useState(0);
   const [category, setCategory] = useState('laser');
@@ -509,7 +550,7 @@ export default function PatientHomeScreen() {
                       marginRight: index === slides.length - 1 ? 0 : s(12),
                     }}
                   >
-                    <PromoCard item={item} width={contentWidth} />
+                    <PromoCard item={item} width={contentWidth} onPress={() => openBanner(item)} />
                   </View>
                 ))}
               </ScrollView>
@@ -551,7 +592,7 @@ export default function PatientHomeScreen() {
             }}
           >
             <Text style={{ fontSize: fs(15), fontWeight: '700', color: colors.ink }}>
-              Popular Treatments
+              Treatment Categories
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -582,7 +623,7 @@ export default function PatientHomeScreen() {
                   active={category === item.key}
                   onPress={() => {
                     setCategory(item.key);
-                    navigateToTab(navigation, TAB_ROUTES.Treatments);
+                    navigation.navigate(TAB_ROUTES.Treatments, { category: item.key });
                   }}
                   size={s(78)}
                 />
@@ -590,21 +631,11 @@ export default function PatientHomeScreen() {
             ))}
           </ScrollView>
 
-          {/* Featured treatment — frosted glass content panel */}
+          {featured ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View Laser Treatment details"
-            onPress={() =>
-              navigateRoot(navigation, 'PatientTreatmentDetail', {
-                treatment: {
-                  id: 'laser',
-                  title: 'Laser Treatment',
-                  name: 'Laser Treatment',
-                  description: 'Discover exclusive offers and experience the beauty you deserve.',
-                  category: 'Laser',
-                },
-              })
-            }
+            accessibilityLabel={`View ${featured?.name || 'treatment'} details`}
+            onPress={() => openTreatment(featured)}
             style={{
               marginTop: s(18),
               padding: s(8),
@@ -642,7 +673,7 @@ export default function PatientHomeScreen() {
                     lineHeight: 18,
                   }}
                 >
-                  Laser Treatment
+                  {featured?.name}
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -655,7 +686,7 @@ export default function PatientHomeScreen() {
                   }}
                   numberOfLines={2}
                 >
-                  Discover exclusive offers and experience the beauty you deserve.
+                  {featured?.description}
                 </Text>
               </View>
               <View
@@ -677,6 +708,7 @@ export default function PatientHomeScreen() {
               </View>
             </FrostedTreatmentPanel>
           </Pressable>
+          ) : null}
 
           {/* Follow Up Reminder */}
           <View
@@ -700,74 +732,116 @@ export default function PatientHomeScreen() {
             </Pressable>
           </View>
 
-          <View
-            style={{
-              marginTop: s(12),
-              backgroundColor: colors.card,
-              borderRadius: 18,
-              padding: s(14),
-              ...shadows.card,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Image
-                source={DOCTOR_AVATAR}
-                contentFit="cover"
-                style={{
-                  width: s(44),
-                  height: s(44),
-                  borderRadius: s(22),
-                  backgroundColor: colors.fieldAlt,
-                }}
+          {plans.length ? (
+            plans.map((plan) => {
+              const upcoming = plan.status === 'upcoming';
+              const percent = Math.min(100, Math.round((plan.completed / Math.max(plan.sessions, 1)) * 100));
+              return (
+                <View
+                  key={plan.treatmentId}
+                  style={{
+                    marginTop: s(12),
+                    backgroundColor: colors.card,
+                    borderRadius: 18,
+                    padding: s(14),
+                    ...shadows.card,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View
+                      style={{
+                        width: s(44),
+                        height: s(44),
+                        borderRadius: s(22),
+                        backgroundColor: '#F6E6D6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Ionicons name="medkit-outline" size={s(20)} color={CARD_BG} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
+                      <Text style={{ fontSize: fs(13), fontWeight: '700', color: colors.ink }} numberOfLines={1}>
+                        {plan.treatment}
+                      </Text>
+                      {plan.doctorName ? (
+                        <Text style={{ marginTop: 2, fontSize: fs(10), color: colors.desc }} numberOfLines={1}>
+                          {plan.doctorName}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: '#F6E6D6',
+                        borderRadius: 999,
+                        paddingHorizontal: s(10),
+                        paddingVertical: s(4),
+                      }}
+                    >
+                      <Text style={{ fontSize: fs(10), fontWeight: '600', color: CARD_BG }}>
+                        {upcoming ? 'Upcoming' : 'Due'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={{ marginTop: s(12), fontSize: fs(11), color: colors.desc }}>
+                    {plan.completed} of {plan.sessions} sessions completed
+                  </Text>
+                  <View
+                    style={{
+                      marginTop: s(8),
+                      height: s(5),
+                      borderRadius: 999,
+                      backgroundColor: '#F1E7DC',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <View style={{ width: `${percent}%`, height: '100%', backgroundColor: CARD_BG }} />
+                  </View>
+                  <Text style={{ marginTop: s(8), fontSize: fs(11), color: colors.desc }}>
+                    {upcoming
+                      ? `Next: ${plan.next?.dateLabel || plan.next?.date || ''}${plan.next?.time ? ` · ${plan.next.time}` : ''}`
+                      : 'Time to book your next session'}
+                  </Text>
+
+                  <PrimaryButton
+                    label={upcoming ? 'View Details' : 'Book Next Session'}
+                    size="sm"
+                    onPress={() =>
+                      upcoming
+                        ? navigateRoot(navigation, 'PatientAppointmentDetail', { appointment: plan.next })
+                        : navigateRoot(navigation, 'PatientBookAppointment', {
+                            treatment:
+                              (treatments || []).find((item) => item.id === plan.treatmentId) || plan.treatment,
+                          })
+                    }
+                    style={{ marginTop: s(12), width: '100%' }}
+                  />
+                </View>
+              );
+            })
+          ) : (
+            <View
+              style={{
+                marginTop: s(12),
+                backgroundColor: colors.card,
+                borderRadius: 18,
+                padding: s(14),
+                alignItems: 'center',
+                ...shadows.card,
+              }}
+            >
+              <Text style={{ fontSize: fs(12), color: colors.desc, textAlign: 'center' }}>
+                No follow-ups right now. Book a treatment to get started.
+              </Text>
+              <PrimaryButton
+                label="Book Appointment"
+                size="sm"
+                onPress={() => navigateRoot(navigation, 'PatientBookAppointment')}
+                style={{ marginTop: s(12), width: '100%' }}
               />
-              <View style={{ flex: 1, marginLeft: s(10), marginRight: s(8) }}>
-                <Text style={{ fontSize: fs(13), fontWeight: '700', color: colors.ink }}>
-                  Sarah Ahmed
-                </Text>
-                <Text style={{ marginTop: 2, fontSize: fs(10), color: colors.desc }}>
-                  Laser Hair Removal
-                </Text>
-              </View>
-              <View
-                style={{
-                  backgroundColor: '#F6E6D6',
-                  borderRadius: 999,
-                  paddingHorizontal: s(10),
-                  paddingVertical: s(4),
-                }}
-              >
-                <Text style={{ fontSize: fs(10), fontWeight: '600', color: CARD_BG }}>Due</Text>
-              </View>
             </View>
-
-            <Text style={{ marginTop: s(12), fontSize: fs(11), color: colors.desc }}>
-              3 of 6 sessions completed
-            </Text>
-
-            <PrimaryButton
-              label="Check Now"
-              size="sm"
-              onPress={() =>
-                navigateRoot(navigation, 'PatientAppointmentDetail', {
-                  appointment: {
-                    id: 'follow-up-laser',
-                    requestId: 'APT-1024',
-                    treatment: 'Laser Hair Removal',
-                    department: 'Laser',
-                    duration: '30 Min',
-                    basePrice: 600,
-                    time: '02:30 PM',
-                    dateLabel: 'Oct 06, 2026',
-                    doctorName: 'Sarah Ahmed',
-                    doctorSpecialty: 'Laser Specialist',
-                    status: 'upcoming',
-                    documentName: 'Patient Issue.Pdf',
-                  },
-                })
-              }
-              style={{ marginTop: s(12), width: '100%' }}
-            />
-          </View>
+          )}
         </View>
       </ScrollView>
 

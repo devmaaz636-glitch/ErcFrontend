@@ -170,11 +170,9 @@ export default function SignUpScreen() {
       // Don't block navigation on local bookkeeping — faster on iOS/Android.
       markPatientNeedsOnboarding(nextEmail, uid).catch(() => {});
       AsyncStorage.removeItem(REMEMBER_KEY).catch(() => {});
-      navigation.replace('CreateProfile', {
+      navigation.replace('SignIn', {
         email: nextEmail,
-        fullName: name,
-        uid,
-        fromSignup: true,
+        signedUp: true,
       });
     } catch (signUpError) {
       const apiMessage = signUpError?.response?.data?.message;
@@ -358,7 +356,7 @@ export default function SignUpScreen() {
 
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setNotice('Google sign-in will be available soon.')}
+                onPress={() => navigation.navigate('SignIn', { googleHint: true })}
                 className="h-[54px] flex-row items-center justify-center rounded-full border border-[#E8E1D9] bg-white"
               >
                 <GoogleGlyph />

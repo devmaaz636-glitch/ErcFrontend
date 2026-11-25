@@ -12,6 +12,8 @@ import { useSession } from '../context/SessionContext';
 import { colors, spacing } from '../theme';
 import { fs, scale as s, useTopPadding } from '../utils/responsive';
 import { usePatientData } from '../context/PatientDataContext';
+import { MAX_DOCUMENT_BYTES } from '../lib/patientPortal';
+import { getPatientClinic } from '../lib/patientClinic';
 
 const BRAND = '#BF824F';
 
@@ -296,7 +298,14 @@ export default function PatientBookAppointmentScreen() {
       copyToCacheDirectory: true,
       multiple: false,
     });
-    if (!result.canceled) setDocument(result.assets?.[0] || null);
+    if (result.canceled) return;
+    const picked = result.assets?.[0] || null;
+    if (picked && Number(picked.size) > MAX_DOCUMENT_BYTES) {
+      setFormError('That file is larger than 5 MB. Please choose a smaller one.');
+      return;
+    }
+    setFormError('');
+    setDocument(picked);
   }
 
   async function confirmAppointment() {
@@ -329,7 +338,9 @@ export default function PatientBookAppointmentScreen() {
         date: selectedDate,
         time: selectedTime,
         notes,
-        document: document ? { name: document.name, mimeType: document.mimeType } : null,
+        document: document
+          ? { uri: document.uri, name: document.name, mimeType: document.mimeType }
+          : null,
       });
       setCreatedAppointment(item);
       setFormError('');
@@ -669,7 +680,7 @@ export default function PatientBookAppointmentScreen() {
                 <Ionicons name="add" size={s(13)} color="#777777" />
               </View>
               <Text allowFontScaling={false} numberOfLines={1} style={{ marginTop: s(6), color: '#777777', fontSize: fs(9) }}>
-                {document?.name || 'Upload PDF x45.3'}
+                {document?.name || 'Upload a PDF or image (max 5 MB)'}
               </Text>
             </Pressable>
             {formError ? (
@@ -759,7 +770,7 @@ export default function PatientBookAppointmentScreen() {
                 ['Date', createdAppointment?.dateLabel || formatSelectedDate(selectedDate)],
                 ['Time', createdAppointment?.time || selectedTime],
                 ['Doctor', doctor?.name || '—'],
-                ['Branch', user?.branchName || user?.city || 'Selected clinic'],
+                ['Branch', getPatientClinic(user)?.name || user?.branchName || 'Selected clinic'],
               ].map(([label, value], index) => (
                 <View
                   key={label}
@@ -781,6 +792,15 @@ export default function PatientBookAppointmentScreen() {
                 </View>
               ))}
             </View>
+
+            {createdAppointment?.documentError ? (
+              <Text
+                allowFontScaling={false}
+                style={{ color: colors.danger, fontSize: fs(9), lineHeight: fs(13), paddingHorizontal: s(18), marginTop: s(10) }}
+              >
+                Your request was sent, but the document could not be uploaded: {createdAppointment.documentError}
+              </Text>
+            ) : null}
 
             <View style={{ paddingHorizontal: s(18), marginTop: s(12) }}>
               <Text allowFontScaling={false} style={{ color: '#171717', fontSize: fs(9), fontWeight: '700', marginBottom: s(4) }}>
