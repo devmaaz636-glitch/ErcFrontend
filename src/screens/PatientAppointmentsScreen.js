@@ -33,7 +33,7 @@ const TABS = [
 ];
 
 const STATUS_STYLE = {
-  upcoming: { label: 'Upcoming', color: '#6B5CA5', bg: '#EDE8F8' },
+  upcoming: { label: 'Confirmed', color: '#6B5CA5', bg: '#EDE8F8' },
   pending: { label: 'Pending', color: '#C9A227', bg: '#F7F0D4' },
   completed: { label: 'Completed', color: colors.success, bg: colors.successBg },
   canceled: { label: 'Canceled', color: colors.danger, bg: colors.dangerBg },

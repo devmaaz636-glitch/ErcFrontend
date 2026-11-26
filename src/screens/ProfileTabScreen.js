@@ -161,7 +161,7 @@ export default function ProfileTabScreen() {
               user.branchName ||
               dashboard?.clinic?.name ||
               dashboard?.clinic?.city ||
-              (isDoctor ? 'Dubai Branch' : 'Loading assigned branch'),
+              (isDoctor ? '—' : 'Loading assigned branch'),
           }
         : { label: 'Assigned Region', value: displayRegion },
   ];
@@ -214,6 +214,10 @@ export default function ProfileTabScreen() {
       navigation.navigate('ManagerAlerts');
       return;
     }
+    if (key === 'medical') {
+      navigation.navigate('PatientMedical');
+      return;
+    }
     if (key === 'edit') {
       navigation.navigate('EditProfile', { user });
       return;
@@ -227,7 +231,11 @@ export default function ProfileTabScreen() {
     }
   }
 
-  const settingRows = isManager ? MANAGER_SETTINGS : SETTINGS;
+  const settingRows = isManager
+    ? MANAGER_SETTINGS
+    : isPatient
+      ? [{ key: 'medical', label: 'Medical Information', icon: 'medkit-outline' }, ...SETTINGS]
+      : SETTINGS;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

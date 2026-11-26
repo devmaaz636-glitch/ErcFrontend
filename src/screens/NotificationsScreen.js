@@ -249,6 +249,18 @@ export default function NotificationsScreen() {
                   (item?.meta?.kind === 'doctor_schedule' || item?.meta?.open === 'ManagerAlerts')
                 ) {
                   navigation.navigate('ManagerAlerts');
+                } else if (user?.role === 'doctor') {
+                  if (item?.meta?.appointmentId) {
+                    navigation.navigate('DoctorReviewHistory', { appointmentId: item.meta.appointmentId });
+                  } else if (item?.meta?.kind === 'doctor_schedule') {
+                    navigation.navigate('DoctorTabs', { screen: 'ScheduleTab' });
+                  }
+                } else if (user?.role === 'patient') {
+                  if (item?.meta?.open === 'PatientMedical') {
+                    navigation.navigate('PatientMedical');
+                  } else if (item?.meta?.appointmentId) {
+                    navigation.navigate('PatientTabs', { screen: 'AppointmentsTab' });
+                  }
                 }
               }}
             />

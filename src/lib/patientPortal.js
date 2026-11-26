@@ -87,6 +87,26 @@ export async function savePatientProfile(profile) {
   }
 }
 
+export async function fetchPatientMedical() {
+  try {
+    const headers = await authHeaders();
+    const { data } = await api.get('/api/patient/medical', { headers });
+    return data.medical;
+  } catch (error) {
+    throw new Error(message(error, 'Could not load your medical information.'));
+  }
+}
+
+export async function savePatientMedical(record) {
+  try {
+    const headers = await authHeaders();
+    const { data } = await api.put('/api/patient/medical', record, { headers });
+    return data.medical;
+  } catch (error) {
+    throw new Error(message(error, 'Could not save your medical information.'));
+  }
+}
+
 export const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 
 async function readFileBase64(file) {
@@ -123,25 +143,30 @@ export async function uploadAppointmentDocument(appointmentId, file) {
   }
 }
 
+/** Save a { name, mimeType, data(base64) } file: browser download or share sheet. */
+export async function saveDocumentToDevice(data) {
+  const safeName = String(data.name || 'document').replace(/[^\w.-]+/g, '_');
+  if (Platform.OS === 'web') {
+    const link = document.createElement('a');
+    link.href = `data:${data.mimeType};base64,${data.data}`;
+    link.download = safeName;
+    link.click();
+    return;
+  }
+  const root = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+  const uri = `${root}${Date.now()}-${safeName}`;
+  await FileSystem.writeAsStringAsync(uri, data.data, { encoding: FileSystem.EncodingType.Base64 });
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(uri, { mimeType: data.mimeType, dialogTitle: data.name });
+  }
+}
+
 /** Download an appointment document and open the system share / save sheet. */
 export async function openAppointmentDocument(documentId) {
   try {
     const headers = await authHeaders();
     const { data } = await api.get(`/api/patient/documents/${documentId}/content`, { headers });
-    const safeName = String(data.name || 'document').replace(/[^\w.-]+/g, '_');
-    if (Platform.OS === 'web') {
-      const link = document.createElement('a');
-      link.href = `data:${data.mimeType};base64,${data.data}`;
-      link.download = safeName;
-      link.click();
-      return;
-    }
-    const root = FileSystem.cacheDirectory || FileSystem.documentDirectory;
-    const uri = `${root}${Date.now()}-${safeName}`;
-    await FileSystem.writeAsStringAsync(uri, data.data, { encoding: FileSystem.EncodingType.Base64 });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, { mimeType: data.mimeType, dialogTitle: data.name });
-    }
+    await saveDocumentToDevice(data);
   } catch (error) {
     throw new Error(message(error, 'Could not open this document.'));
   }

@@ -257,10 +257,7 @@ export default function VerifyRegionScreen() {
       if (isDoctorFlow) {
         updateUser({
           role: 'doctor',
-          branchId: branchId || 'br-dubai',
-          clinicId: branchId || 'br-dubai',
-          branchName: 'Dubai Branch',
-          name: user?.name || 'Dr Zeeshan Forward',
+          ...(branchId ? { branchId, clinicId: branchId } : {}),
           region: effectiveRegion.short || effectiveRegion.name || 'UAE',
         }).catch(() => {});
         if (switchMode) {

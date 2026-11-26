@@ -36,7 +36,7 @@ import DoctorDetailScreen from './src/screens/DoctorDetailScreen';
 import DoctorConsultationScreen from './src/screens/DoctorConsultationScreen';
 import DoctorFormScreen from './src/screens/DoctorFormScreen';
 import DoctorReviewHistoryScreen from './src/screens/DoctorReviewHistoryScreen';
-import DoctorPreviousVisitDetailScreen from './src/screens/DoctorPreviousVisitDetailScreen';
+import PatientMedicalScreen from './src/screens/PatientMedicalScreen';
 import DoctorEditScheduleScreen from './src/screens/DoctorEditScheduleScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import SecurityPrivacyScreen from './src/screens/SecurityPrivacyScreen';
@@ -214,8 +214,8 @@ export default function App() {
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen
-                  name="DoctorPreviousVisitDetail"
-                  component={DoctorPreviousVisitDetailScreen}
+                  name="PatientMedical"
+                  component={PatientMedicalScreen}
                   options={{ animation: 'slide_from_right' }}
                 />
                 <Stack.Screen

@@ -122,12 +122,14 @@ export function SessionProvider({ children }) {
         ? 'clinic_manager'
         : '');
     const display =
+      // A doctor's name always comes from their doctor record.
+      (authoritativeRole === 'doctor' && backendUser?.name) ||
       (sameUserCache && local.name) ||
       remote?.displayName ||
       remote?.name ||
       firebaseUser.displayName ||
       (authoritativeRole === 'doctor'
-        ? 'Dr Zeeshan Forward'
+        ? 'Doctor'
         : firebaseUser.email
           ? firebaseUser.email.split('@')[0]
           : 'Admin');
@@ -143,7 +145,7 @@ export function SessionProvider({ children }) {
       claims.clinicId ||
       backendUser?.branchId ||
       backendUser?.clinicId ||
-      (authoritativeRole === 'doctor' ? 'br-dubai' : null);
+      null;
 
     setUser({
       uid: firebaseUser.uid,
@@ -162,7 +164,7 @@ export function SessionProvider({ children }) {
         (authoritativeRole === 'patient' && sameUserCache && local.branchName) ||
         backendUser?.branch?.name ||
         backendUser?.branchName ||
-        (authoritativeRole === 'doctor' ? 'Dubai Branch' : null),
+        null,
       city:
         (authoritativeRole === 'patient' && sameUserCache && local.city) ||
         backendUser?.city ||
@@ -183,7 +185,7 @@ export function SessionProvider({ children }) {
         (authoritativeRole === 'patient' && sameUserCache && local.region) ||
         backendUser?.region ||
         nextRegion ||
-        (authoritativeRole === 'doctor' ? 'UAE' : ''),
+        '',
       photoUrl: (sameUserCache && local.photoUrl) || remote?.photoUrl || firebaseUser.photoURL || null,
     });
 

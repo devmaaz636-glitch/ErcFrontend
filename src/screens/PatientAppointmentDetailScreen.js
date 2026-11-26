@@ -25,7 +25,7 @@ const DOCTOR_AVATAR = require('../../assets/treatmentdocotor.png');
 const BRAND = '#BF824F';
 
 const STATUS_STYLE = {
-  upcoming: { label: 'Upcoming', color: '#6B5CA5', bg: '#EDE8F8' },
+  upcoming: { label: 'Confirmed', color: '#6B5CA5', bg: '#EDE8F8' },
   pending: { label: 'Pending', color: '#C9A227', bg: '#F7F0D4' },
   completed: { label: 'Completed', color: colors.success, bg: colors.successBg },
   canceled: { label: 'Canceled', color: colors.danger, bg: colors.dangerBg },
@@ -187,7 +187,7 @@ export default function PatientAppointmentDetailScreen() {
   const { width: windowW } = useWindowDimensions();
   const pageWidth = Math.min(windowW - spacing.screen * 2, spacing.maxContent);
   const { user } = useSession();
-  const { changeAppointment, fetchAvailability, openDocument } = usePatientData();
+  const { appointments, changeAppointment, fetchAvailability, openDocument } = usePatientData();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
   const [preferredDay, setPreferredDay] = useState('');
@@ -196,6 +196,10 @@ export default function PatientAppointmentDetailScreen() {
   const [rescheduleError, setRescheduleError] = useState('');
 
   const [appointment, setAppointment] = useState(route.params?.appointment || {});
+  const latest = appointments.find((item) => item.id === appointment.id);
+  useEffect(() => {
+    if (latest && latest.updatedAt > (appointment.updatedAt || '')) setAppointment(latest);
+  }, [latest, appointment.updatedAt]);
   // Clinic + map follow the signed-in patient's region/branch (same UI, region data only).
   const clinic = useMemo(
     () =>
@@ -485,6 +489,19 @@ export default function PatientAppointmentDetailScreen() {
               </View>
             </View>
           </Card>
+
+          {appointment.cancelReason || appointment.visitNotes || appointment.rescheduleReason ? (
+            <>
+              <SectionTitle title="Notes" />
+              <Card>
+                <Text style={{ fontSize: fs(12), color: colors.ink }}>
+                  {appointment.status === 'canceled'
+                    ? `Cancellation reason: ${appointment.cancelReason || 'Not given'}`
+                    : appointment.visitNotes || `Reschedule reason: ${appointment.rescheduleReason}`}
+                </Text>
+              </Card>
+            </>
+          ) : null}
 
           {/* Documents */}
           <SectionTitle title="My Documents" />
